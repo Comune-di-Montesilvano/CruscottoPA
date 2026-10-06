@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -57,9 +58,6 @@ func TestPagesShowEnteBranding(t *testing.T) {
 			t.Errorf("%s: manca il logo dell'ente", path)
 		}
 	}
-	if strings.Contains(pages["/"], "logo-on-dark.svg") {
-		t.Error("plancia con branding: in testata va il logo dell'ente, non quello di CruscottoPA")
-	}
 }
 
 func TestFaviconServed(t *testing.T) {
@@ -104,5 +102,41 @@ func TestEnteLogoAlt(t *testing.T) {
 	s.branding.Store(&database.Branding{LogoFile: logo})
 	if dash := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(dash, img+`"Logo dell'ente">`) {
 		t.Error("logo senza nome: atteso alt \"Logo dell'ente\"")
+	}
+}
+
+// Il tag git della release è "v0.3.0": i template aggiungono già la "v".
+func TestVersionShownOnce(t *testing.T) {
+	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Version = "v0.3.0" })
+	c := login(t, s)
+	for path, body := range map[string]string{
+		"/":            do(t, s, "GET", "/", nil, nil, nil).Body.String(),
+		"/admin/login": do(t, s, "GET", "/admin/login", nil, nil, nil).Body.String(),
+		"/admin":       do(t, s, "GET", "/admin", nil, c, nil).Body.String(),
+	} {
+		if strings.Contains(body, "vv0.3.0") || !strings.Contains(body, "v0.3.0") {
+			t.Errorf("%s: versione mostrata male", path)
+		}
+	}
+	if body := do(t, s, "GET", "/health", nil, nil, nil).Body.String(); !strings.Contains(body, `"version":"0.3.0"`) {
+		t.Errorf("/health: atteso 0.3.0, ottenuto %s", body)
+	}
+}
+
+// Il branding dell'ente si affianca a CruscottoPA, non lo sostituisce.
+func TestHeaderShowsAppAndEnte(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	logo := strings.Repeat("a", 32) + ".png"
+	s.branding.Store(&database.Branding{EnteName: "Comune di Esempio", LogoFile: logo})
+
+	dash := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	bar := regexp.MustCompile(`(?s)<div class="hero-bar">.*?</div>`).FindString(dash)
+	for _, want := range []string{`src="/static/img/logo-on-dark.svg"`, "CruscottoPA", `src="/uploads/branding/` + logo + `"`, "Comune di Esempio"} {
+		if !strings.Contains(bar, want) {
+			t.Errorf("testata plancia: manca %q in %s", want, bar)
+		}
+	}
+	if !strings.Contains(do(t, s, "GET", "/avvisi", nil, nil, nil).Body.String(), "← CruscottoPA · Comune di Esempio</a>") {
+		t.Error("avvisi: il link di ritorno deve mostrare CruscottoPA e l'ente")
 	}
 }

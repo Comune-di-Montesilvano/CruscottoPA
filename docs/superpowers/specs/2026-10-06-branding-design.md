@@ -66,8 +66,8 @@ Uso nei template:
 
 | Pagina | Testata / brand | `<title>` |
 |---|---|---|
-| Plancia (`dashboard.html`) | logo ente (altezza ~40 px, se presente) + nome ente; senza entrambi: `logo-on-dark.svg` + "CruscottoPA" | "CruscottoPA · {ente}" o "CruscottoPA" |
-| Avvisi (`avvisi.html`) | "← {ente}" o "← CruscottoPA" | "Avvisi · CruscottoPA[ · {ente}]" |
+| Plancia (`dashboard.html`) | sempre `logo-on-dark.svg` + "CruscottoPA"; accanto, dopo un separatore, logo ente (~40 px, 30 px su mobile) + nome ente se impostati | "CruscottoPA · {ente}" o "CruscottoPA" |
+| Avvisi (`avvisi.html`) | "← CruscottoPA · {ente}" o "← CruscottoPA" | "Avvisi · CruscottoPA[ · {ente}]" |
 | Login (`admin_login.html`) | `logo-on-light.svg` (~56 px) + "CruscottoPA"; sotto, logo ente piccolo + nome ente | "Accesso · CruscottoPA[ · {ente}]" |
 | Admin (`admin_base.html`) | `logo-on-dark.svg` (~30 px, il rail è scuro) + "CruscottoPA / amministrazione" nel rail; sotto, nome ente | "Amministrazione · CruscottoPA[ · {ente}]" |
 

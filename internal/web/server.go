@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -66,7 +67,7 @@ func New(o Options) (*Server, error) {
 		limiter:      auth.NewRateLimiter(5, 15*time.Minute),
 		backup:       o.Backup,
 		restoreDelay: o.RestoreDelay,
-		version:      o.Version,
+		version:      strings.TrimPrefix(o.Version, "v"), // tag "v0.3.0": la "v" la aggiungono i template
 		webDir:       o.WebDir,
 		now:          o.Now,
 		mux:          http.NewServeMux(),
