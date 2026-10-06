@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -110,5 +111,28 @@ func TestLogout(t *testing.T) {
 	}
 	if out := sessionCookie(rec); out == nil || out.MaxAge >= 0 {
 		t.Fatalf("logout deve scadere il cookie: %+v", out)
+	}
+}
+
+// Cookie Secure su HTTP in chiaro: il browser lo scarterebbe e il login
+// tornerebbe in silenzio alla pagina di accesso. Va spiegato all'utente.
+func TestLoginOverPlainHTTPWithSecureCookies(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	s.cfg.SecureCookies = true
+	form := url.Values{"username": {"mrossi"}, "password": {"pw"}}
+
+	rec := do(t, s, "POST", "/admin/login", form, nil, nil) // Host example.com, niente TLS
+	if rec.Code != http.StatusBadRequest || sessionCookie(rec) != nil || !strings.Contains(rec.Body.String(), "SECURE_COOKIES=false") {
+		t.Fatalf("HTTP in chiaro con SECURE_COOKIES: atteso 400 con spiegazione, ottenuto %d\n%s", rec.Code, rec.Body)
+	}
+	if rec := do(t, s, "POST", "/admin/login", form, nil, map[string]string{"X-Forwarded-Proto": "https"}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("dietro proxy HTTPS il login deve riuscire: %d", rec.Code)
+	}
+	req := httptest.NewRequest("POST", "http://localhost:8080/admin/login", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	loc := httptest.NewRecorder()
+	s.Handler().ServeHTTP(loc, req)
+	if loc.Code != http.StatusSeeOther {
+		t.Fatalf("su localhost i browser accettano cookie Secure anche in HTTP: atteso 303, ottenuto %d", loc.Code)
 	}
 }

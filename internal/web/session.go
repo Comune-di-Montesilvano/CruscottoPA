@@ -2,6 +2,7 @@ package web
 
 import (
 	"crypto/sha256"
+	"net"
 	"net/http"
 	"strings"
 
@@ -81,4 +82,17 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
+}
+
+// cookieWouldBeDropped: cookie Secure su HTTP in chiaro verso un host diverso da
+// localhost — il browser lo scarta e il login tornerebbe in silenzio alla pagina d'accesso.
+func (s *Server) cookieWouldBeDropped(r *http.Request) bool {
+	if !s.secureRequest(r) || r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		return false
+	}
+	host := r.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	return host != "localhost" && host != "127.0.0.1" && host != "::1"
 }
