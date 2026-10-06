@@ -32,12 +32,12 @@ Puntare lo stack a questo repository, file `docker-compose.yml`, e impostare le 
 
 Al primo avvio esistono solo la categoria "Applicativi" con Rubrica e Webmail **senza indirizzo**: compaiono in plancia dopo averlo inserito.
 
-In sviluppo `LDAP_HOST=mock` accetta qualsiasi credenziale.
+`LDAP_HOST` è obbligatorio. Solo in sviluppo si può usare `LDAP_HOST=mock`, che accetta qualsiasi credenziale come amministratore: mai in produzione.
 
 ## Sviluppo
 
 ```bash
-go run ./cmd/server           # http://localhost:8080
+LDAP_HOST=mock go run ./cmd/server   # http://localhost:8080
 go test ./...
 go vet ./...
 ```

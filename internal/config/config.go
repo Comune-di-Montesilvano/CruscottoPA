@@ -15,7 +15,7 @@ import (
 
 // LDAP raccoglie i parametri di connessione ad Active Directory.
 type LDAP struct {
-	Host           string // "mock" in sviluppo, altrimenti ldap://host:389 o ldaps://host:636
+	Host           string // obbligatorio: ldap://host:389, ldaps://host:636 o "mock" (solo sviluppo)
 	BaseDN         string
 	UserDNTemplate string // %s = username, es. "%s@comune.local"
 	StartTLS       bool
@@ -47,7 +47,7 @@ func Load() (Config, error) {
 		UploadDir:     getEnv("UPLOAD_DIR", "uploads"),
 		SessionSecret: os.Getenv("SESSION_SECRET"),
 		LDAP: LDAP{
-			Host:           getEnv("LDAP_HOST", "mock"),
+			Host:           os.Getenv("LDAP_HOST"),
 			BaseDN:         os.Getenv("LDAP_BASE_DN"),
 			UserDNTemplate: getEnv("LDAP_USER_DN_TEMPLATE", "%s"),
 			BindDN:         os.Getenv("LDAP_BIND_DN"),
@@ -75,6 +75,10 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("LOG_LEVEL: %w", err)
 	}
 
+	// Nessun default: "mock" rende admin chiunque, deve essere una scelta esplicita.
+	if cfg.LDAP.Host == "" {
+		return Config{}, errors.New("LDAP_HOST obbligatorio (ldap://… o ldaps://…; \"mock\" solo per sviluppo)")
+	}
 	if cfg.LDAP.Host != "mock" && len(cfg.SessionSecret) < 32 {
 		return Config{}, errors.New("SESSION_SECRET obbligatorio (almeno 32 caratteri) quando LDAP_HOST non è mock")
 	}

@@ -50,6 +50,9 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	slog.SetDefault(logger)
+	if cfg.LDAP.Host == "mock" {
+		slog.Warn("LDAP_HOST=mock: qualsiasi credenziale accede a /admin. Solo per sviluppo, MAI in produzione.")
+	}
 
 	db, err := database.Open(cfg.DBPath)
 	if err != nil {

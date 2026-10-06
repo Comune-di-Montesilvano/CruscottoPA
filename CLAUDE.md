@@ -11,8 +11,8 @@ Immagine: `ghcr.io/comune-di-montesilvano/cruscottopa` (minuscolo: GHCR/OCI lo r
 ## Comandi
 
 ```bash
-go run ./cmd/server                 # PORT=8080, DB_PATH=cruscotto.db
-# admin: http://localhost:8080/admin (LDAP_HOST=mock: qualsiasi credenziale)
+LDAP_HOST=mock go run ./cmd/server  # PORT=8080, DB_PATH=cruscotto.db; LDAP_HOST obbligatorio (nessun default)
+# admin: http://localhost:8080/admin (mock: qualsiasi credenziale è admin — solo sviluppo)
 go build ./...
 go vet ./...
 go test ./...
@@ -56,7 +56,7 @@ La dashboard deve riconoscere l'utente (IP, header del proxy o cookie). L'IP sor
 - `internal/config`: env → `Config`; validazione all'avvio (`SESSION_SECRET` ≥ 32 caratteri obbligatorio se `LDAP_HOST` ≠ `mock`; in mock, se assente, segreto casuale → le sessioni non sopravvivono al riavvio).
 - `internal/database`: SQL raw su `modernc.org/sqlite`. Migrazioni in `migrations.go` con `PRAGMA user_version`: **mai modificare una migrazione rilasciata, aggiungerne una in coda**. Tabelle `categories`, `apps`, `guides`, `alerts`. Date come testo UTC `2006-01-02T15:04:05Z` (confrontabili come stringhe). `apps.icon_kind` e `guides.kind` validati in Go, non con CHECK. Ordinamento manuale via `sort_order` + `moveRow` (rinumera 0..n-1 nell'ambito: categoria per le app, app o "generale" per le guide — `app_id IS ?` gestisce NULL).
 - Visibilità in plancia: app `enabled=1 AND url<>''`; guida `enabled=1` e generale oppure di un'app visibile; avviso `starts_at <= now < ends_at` (o senza fine).
-- `internal/auth`: porting di GoPulley con differenze volute — StartTLS fallito = login fallito (nessun ripiego in chiaro), username solo `[A-Za-z0-9._@-]`, in mock admin = `ADMIN_USERS` (o tutti se vuoto). `RateLimiter` in memoria: 5 fallimenti/15 min per username e per IP → blocco 30s raddoppiato fino a 15 min.
+- `internal/auth`: porting di GoPulley con differenze volute — StartTLS fallito = login fallito (nessun ripiego in chiaro), username solo `[A-Za-z0-9._@-]`, in mock admin = `ADMIN_USERS` (o tutti se vuoto). `LDAP_HOST` non ha default: mock va scelto esplicitamente (fail-closed) e all'avvio produce un warning. `RateLimiter` in memoria: 5 fallimenti/15 min per username e per IP → blocco 30s raddoppiato fino a 15 min.
 - `internal/icons`: catalogo Material Icons da `codepoints.txt` (embedded). Font self-hosted in `web/static/fonts` (Apache 2.0, stesso v145 di UtenzePA).
 - `internal/web`: `Server` con dipendenze esplicite (testabile con `httptest`, vedi `newTestServer` in `server_test.go`). Catena: `securityHeaders` → `http.CrossOriginProtection` (CSRF, nessun token nei form) → `ServeMux`.
 - **CSP stretta**: niente `<script>`/`<style>` inline né `on*=`; unica eccezione `style-src-attr 'unsafe-inline'` per il colore delle icone. Nuovo JS → file in `web/static/js`. HTMX configurato via `<meta name="htmx-config">` (`includeIndicatorStyles:false`).

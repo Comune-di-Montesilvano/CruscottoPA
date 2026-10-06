@@ -19,8 +19,16 @@ func clearEnv(t *testing.T) {
 	}
 }
 
+func TestLoadRequiresLDAPHost(t *testing.T) {
+	clearEnv(t)
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "LDAP_HOST") {
+		t.Fatalf("senza LDAP_HOST l'avvio deve fallire (mock solo esplicito), ottenuto %v", err)
+	}
+}
+
 func TestLoadDefaults(t *testing.T) {
 	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -54,6 +62,7 @@ func TestLoadRealLDAPRequiresSecret(t *testing.T) {
 
 func TestLoadAdminUsers(t *testing.T) {
 	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
 	t.Setenv("ADMIN_USERS", " mrossi ; gbianchi,, lverdi ")
 	cfg, err := Load()
 	if err != nil {
@@ -74,6 +83,7 @@ func TestLoadInvalidValues(t *testing.T) {
 	} {
 		t.Run(tc.key, func(t *testing.T) {
 			clearEnv(t)
+			t.Setenv("LDAP_HOST", "mock")
 			t.Setenv(tc.key, tc.val)
 			if _, err := Load(); err == nil {
 				t.Fatalf("%s=%q: atteso errore", tc.key, tc.val)
