@@ -10,7 +10,7 @@ var allVars = []string{
 	"PORT", "DB_PATH", "UPLOAD_DIR", "SESSION_SECRET", "SECURE_COOKIES", "LOG_LEVEL", "TZ",
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
-	"BACKUP_INTERVAL_HOURS",
+	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN",
 }
 
 func clearEnv(t *testing.T) {
@@ -109,5 +109,14 @@ func TestLoadBackupInterval(t *testing.T) {
 		if _, err := Load(); err == nil {
 			t.Errorf("BACKUP_INTERVAL_HOURS=%q: atteso errore", bad)
 		}
+	}
+}
+
+func TestNTLMDomain(t *testing.T) {
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("NTLM_DOMAIN", " COMUNE-MS ")
+	cfg, err := Load()
+	if err != nil || cfg.NTLMDomain != "COMUNE-MS" {
+		t.Fatalf("NTLMDomain = %q (%v)", cfg.NTLMDomain, err)
 	}
 }

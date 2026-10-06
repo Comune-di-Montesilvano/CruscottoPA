@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,14 +15,6 @@ type loginView struct {
 	Username string
 	Error    string
 	Version  string
-}
-
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }
 
 func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
@@ -38,9 +29,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	user := strings.TrimSpace(r.FormValue("username"))
 	pass := r.FormValue("password")
 	view := loginView{Username: user, Version: s.version}
-	// Finché il sotto-progetto 4 non definisce i proxy fidati, l'IP può essere
-	// quello del reverse proxy: il limite per username resta comunque efficace.
-	keys := []string{"u:" + strings.ToLower(user), "ip:" + clientIP(r)}
+	// Solo per username: dietro Podman rootless RemoteAddr è uguale per tutti e
+	// una chiave per IP bloccherebbe ogni admin. Restano i blocchi account di AD.
+	keys := []string{"u:" + strings.ToLower(user)}
 
 	if wait, ok := s.limiter.Allow(keys...); !ok {
 		secs := int(math.Ceil(wait.Seconds()))

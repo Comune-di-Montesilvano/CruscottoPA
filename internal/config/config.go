@@ -38,6 +38,8 @@ type Config struct {
 	Location            *time.Location
 	BackupIntervalHours int
 	LDAP                LDAP
+	// NTLMDomain: dominio NetBIOS accettato da /io (vuoto = riconoscimento spento).
+	NTLMDomain string
 }
 
 // Load legge le variabili d'ambiente, applica i default e valida i valori.
@@ -57,6 +59,7 @@ func Load() (Config, error) {
 			AdminGroup:     os.Getenv("LDAP_ADMIN_GROUP"),
 			AdminUsers:     splitList(os.Getenv("ADMIN_USERS")),
 		},
+		NTLMDomain: strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
 	}
 
 	var err error

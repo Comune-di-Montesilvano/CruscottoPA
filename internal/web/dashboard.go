@@ -7,6 +7,7 @@ import (
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/calendar"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
 type todayView struct {
@@ -30,6 +31,8 @@ type dashboardView struct {
 	Version   string
 	Today     todayView
 	Calendar  calendarWidget
+	User      identity.User // identità dichiarata: solo per il saluto
+	Recognize bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
 }
 
 type avvisiView struct {
@@ -62,6 +65,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
+	u, known := s.viewer(r)
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Dashboard: d,
 		Greeting:  greeting(now.Hour()),
@@ -70,6 +74,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Version:   s.version,
 		Today:     todayInfo(now),
 		Calendar:  cw,
+		User:      u,
+		Recognize: !known && s.canRecognize(r),
 	})
 }
 

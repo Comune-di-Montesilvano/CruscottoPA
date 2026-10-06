@@ -206,6 +206,23 @@
 		img.replaceWith(span);
 	}, true);
 
+	// Riconoscimento (identità dichiarata, solo per personalizzare): una chiamata
+	// in background; se il server riconosce l'utente ricarica la pagina una volta.
+	// Un solo tentativo per sessione del browser: se il cookie non venisse salvato
+	// (cookie bloccati) la ricarica non deve ripetersi. Senza sessionStorage
+	// nessun tentativo, per lo stesso motivo.
+	let firstTry = false;
+	try {
+		firstTry = sessionStorage.getItem("cruscotto-io") === null;
+		sessionStorage.setItem("cruscotto-io", "1");
+	} catch (_) { firstTry = false; }
+	if (firstTry && document.body.hasAttribute("data-riconosci")) {
+		fetch("/io", { credentials: "same-origin" })
+			.then((r) => (r.ok ? r.json() : null))
+			.then((j) => { if (j && j.riconosciuto) location.reload(); })
+			.catch(() => { /* resta anonimo */ });
+	}
+
 	initCarousel();
 	showUrgents();
 })();

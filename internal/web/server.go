@@ -17,13 +17,16 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
 type Options struct {
 	DB     *database.DB
 	Config config.Config
 	Auth   auth.Authenticator
-	Backup *backup.Service
+	// Directory: ricerca degli utenti riconosciuti via NTLM (nil = riconoscimento spento).
+	Directory identity.Directory
+	Backup    *backup.Service
 	// RestoreDelay: attesa tra la risposta e lo swap del ripristino (0 → 500ms).
 	RestoreDelay time.Duration
 	Version      string
@@ -35,6 +38,8 @@ type Server struct {
 	db           *database.DB
 	cfg          config.Config
 	auth         auth.Authenticator
+	directory    identity.Directory
+	cookies      *identity.CookieCodec
 	limiter      *auth.RateLimiter
 	backup       *backup.Service
 	restoreDelay time.Duration
@@ -64,6 +69,7 @@ func New(o Options) (*Server, error) {
 		db:           o.DB,
 		cfg:          o.Config,
 		auth:         o.Auth,
+		directory:    o.Directory,
 		limiter:      auth.NewRateLimiter(5, 15*time.Minute),
 		backup:       o.Backup,
 		restoreDelay: o.RestoreDelay,
@@ -83,6 +89,7 @@ func New(o Options) (*Server, error) {
 	}
 	s.tmpl = tmpl
 	s.store = newSessionStore(o.Config.SessionSecret)
+	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.routes()
 	return s, nil
 }
@@ -104,6 +111,7 @@ func (s *Server) routes() {
 	s.mux.Handle("GET /static/", revalidate(http.StripPrefix("/static/", static)))
 	s.mux.Handle("GET /favicon.ico", revalidate(http.HandlerFunc(s.handleFavicon)))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
+	s.mux.HandleFunc("GET /io", s.handleIo)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)

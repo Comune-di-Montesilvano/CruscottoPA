@@ -18,6 +18,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/web"
 )
 
@@ -85,12 +86,25 @@ func main() {
 	go bk.Scheduler(ctx, time.Duration(cfg.BackupIntervalHours)*time.Hour)
 	go bk.Janitor(ctx)
 
+	// Riconoscimento utente in plancia: serve una directory per cercare il nome.
+	var directory identity.Directory
+	switch {
+	case cfg.LDAP.Host == "mock":
+		directory = identity.MockDirectory{}
+	case cfg.LDAP.BindDN != "":
+		directory = identity.NewLDAPDirectory(cfg.LDAP)
+	}
+	if cfg.NTLMDomain != "" && directory == nil {
+		slog.Warn("NTLM_DOMAIN impostato ma LDAP_BIND_DN vuoto: riconoscimento utente disattivato")
+	}
+
 	srv, err := web.New(web.Options{
-		DB:      db,
-		Config:  cfg,
-		Auth:    auth.NewLDAP(cfg.LDAP),
-		Backup:  bk,
-		Version: AppVersion,
+		DB:        db,
+		Config:    cfg,
+		Auth:      auth.NewLDAP(cfg.LDAP),
+		Directory: directory,
+		Backup:    bk,
+		Version:   AppVersion,
 	})
 	if err != nil {
 		slog.Error("inizializzazione web", "err", err)

@@ -15,6 +15,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
 var fixedNow = time.Date(2026, 10, 6, 8, 0, 0, 0, time.UTC) // 10:00 a Roma
@@ -25,6 +26,27 @@ type fakeAuth struct {
 }
 
 func (f fakeAuth) Authenticate(_, _ string) (bool, bool, error) { return f.ok, f.admin, f.err }
+
+type fakeDirectory struct {
+	people map[string]identity.Person
+	err    error
+}
+
+func (f fakeDirectory) Lookup(u string) (identity.Person, error) {
+	if f.err != nil {
+		return identity.Person{}, f.err
+	}
+	p, ok := f.people[strings.ToLower(u)]
+	if !ok {
+		return identity.Person{}, identity.ErrUnknownUser
+	}
+	return p, nil
+}
+
+var testDirectory = fakeDirectory{people: map[string]identity.Person{
+	"mrossi":    {Username: "mrossi", Name: "Mario Rossi"},
+	"senzanome": {Username: "senzanome"},
+}}
 
 // serverExits raccoglie le chiamate a exit del servizio backup di ogni server di test.
 var serverExits = map[*Server]chan int{}
@@ -61,8 +83,9 @@ func newTestServerWith(t *testing.T, a auth.Authenticator, edit func(*Options)) 
 	}
 	o := Options{
 		DB:           db,
-		Config:       config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome},
+		Config:       config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome, NTLMDomain: "COMUNE-MS"},
 		Auth:         a,
+		Directory:    testDirectory,
 		Backup:       bk,
 		RestoreDelay: time.Nanosecond,
 		Version:      "test",
