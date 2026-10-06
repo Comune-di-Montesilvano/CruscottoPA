@@ -19,9 +19,10 @@ body.plancia {
 .hello-name { font-weight: 300; }
 .hero-date { margin: .2rem 0 0; opacity: .85; font-size: .92rem; }
 .hero-compact { padding-bottom: 1.6rem; }
-.hero-bar .brand { display: inline-flex; align-items: center; gap: .6rem; }
+.hero-bar .brand { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; min-width: 0; }
 .ente-logo { height: 40px; width: auto; max-width: 220px; object-fit: contain; }
 .brand-mark { height: 22px; width: auto; }
+.brand-sep { width: 1px; height: 24px; background: rgba(255, 255, 255, .45); }
 .foot-mark { height: 14px; width: auto; vertical-align: -2px; margin-right: .35rem; }
 
 .search { position: relative; z-index: 2; display: flex; align-items: center; gap: .6rem; margin: -1.6rem var(--p-gutter) 0; background: #fff; border-radius: 14px; padding: .85rem 1.2rem; box-shadow: 0 12px 30px rgba(16, 24, 40, .14); color: var(--p-text-4); }
@@ -42,7 +43,7 @@ body.plancia {
 .news-maintenance .news-level { background: var(--p-maint-bg); color: #93370d; }
 .news-source { font-weight: 600; color: var(--p-text-2); }
 .news-title { margin: 0 0 .4rem; font-size: 1.3rem; letter-spacing: -.01em; }
-.news-body { font-size: .98rem; line-height: 1.6; color: var(--p-text-2); white-space: pre-line; max-width: 80ch; }
+.news-body { font-size: .98rem; line-height: 1.6; color: var(--p-text-2); white-space: pre-line; }
 .news-body p, .urgent-body p { margin: 0; }
 .news-body p + p, .urgent-body p + p { margin-top: .7em; }
 .news-body a { color: var(--p-blue-2); }
@@ -175,6 +176,8 @@ dialog.urgent::backdrop { background: rgba(60, 8, 8, .72); }
 	body.plancia { --p-gutter: 1rem; }
 	.hero { padding: 1rem 1rem 3rem; }
 	.hello { font-size: 1.55rem; }
+	.hero-bar { gap: .8rem; }
+	.ente-logo { height: 30px; max-width: 140px; }
 	.search kbd { display: none; }
 	.layout { padding: 1.2rem 1rem 1.5rem; }
 	.grid { grid-template-columns: minmax(0, 1fr); }

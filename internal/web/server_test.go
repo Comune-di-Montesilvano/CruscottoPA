@@ -31,6 +31,12 @@ var serverExits = map[*Server]chan int{}
 
 func newTestServer(t *testing.T, a auth.Authenticator) (*Server, *database.DB) {
 	t.Helper()
+	return newTestServerWith(t, a, nil)
+}
+
+// newTestServerWith è newTestServer con la possibilità di ritoccare le Options.
+func newTestServerWith(t *testing.T, a auth.Authenticator, edit func(*Options)) (*Server, *database.DB) {
+	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
 	uploadDir := filepath.Join(dir, "uploads")
@@ -53,7 +59,7 @@ func newTestServer(t *testing.T, a auth.Authenticator) (*Server, *database.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := New(Options{
+	o := Options{
 		DB:           db,
 		Config:       config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome},
 		Auth:         a,
@@ -62,7 +68,11 @@ func newTestServer(t *testing.T, a auth.Authenticator) (*Server, *database.DB) {
 		Version:      "test",
 		WebDir:       "../../web",
 		Now:          func() time.Time { return fixedNow },
-	})
+	}
+	if edit != nil {
+		edit(&o)
+	}
+	s, err := New(o)
 	if err != nil {
 		t.Fatal(err)
 	}
