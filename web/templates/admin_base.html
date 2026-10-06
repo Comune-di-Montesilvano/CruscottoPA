@@ -16,6 +16,7 @@
 	<nav class="rail">
 		<div class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA<small>amministrazione</small>{{with (ente).EnteName}}<span class="brand-ente">{{.}}</span>{{end}}</div>
 		<a href="/admin"{{if eq .Section "overview"}} aria-current="page"{{end}}><span class="material-icons" aria-hidden="true">dashboard</span>Panoramica</a>
+		<a href="/admin/ente"{{if eq .Section "ente"}} aria-current="page"{{end}}><span class="material-icons" aria-hidden="true">account_balance</span>Ente</a>
 		<a href="/admin/avvisi"{{if eq .Section "avvisi"}} aria-current="page"{{end}}><span class="material-icons" aria-hidden="true">campaign</span>Avvisi</a>
 		<a href="/admin/calendario"{{if eq .Section "calendario"}} aria-current="page"{{end}}><span class="material-icons" aria-hidden="true">event</span>Calendario</a>
 		<a href="/admin/app"{{if eq .Section "app"}} aria-current="page"{{end}}><span class="material-icons" aria-hidden="true">apps</span>Applicativi</a>

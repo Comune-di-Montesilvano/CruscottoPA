@@ -111,6 +111,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	s.mux.HandleFunc("GET /admin", s.requireAdmin(s.handleOverview))
+	s.mux.HandleFunc("GET /admin/ente", s.requireAdmin(s.handleBrandingPage))
+	s.mux.HandleFunc("POST /admin/ente", s.requireAdmin(s.handleBrandingSave))
 	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleUploadFile(uploadIcons))
 	s.mux.HandleFunc("GET /uploads/branding/{file}", s.handleUploadFile(uploadBranding))
 	s.mux.HandleFunc("GET /admin/icone", s.requireAdmin(s.handleIconSearch))

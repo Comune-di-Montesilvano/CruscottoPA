@@ -99,3 +99,4 @@ h2.spaced { margin-top: 1.5rem; }
 .inline-confirm input { width: 8.5rem; padding: .35rem .5rem; }
 #section > .card + .list, #section > .list + .card { margin-top: 1.25rem; }
 progress { width: 100%; }
+.ente-preview { display: block; max-height: 64px; max-width: 260px; width: auto; margin-bottom: .6rem; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .4rem; }
