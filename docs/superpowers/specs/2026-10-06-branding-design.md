@@ -1,6 +1,6 @@
 # Branding dell'ente
 
-Data: 2026-10-06 · Stato: in revisione · Priorità: prima dei sotto-progetti 2–4
+Data: 2026-10-06 · Stato: implementata · Priorità: prima dei sotto-progetti 2–4
 
 ## Contesto e obiettivo
 
