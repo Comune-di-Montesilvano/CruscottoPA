@@ -102,6 +102,20 @@ func TestLoginRateLimited(t *testing.T) {
 	}
 }
 
+// Dietro Podman rootless tutte le richieste hanno lo stesso IP: i tentativi
+// sbagliati di un utente non devono bloccare gli altri.
+func TestLoginRateLimitIsPerUser(t *testing.T) {
+	s, _ := newTestServer(t, fakeAuth{ok: false})
+	bad := url.Values{"username": {"mrossi"}, "password": {"sbagliata"}}
+	for i := 0; i < 5; i++ {
+		do(t, s, "POST", "/admin/login", bad, nil, nil)
+	}
+	other := url.Values{"username": {"bianchi"}, "password": {"sbagliata"}}
+	if rec := do(t, s, "POST", "/admin/login", other, nil, nil); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("un altro utente non deve essere bloccato: %d", rec.Code)
+	}
+}
+
 func TestLogout(t *testing.T) {
 	s, _ := newTestServer(t, nil)
 	c := login(t, s)

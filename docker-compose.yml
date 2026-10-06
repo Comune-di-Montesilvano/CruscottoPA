@@ -50,6 +50,7 @@ services:
       - LDAP_REQUIRED_GROUP=${LDAP_REQUIRED_GROUP}
       - LDAP_ADMIN_GROUP=${LDAP_ADMIN_GROUP}
       - ADMIN_USERS=${ADMIN_USERS}
+      - NTLM_DOMAIN=${NTLM_DOMAIN}
     healthcheck:
       test: ["CMD", "/app/cruscottopa", "-healthcheck"]
       interval: 30s
