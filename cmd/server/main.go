@@ -83,6 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 	go bk.Scheduler(ctx, time.Duration(cfg.BackupIntervalHours)*time.Hour)
+	go bk.Janitor(ctx)
 
 	srv, err := web.New(web.Options{
 		DB:      db,

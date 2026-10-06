@@ -32,7 +32,7 @@
 		button.disabled = true;
 		try {
 			const start = await fetch("/admin/backup/upload", { method: "POST" });
-			if (!start.ok) throw new Error("Impossibile avviare il caricamento.");
+			if (!start.ok) throw new Error(start.status === 429 ? (await start.text()).trim() : "Impossibile avviare il caricamento.");
 			const { id, chunk } = await start.json();
 			const total = Math.max(1, Math.ceil(file.size / chunk));
 			for (let n = 0; n < total; n++) {

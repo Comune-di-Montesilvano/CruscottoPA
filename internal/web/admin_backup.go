@@ -134,7 +134,10 @@ func backupWarning(st backup.Status, now time.Time) string {
 
 func (s *Server) handleBackupUploadStart(w http.ResponseWriter, r *http.Request) {
 	id, err := s.backup.StartUpload()
-	if err != nil {
+	if errors.Is(err, backup.ErrTooManyUploads) {
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return
+	} else if err != nil {
 		s.serverError(w, err)
 		return
 	}

@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -12,14 +13,16 @@ import (
 
 // ChunkSize resta sotto il limite di default di 1 MB dei reverse proxy nginx.
 const (
-	ChunkSize = 512 << 10
-	uploadTTL = time.Hour
+	ChunkSize  = 512 << 10
+	uploadTTL  = time.Hour
+	maxUploads = 3 // sessioni aperte contemporaneamente (ognuna tiene un file aperto)
 )
 
 var (
 	ErrUploadNotFound = errors.New("Caricamento non trovato o scaduto: riprova.")
 	ErrChunkOrder     = errors.New("Pezzo del file fuori sequenza.")
 	ErrChunkTooBig    = errors.New("Pezzo del file troppo grande.")
+	ErrTooManyUploads = errors.New("Troppi caricamenti in corso: attendi che finiscano o riprova tra un'ora.")
 )
 
 type upload struct {
@@ -31,6 +34,13 @@ type upload struct {
 }
 
 func (s *Service) StartUpload() (string, error) {
+	s.expireUploads()
+	s.upMu.Lock()
+	full := len(s.uploads) >= maxUploads
+	s.upMu.Unlock()
+	if full {
+		return "", ErrTooManyUploads
+	}
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -100,6 +110,24 @@ func (s *Service) expireUploads() {
 			u.f.Close()
 			os.Remove(u.path)
 			delete(s.uploads, id)
+		}
+	}
+}
+
+// JanitorTick fa scadere le sessioni di upload abbandonate.
+func (s *Service) JanitorTick() { s.expireUploads() }
+
+// Janitor esegue JanitorTick ogni minuto, indipendentemente dai backup
+// automatici (che possono essere disattivati con BACKUP_INTERVAL_HOURS=0).
+func (s *Service) Janitor(ctx context.Context) {
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			s.JanitorTick()
 		}
 	}
 }

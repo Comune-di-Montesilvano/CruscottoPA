@@ -149,3 +149,40 @@ func TestRestoreBusy(t *testing.T) {
 		t.Fatalf("atteso ErrBusy, ottenuto %v", err)
 	}
 }
+
+// Con BACKUP_INTERVAL_HOURS=0 lo scheduler non gira: le sessioni abbandonate
+// devono scadere comunque e il numero di sessioni aperte è limitato.
+func TestUploadSessionsExpireAndAreCapped(t *testing.T) {
+	e := newEnv(t)
+	old, _ := e.s.StartUpload()
+	e.s.WriteChunk(old, 0, strings.NewReader("abc"))
+	e.advance(61 * time.Minute)
+
+	e.s.JanitorTick()
+	if err := e.s.WriteChunk(old, 1, strings.NewReader("x")); !errors.Is(err, ErrUploadNotFound) {
+		t.Fatalf("la pulizia periodica deve far scadere le sessioni: %v", err)
+	}
+
+	var ids []string
+	for i := 0; i < maxUploads; i++ {
+		id, err := e.s.StartUpload()
+		if err != nil {
+			t.Fatalf("sessione %d: %v", i+1, err)
+		}
+		ids = append(ids, id)
+	}
+	if _, err := e.s.StartUpload(); !errors.Is(err, ErrTooManyUploads) {
+		t.Fatalf("oltre %d sessioni: atteso ErrTooManyUploads, ottenuto %v", maxUploads, err)
+	}
+	e.advance(61 * time.Minute)
+	if _, err := e.s.StartUpload(); err != nil {
+		t.Fatalf("scadute le vecchie, una nuova sessione deve partire: %v", err)
+	}
+	t.Cleanup(func() {
+		for id := range e.s.uploads {
+			if p, err := e.s.FinishUpload(id); err == nil {
+				os.Remove(p)
+			}
+		}
+	})
+}
