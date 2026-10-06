@@ -3,13 +3,16 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Accesso · CruscottoPA</title>
+	{{template "favicon"}}
+	<title>Accesso · CruscottoPA{{template "title_ente"}}</title>
 	<link rel="stylesheet" href="/static/css/app.css">
 	<link rel="stylesheet" href="/static/css/admin.css">
 </head>
 <body class="login">
 	<form class="login-card" method="post" action="/admin/login">
+		<img class="login-mark" src="/static/img/logo-on-light.svg" alt="">
 		<h1>CruscottoPA</h1>
+		{{with ente}}{{if or .LogoFile .EnteName}}<p class="login-ente">{{template "ente_logo"}}{{.EnteName}}</p>{{end}}{{end}}
 		<p class="hint">Accesso amministratori con le credenziali di dominio.</p>
 		{{with .Error}}<p class="flash error" role="alert">{{.}}</p>{{end}}
 		<label>Utente<input name="username" value="{{.Username}}" autocomplete="username" required autofocus></label>

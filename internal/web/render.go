@@ -24,6 +24,7 @@ const inputTimeLayout = "2006-01-02T15:04" // <input type="datetime-local">
 func (s *Server) funcs() template.FuncMap {
 	return template.FuncMap{
 		"monogram":     monogram,
+		"ente":         s.ente,
 		"levelLabel":   levelLabel,
 		"paragraphs":   paragraphs,
 		"humanSize":    humanSize,

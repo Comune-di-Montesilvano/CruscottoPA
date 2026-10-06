@@ -19,6 +19,10 @@ body.plancia {
 .hello-name { font-weight: 300; }
 .hero-date { margin: .2rem 0 0; opacity: .85; font-size: .92rem; }
 .hero-compact { padding-bottom: 1.6rem; }
+.hero-bar .brand { display: inline-flex; align-items: center; gap: .6rem; }
+.ente-logo { height: 40px; width: auto; max-width: 220px; object-fit: contain; }
+.brand-mark { height: 22px; width: auto; }
+.foot-mark { height: 14px; width: auto; vertical-align: -2px; margin-right: .35rem; }
 
 .search { position: relative; z-index: 2; display: flex; align-items: center; gap: .6rem; margin: -1.6rem var(--p-gutter) 0; background: #fff; border-radius: 14px; padding: .85rem 1.2rem; box-shadow: 0 12px 30px rgba(16, 24, 40, .14); color: var(--p-text-4); }
 .search input { flex: 1; min-width: 0; border: 0; outline: none; font: inherit; font-size: 1rem; color: var(--p-text); background: none; }
