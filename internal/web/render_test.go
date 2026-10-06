@@ -43,6 +43,30 @@ func TestLinkify(t *testing.T) {
 	}
 }
 
+func TestLinkifyEmailAndTrailingPunctuation(t *testing.T) {
+	got := string(linkify("Scriveteci a supporto@comune.example.it. Oppure https://wiki.local/x."))
+	if !strings.Contains(got, `<a href="mailto:supporto@comune.example.it">supporto@comune.example.it</a>.`) {
+		t.Fatalf("email non cliccabile o punto finale incluso: %s", got)
+	}
+	if !strings.Contains(got, `<a href="https://wiki.local/x" target="_blank" rel="noopener">https://wiki.local/x</a>.`) {
+		t.Fatalf("il punto finale non fa parte dell'URL: %s", got)
+	}
+	if got := string(linkify("https://mario@host.local/a")); strings.Contains(got, "mailto:") {
+		t.Fatalf("una @ dentro un URL non è un'email: %s", got)
+	}
+}
+
+func TestParagraphs(t *testing.T) {
+	got := string(paragraphs("Primo\r\nancora primo\r\n\r\n  \r\nSecondo <i>x</i>\n\n\n"))
+	want := "<p>Primo\nancora primo</p><p>Secondo &lt;i&gt;x&lt;/i&gt;</p>"
+	if got != want {
+		t.Fatalf("paragraphs = %q, atteso %q", got, want)
+	}
+	if got := string(paragraphs("  \n\n ")); got != "" {
+		t.Fatalf("testo vuoto deve dare stringa vuota, ottenuto %q", got)
+	}
+}
+
 func TestHumanSizeAndKindLabel(t *testing.T) {
 	for n, want := range map[int64]string{0: "0 B", 512: "512 B", 1536: "1,5 KB", 5 << 20: "5,0 MB", 3 << 30: "3,0 GB"} {
 		if got := humanSize(n); got != want {

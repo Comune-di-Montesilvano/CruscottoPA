@@ -6,7 +6,7 @@
 		<span class="news-when">dal {{fmtDate .StartsAt}}{{if .EndsAt}} · fino al {{fmtDatePtr .EndsAt}}{{end}}</span>
 	</div>
 	<h3 class="news-title">{{.Title}}</h3>
-	{{if .Body}}<div class="news-body">{{linkify .Body}}</div>{{end}}
+	{{if .Body}}<div class="news-body">{{paragraphs .Body}}</div>{{end}}
 </article>
 {{end}}
 
@@ -27,7 +27,7 @@
 {{range .}}{{if eq .Level "urgent"}}
 <dialog class="urgent" data-urgent="{{.ID}}" data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
 	<div class="urgent-head"><span class="urgent-badge">Urgente</span><span class="urgent-title" id="urgent-{{.ID}}">{{.Title}}</span></div>
-	{{if .Body}}<div class="urgent-body">{{linkify .Body}}</div>{{end}}
+	{{if .Body}}<div class="urgent-body">{{paragraphs .Body}}</div>{{end}}
 	<form method="dialog" class="urgent-foot">
 		<span>{{alertSource .Source}} · {{fmtDate .StartsAt}}</span>
 		<button value="letto">Ho letto</button>
