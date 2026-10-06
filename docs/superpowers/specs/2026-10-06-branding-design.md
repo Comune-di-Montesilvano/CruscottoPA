@@ -17,8 +17,8 @@ Oggi il nome dell'ente è scritto nel codice (`dashboard.html`: "CruscottoPA · 
   | File | Uso |
   |---|---|
   | `logo.svg` | icona con riquadro blu (sorgente delle taglie 24–256 della favicon) |
-  | `logo-on-dark.svg` | senza riquadro, per la testata blu della plancia |
-  | `logo-on-light.svg` | senza riquadro, per login e admin |
+  | `logo-on-dark.svg` | senza riquadro, per la testata blu della plancia e il rail admin |
+  | `logo-on-light.svg` | senza riquadro, per la card di login e il footer |
   | `logo-16.svg` | versione allineata ai pixel, sorgente della taglia 16 |
   | `favicon.ico` | 16, 24, 32, 48, 64, 128, 256 px; anche per i collegamenti sul desktop |
 
@@ -43,7 +43,7 @@ INSERT INTO branding (id) VALUES (1);
 
 - Una sola riga, sempre presente. Stringa vuota = non impostato.
 - Campi futuri: `ALTER TABLE branding ADD COLUMN …` in una nuova migrazione.
-- `internal/database`: tipo `Branding{EnteName, LogoFile, UpdatedAt, UpdatedBy}`, `GetBranding(ctx)` e `UpdateBranding(ctx, Branding)`.
+- `internal/database`: tipo `Branding{EnteName, LogoFile, UpdatedAt, UpdatedBy}`, `GetBranding()` e `UpdateBranding(Branding)` (senza `ctx`, come gli altri metodi del package).
 - Un DB ripristinato da un backup precedente alla v4 viene migrato all'avvio come gli altri: riga vuota, nessun branding.
 
 ## 2. File
@@ -69,7 +69,7 @@ Uso nei template:
 | Plancia (`dashboard.html`) | logo ente (altezza ~40 px, se presente) + nome ente; senza entrambi: `logo-on-dark.svg` + "CruscottoPA" | "CruscottoPA · {ente}" o "CruscottoPA" |
 | Avvisi (`avvisi.html`) | "← {ente}" o "← CruscottoPA" | "Avvisi · CruscottoPA[ · {ente}]" |
 | Login (`admin_login.html`) | `logo-on-light.svg` (~56 px) + "CruscottoPA"; sotto, logo ente piccolo + nome ente | "Accesso · CruscottoPA[ · {ente}]" |
-| Admin (`admin_base.html`) | `logo-on-light.svg` (~24 px) + "CruscottoPA / amministrazione" nel rail; sotto, nome ente | "Amministrazione · CruscottoPA[ · {ente}]" |
+| Admin (`admin_base.html`) | `logo-on-dark.svg` (~30 px, il rail è scuro) + "CruscottoPA / amministrazione" nel rail; sotto, nome ente | "Amministrazione · CruscottoPA[ · {ente}]" |
 
 - Footer: `logo-on-light.svg` (~14 px) + "CruscottoPA v{{.Version}}".
 - `<link rel="icon" href="/static/img/favicon.ico">` in tutti gli head (plancia, avvisi, login, admin). Solo ICO, niente favicon SVG: a 16 px i browser rasterizzerebbero l'SVG impastando le tile, mentre l'ICO contiene la versione allineata ai pixel.
