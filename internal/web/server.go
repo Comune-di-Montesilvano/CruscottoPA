@@ -127,6 +127,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /admin/backup/{name}", s.requireAdmin(s.handleBackupDownload))
 	s.mux.HandleFunc("POST /admin/backup/{name}/elimina", s.requireAdmin(s.handleBackupDelete))
 	s.mux.HandleFunc("POST /admin/backup/{name}/ripristina", s.requireAdmin(s.handleBackupRestore))
+	s.mux.HandleFunc("POST /admin/backup/upload", s.requireAdmin(s.handleBackupUploadStart))
+	s.mux.HandleFunc("POST /admin/backup/upload/{id}/chunk", s.requireAdmin(s.handleBackupUploadChunk))
+	s.mux.HandleFunc("POST /admin/backup/upload/{id}/fine", s.requireAdmin(s.handleBackupUploadFinish))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

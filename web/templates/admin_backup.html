@@ -48,5 +48,15 @@
 			{{end}}
 		</tbody>
 	</table>
+
+	<form class="card form" data-restore-upload>
+		<h2>Ripristina da file</h2>
+		<p class="hint">Carica un archivio <code>.tar.gz</code> scaricato in precedenza. Tutti i dati attuali (database e file caricati) verranno sostituiti; prima viene creato in automatico un backup "pre-ripristino".</p>
+		<input type="file" name="archivio" accept=".gz,application/gzip">
+		<label>Per confermare digita RIPRISTINA<input name="conferma" autocomplete="off"></label>
+		<progress value="0" max="1"></progress>
+		<p class="field-error" data-upload-msg></p>
+		<div class="actions"><button class="primary" type="submit">Carica e ripristina</button></div>
+	</form>
 </div>
 {{end}}

@@ -1,10 +1,13 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
@@ -127,4 +130,52 @@ func backupWarning(st backup.Status, now time.Time) string {
 		return "L'ultimo backup riuscito ha più di 48 ore."
 	}
 	return ""
+}
+
+func (s *Server) handleBackupUploadStart(w http.ResponseWriter, r *http.Request) {
+	id, err := s.backup.StartUpload()
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"id": id, "chunk": backup.ChunkSize})
+}
+
+func (s *Server) handleBackupUploadChunk(w http.ResponseWriter, r *http.Request) {
+	n, err := strconv.Atoi(r.URL.Query().Get("n"))
+	if err != nil || n < 0 {
+		http.Error(w, "parametro n non valido", http.StatusBadRequest)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, backup.ChunkSize+1)
+	err = s.backup.WriteChunk(r.PathValue("id"), n, r.Body)
+	var ve *backup.ValidationError
+	var tooBig *http.MaxBytesError
+	switch {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, backup.ErrUploadNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, backup.ErrChunkOrder):
+		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, backup.ErrChunkTooBig), errors.As(err, &ve), errors.As(err, &tooBig):
+		http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+	default:
+		s.serverError(w, err)
+	}
+}
+
+func (s *Server) handleBackupUploadFinish(w http.ResponseWriter, r *http.Request) {
+	path, err := s.backup.FinishUpload(r.PathValue("id"))
+	if err != nil {
+		s.renderBackups(w, http.StatusUnprocessableEntity, formErrors{"general": err.Error()}, "")
+		return
+	}
+	if r.FormValue("conferma") != restoreConfirm {
+		os.Remove(path)
+		s.renderBackups(w, http.StatusUnprocessableEntity, formErrors{"general": "Per confermare il ripristino digita RIPRISTINA."}, "")
+		return
+	}
+	s.startRestore(w, r, path, true)
 }
