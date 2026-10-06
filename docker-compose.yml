@@ -34,7 +34,21 @@ services:
     environment:
       - PORT=${PORT:-8080}
       - DB_PATH=/data/cruscotto.db
+      - UPLOAD_DIR=/data/uploads
       - TZ=${TZ:-Europe/Rome}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - SECURE_COOKIES=${SECURE_COOKIES:-true}
+      - LDAP_HOST=${LDAP_HOST:-mock}
+      - LDAP_BASE_DN=${LDAP_BASE_DN}
+      - LDAP_USER_DN_TEMPLATE=${LDAP_USER_DN_TEMPLATE}
+      - LDAP_STARTTLS=${LDAP_STARTTLS:-true}
+      - LDAP_TLS_SKIP_VERIFY=${LDAP_TLS_SKIP_VERIFY:-false}
+      - LDAP_BIND_DN=${LDAP_BIND_DN}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
+      - LDAP_REQUIRED_GROUP=${LDAP_REQUIRED_GROUP}
+      - LDAP_ADMIN_GROUP=${LDAP_ADMIN_GROUP}
+      - ADMIN_USERS=${ADMIN_USERS}
     healthcheck:
       test: ["CMD", "/app/cruscottopa", "-healthcheck"]
       interval: 30s

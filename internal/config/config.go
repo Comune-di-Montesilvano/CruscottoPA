@@ -1,0 +1,119 @@
+// Package config legge la configurazione del server dalle variabili d'ambiente.
+package config
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// LDAP raccoglie i parametri di connessione ad Active Directory.
+type LDAP struct {
+	Host           string // "mock" in sviluppo, altrimenti ldap://host:389 o ldaps://host:636
+	BaseDN         string
+	UserDNTemplate string // %s = username, es. "%s@comune.local"
+	StartTLS       bool
+	TLSSkipVerify  bool
+	BindDN         string
+	BindPassword   string
+	RequiredGroup  string
+	AdminGroup     string
+	AdminUsers     []string
+}
+
+// Config è la configurazione completa del server.
+type Config struct {
+	Port          string
+	DBPath        string
+	UploadDir     string
+	SessionSecret string
+	SecureCookies bool
+	LogLevel      slog.Level
+	Location      *time.Location
+	LDAP          LDAP
+}
+
+// Load legge le variabili d'ambiente, applica i default e valida i valori.
+func Load() (Config, error) {
+	cfg := Config{
+		Port:          getEnv("PORT", "8080"),
+		DBPath:        getEnv("DB_PATH", "cruscotto.db"),
+		UploadDir:     getEnv("UPLOAD_DIR", "uploads"),
+		SessionSecret: os.Getenv("SESSION_SECRET"),
+		LDAP: LDAP{
+			Host:           getEnv("LDAP_HOST", "mock"),
+			BaseDN:         os.Getenv("LDAP_BASE_DN"),
+			UserDNTemplate: getEnv("LDAP_USER_DN_TEMPLATE", "%s"),
+			BindDN:         os.Getenv("LDAP_BIND_DN"),
+			BindPassword:   os.Getenv("LDAP_BIND_PASSWORD"),
+			RequiredGroup:  os.Getenv("LDAP_REQUIRED_GROUP"),
+			AdminGroup:     os.Getenv("LDAP_ADMIN_GROUP"),
+			AdminUsers:     splitList(os.Getenv("ADMIN_USERS")),
+		},
+	}
+
+	var err error
+	if cfg.SecureCookies, err = getEnvBool("SECURE_COOKIES", true); err != nil {
+		return Config{}, err
+	}
+	if cfg.LDAP.StartTLS, err = getEnvBool("LDAP_STARTTLS", true); err != nil {
+		return Config{}, err
+	}
+	if cfg.LDAP.TLSSkipVerify, err = getEnvBool("LDAP_TLS_SKIP_VERIFY", false); err != nil {
+		return Config{}, err
+	}
+	if cfg.Location, err = time.LoadLocation(getEnv("TZ", "Europe/Rome")); err != nil {
+		return Config{}, fmt.Errorf("TZ: %w", err)
+	}
+	if err = cfg.LogLevel.UnmarshalText([]byte(getEnv("LOG_LEVEL", "info"))); err != nil {
+		return Config{}, fmt.Errorf("LOG_LEVEL: %w", err)
+	}
+
+	if cfg.LDAP.Host != "mock" && len(cfg.SessionSecret) < 32 {
+		return Config{}, errors.New("SESSION_SECRET obbligatorio (almeno 32 caratteri) quando LDAP_HOST non è mock")
+	}
+	if cfg.SessionSecret == "" {
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			return Config{}, fmt.Errorf("generazione SESSION_SECRET: %w", err)
+		}
+		cfg.SessionSecret = hex.EncodeToString(b)
+	}
+	return cfg, nil
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func getEnvBool(key string, fallback bool) (bool, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("%s: valore booleano non valido %q", key, v)
+	}
+	return b, nil
+}
+
+// splitList divide una lista separata da ';' o ',' scartando spazi e voci vuote.
+func splitList(s string) []string {
+	var out []string
+	for _, p := range strings.FieldsFunc(s, func(r rune) bool { return r == ';' || r == ',' }) {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}

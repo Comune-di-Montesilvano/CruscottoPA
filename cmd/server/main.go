@@ -14,7 +14,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // fusi orari embedded: TZ funziona anche senza tzdata di sistema
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
@@ -26,37 +28,27 @@ import (
 // build-arg restano "dev" (o "dev-DEV" via docker-compose.override.yml).
 var AppVersion = "dev"
 
-type config struct {
-	Port   string
-	DBPath string
-}
-
-func loadConfig() config {
-	return config{
-		Port:   getEnv("PORT", "8080"),
-		DBPath: getEnv("DB_PATH", "cruscotto.db"),
-	}
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
 func main() {
 	healthcheck := flag.Bool("healthcheck", false, "esegue GET /health su localhost ed esce (usato dal HEALTHCHECK del container)")
 	flag.Parse()
 
-	cfg := loadConfig()
-
 	// Il binario fa da healthcheck di sé stesso: l'immagine non dipende da wget/curl.
+	// Non deve dipendere dalla validità del resto della configurazione.
 	if *healthcheck {
-		os.Exit(runHealthcheck(cfg.Port))
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+		os.Exit(runHealthcheck(port))
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "configurazione:", err)
+		os.Exit(1)
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	slog.SetDefault(logger)
 
 	db, err := database.InitDB(cfg.DBPath)
