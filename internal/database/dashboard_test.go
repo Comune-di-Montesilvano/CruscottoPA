@@ -57,3 +57,21 @@ func TestGetDashboardFreshInstall(t *testing.T) {
 		t.Fatalf("installazione nuova: attese slice vuote non nil, ottenuto %+v", d)
 	}
 }
+
+// Un'app abilitata tra la query delle app e quella delle guide: le sue guide
+// non devono finire sulla prima tile né far crashare la plancia vuota.
+func TestAttachGuidesSkipsUnknownApp(t *testing.T) {
+	orphan := Guide{ID: 9, AppID: ptr(42), Title: "Guida di app non in plancia"}
+
+	empty := Dashboard{Categories: []CategoryWithApps{}, GeneralGuides: []Guide{}}
+	attachGuides(&empty, map[int64]appPos{}, []Guide{orphan}) // non deve andare in panic
+
+	d := Dashboard{
+		Categories:    []CategoryWithApps{{Apps: []AppWithGuides{{App: App{ID: 1}, Guides: []Guide{}}}}},
+		GeneralGuides: []Guide{},
+	}
+	attachGuides(&d, map[int64]appPos{1: {0, 0}}, []Guide{orphan})
+	if n := len(d.Categories[0].Apps[0].Guides); n != 0 {
+		t.Fatalf("guida attaccata all'app sbagliata: %d guide sulla prima tile", n)
+	}
+}

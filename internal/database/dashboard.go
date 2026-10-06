@@ -38,8 +38,7 @@ ORDER BY c.sort_order, c.name COLLATE NOCASE, ` + appOrder)
 	if err != nil {
 		return d, err
 	}
-	type pos struct{ cat, app int }
-	index := map[int64]pos{}
+	index := map[int64]appPos{}
 	for rows.Next() {
 		var c Category
 		a, err := scanApp(rows, &c.ID, &c.Name, &c.SortOrder)
@@ -53,7 +52,7 @@ ORDER BY c.sort_order, c.name COLLATE NOCASE, ` + appOrder)
 			last++
 		}
 		d.Categories[last].Apps = append(d.Categories[last].Apps, AppWithGuides{App: a, Guides: []Guide{}})
-		index[a.ID] = pos{last, len(d.Categories[last].Apps) - 1}
+		index[a.ID] = appPos{last, len(d.Categories[last].Apps) - 1}
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
@@ -67,13 +66,24 @@ ORDER BY `+guideOrder)
 	if err != nil {
 		return d, err
 	}
+	attachGuides(&d, index, guides)
+	return d, nil
+}
+
+// appPos è la posizione di un'app visibile in Dashboard.Categories.
+type appPos struct{ cat, app int }
+
+// attachGuides distribuisce le guide: generali nella colonna, le altre sulla tile della loro app.
+func attachGuides(d *Dashboard, index map[int64]appPos, guides []Guide) {
 	for _, g := range guides {
 		if g.AppID == nil {
 			d.GeneralGuides = append(d.GeneralGuides, g)
 			continue
 		}
-		p := index[*g.AppID]
+		p, ok := index[*g.AppID]
+		if !ok {
+			continue // app non (più) visibile in questa lettura
+		}
 		d.Categories[p.cat].Apps[p.app].Guides = append(d.Categories[p.cat].Apps[p.app].Guides, g)
 	}
-	return d, nil
 }
