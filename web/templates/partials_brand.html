@@ -3,4 +3,5 @@
 {{/* " · nome ente" da accodare ai <title>; vuoto se il nome non è impostato. */}}
 {{define "title_ente"}}{{with (ente).EnteName}} · {{.}}{{end}}{{end}}
 
-{{define "ente_logo"}}{{with ente}}{{if .LogoFile}}<img class="ente-logo" src="/uploads/branding/{{.LogoFile}}" alt="{{if .EnteName}}{{.EnteName}}{{else}}Logo dell'ente{{end}}">{{end}}{{end}}{{end}}
+{{/* Il nome, quando c'è, è scritto accanto al logo: alt vuoto per non farlo leggere due volte. */}}
+{{define "ente_logo"}}{{with ente}}{{if .LogoFile}}<img class="ente-logo" src="/uploads/branding/{{.LogoFile}}" alt="{{if not .EnteName}}Logo dell'ente{{end}}">{{end}}{{end}}{{end}}

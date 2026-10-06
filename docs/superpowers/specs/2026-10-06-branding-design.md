@@ -73,7 +73,7 @@ Uso nei template:
 
 - Footer: `logo-on-light.svg` (~14 px) + "CruscottoPA v{{.Version}}".
 - `<link rel="icon" href="/static/img/favicon.ico">` in tutti gli head (plancia, avvisi, login, admin). Solo ICO, niente favicon SVG: a 16 px i browser rasterizzerebbero l'SVG impastando le tile, mentre l'ICO contiene la versione allineata ai pixel.
-- `alt` del logo = nome ente, oppure "Logo dell'ente" se il nome è vuoto.
+- `alt` del logo vuoto quando il nome dell'ente è scritto accanto (non va letto due volte dagli screen reader), "Logo dell'ente" se il nome è vuoto.
 - `GET /favicon.ico` serve `web/static/img/favicon.ico` (`image/x-icon`, `Cache-Control: no-cache` come gli statici), per browser e strumenti che la richiedono senza leggere l'HTML.
 - CSP invariata: tutte le immagini arrivano da `'self'`.
 

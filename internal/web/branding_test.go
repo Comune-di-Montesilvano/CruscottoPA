@@ -89,3 +89,20 @@ func TestTemplatesHaveNoEnteHardcoded(t *testing.T) {
 		}
 	}
 }
+
+// Con il nome scritto accanto, il logo è decorativo: un alt uguale al nome
+// farebbe leggere il nome due volte agli screen reader.
+func TestEnteLogoAlt(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	logo := strings.Repeat("a", 32) + ".png"
+	img := `<img class="ente-logo" src="/uploads/branding/` + logo + `" alt=`
+
+	s.branding.Store(&database.Branding{EnteName: "Comune di Esempio", LogoFile: logo})
+	if dash := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(dash, img+`"">`) {
+		t.Error("logo con nome accanto: atteso alt vuoto")
+	}
+	s.branding.Store(&database.Branding{LogoFile: logo})
+	if dash := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(dash, img+`"Logo dell'ente">`) {
+		t.Error("logo senza nome: atteso alt \"Logo dell'ente\"")
+	}
+}
