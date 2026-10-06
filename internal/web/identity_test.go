@@ -105,3 +105,31 @@ func TestViewerCookieDoesNotOpenAdmin(t *testing.T) {
 		t.Fatalf("/admin con il solo cookie utente: atteso 303, ottenuto %d", rec.Code)
 	}
 }
+
+func TestDashboardGreetsRecognizedUser(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	v, _ := s.cookies.Encode(identity.User{Username: "mrossi", Name: "Mario Rossi"})
+	body := do(t, s, "GET", "/", nil, &http.Cookie{Name: identity.CookieName, Value: v}, nil).Body.String()
+	if !strings.Contains(body, `<span class="hello-name">, Mario</span>`) || strings.Contains(body, "data-riconosci") {
+		t.Fatal("utente riconosciuto: saluto per nome e nessun nuovo tentativo")
+	}
+	v, _ = s.cookies.Encode(identity.User{Username: "senzanome"})
+	if body := do(t, s, "GET", "/", nil, &http.Cookie{Name: identity.CookieName, Value: v}, nil).Body.String(); !strings.Contains(body, `<span class="hello-name"></span>`) {
+		t.Fatal("senza nome visualizzato: solo il saluto")
+	}
+}
+
+func TestDashboardRecognizeAttribute(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, "data-riconosci") {
+		t.Fatal("senza cookie: data-riconosci atteso")
+	}
+	v, _ := s.cookies.Encode(identity.User{Anonymous: true})
+	if body := do(t, s, "GET", "/", nil, &http.Cookie{Name: identity.CookieName, Value: v}, nil).Body.String(); strings.Contains(body, "data-riconosci") {
+		t.Fatal("con il cookie anonimo non si ritenta")
+	}
+	s2, _ := newTestServerWith(t, nil, func(o *Options) { o.Config.NTLMDomain = "" })
+	if body := do(t, s2, "GET", "/", nil, nil, nil).Body.String(); strings.Contains(body, "data-riconosci") {
+		t.Fatal("riconoscimento spento: nessun tentativo")
+	}
+}
