@@ -12,30 +12,36 @@ import (
 	"github.com/gorilla/sessions"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
 type Options struct {
-	DB      *database.DB
-	Config  config.Config
-	Auth    auth.Authenticator
-	Version string
-	WebDir  string
-	Now     func() time.Time
+	DB     *database.DB
+	Config config.Config
+	Auth   auth.Authenticator
+	Backup *backup.Service
+	// RestoreDelay: attesa tra la risposta e lo swap del ripristino (0 → 500ms).
+	RestoreDelay time.Duration
+	Version      string
+	WebDir       string
+	Now          func() time.Time
 }
 
 type Server struct {
-	db      *database.DB
-	cfg     config.Config
-	auth    auth.Authenticator
-	limiter *auth.RateLimiter
-	tmpl    *template.Template
-	store   *sessions.CookieStore
-	version string
-	webDir  string
-	now     func() time.Time
-	mux     *http.ServeMux
+	db           *database.DB
+	cfg          config.Config
+	auth         auth.Authenticator
+	limiter      *auth.RateLimiter
+	backup       *backup.Service
+	restoreDelay time.Duration
+	tmpl         *template.Template
+	store        *sessions.CookieStore
+	version      string
+	webDir       string
+	now          func() time.Time
+	mux          *http.ServeMux
 }
 
 func New(o Options) (*Server, error) {
@@ -45,18 +51,23 @@ func New(o Options) (*Server, error) {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
+	if o.RestoreDelay == 0 {
+		o.RestoreDelay = 500 * time.Millisecond
+	}
 	if o.Config.Location == nil {
 		o.Config.Location = time.UTC
 	}
 	s := &Server{
-		db:      o.DB,
-		cfg:     o.Config,
-		auth:    o.Auth,
-		limiter: auth.NewRateLimiter(5, 15*time.Minute),
-		version: o.Version,
-		webDir:  o.WebDir,
-		now:     o.Now,
-		mux:     http.NewServeMux(),
+		db:           o.DB,
+		cfg:          o.Config,
+		auth:         o.Auth,
+		limiter:      auth.NewRateLimiter(5, 15*time.Minute),
+		backup:       o.Backup,
+		restoreDelay: o.RestoreDelay,
+		version:      o.Version,
+		webDir:       o.WebDir,
+		now:          o.Now,
+		mux:          http.NewServeMux(),
 	}
 	tmpl, err := template.New("").Funcs(s.funcs()).ParseGlob(filepath.Join(o.WebDir, "templates", "*.html"))
 	if err != nil {
@@ -111,6 +122,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/categorie/{id}", s.requireAdmin(s.handleCategorySave))
 	s.mux.HandleFunc("POST /admin/categorie/{id}/elimina", s.requireAdmin(s.handleCategoryDelete))
 	s.mux.HandleFunc("POST /admin/categorie/{id}/sposta", s.requireAdmin(s.handleCategoryMove))
+	s.mux.HandleFunc("GET /admin/backup", s.requireAdmin(s.handleBackupPage))
+	s.mux.HandleFunc("POST /admin/backup", s.requireAdmin(s.handleBackupCreate))
+	s.mux.HandleFunc("GET /admin/backup/{name}", s.requireAdmin(s.handleBackupDownload))
+	s.mux.HandleFunc("POST /admin/backup/{name}/elimina", s.requireAdmin(s.handleBackupDelete))
+	s.mux.HandleFunc("POST /admin/backup/{name}/ripristina", s.requireAdmin(s.handleBackupRestore))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

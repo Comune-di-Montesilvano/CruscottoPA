@@ -1,0 +1,52 @@
+{{define "admin_backup.html"}}{{template "admin_top" .}}
+<h1>Backup</h1>
+{{template "backup_section" .Body}}
+{{template "admin_bottom" .}}{{end}}
+
+{{define "backup_restarting"}}
+<div id="section" data-restarting>
+	<div class="card">
+		<h2>Ripristino in corso</h2>
+		<p>I dati vengono sostituiti e il servizio si riavvia. La pagina si ricaricherà da sola appena il servizio torna disponibile.</p>
+	</div>
+</div>
+{{end}}
+
+{{define "backup_section"}}
+<div id="section">
+	<p class="flash">Le copie sono sullo stesso server: scaricane una periodicamente e conservala in un luogo protetto, fuori dal server.</p>
+	{{with .Errors.general}}<p class="flash error" role="alert">{{.}}</p>{{end}}
+	{{with .Notice}}<p class="flash" role="status">{{.}}</p>{{end}}
+
+	<div class="card form">
+		<h2>Nuovo backup</h2>
+		<p class="hint">{{if .Status.LastSuccess.IsZero}}Nessun backup ancora eseguito.{{else}}Ultimo backup riuscito: {{fmtDate .Status.LastSuccess}}.{{end}} Il backup comprende database e file caricati.</p>
+		<div class="actions">
+			<button class="primary" type="button" hx-post="/admin/backup" hx-target="#section" hx-swap="outerHTML">Crea backup ora</button>
+		</div>
+	</div>
+
+	<table class="list">
+		<thead><tr><th>Data</th><th>Tipo</th><th>Dimensione</th><th></th></tr></thead>
+		<tbody>
+			{{range .Backups}}
+			<tr>
+				<td>{{fmtDate .CreatedAt}}</td>
+				<td><span class="tag{{if eq .Kind "pre-ripristino"}} warn{{end}}">{{kindLabel .Kind}}</span></td>
+				<td class="muted">{{humanSize .Size}}</td>
+				<td class="actions">
+					<a class="button" href="/admin/backup/{{.Name}}" download>Scarica</a>
+					<form class="inline-confirm" hx-post="/admin/backup/{{.Name}}/ripristina" hx-target="#section" hx-swap="outerHTML">
+						<input name="conferma" placeholder="digita RIPRISTINA" aria-label="Conferma ripristino" autocomplete="off">
+						<button type="submit">Ripristina</button>
+					</form>
+					{{if ne .Kind "auto"}}<button class="danger" type="button" hx-post="/admin/backup/{{.Name}}/elimina" hx-confirm="Eliminare il backup del {{fmtDate .CreatedAt}}?" hx-target="#section" hx-swap="outerHTML">Elimina</button>{{end}}
+				</td>
+			</tr>
+			{{else}}
+			<tr><td colspan="4" class="muted">Nessun backup.</td></tr>
+			{{end}}
+		</tbody>
+	</table>
+</div>
+{{end}}

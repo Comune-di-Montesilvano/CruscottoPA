@@ -15,6 +15,7 @@ import (
 	_ "time/tzdata" // fusi orari embedded: TZ funziona anche senza tzdata di sistema
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/web"
@@ -66,10 +67,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	bk, err := backup.New(backup.Options{
+		Store:      db,
+		DBPath:     cfg.DBPath,
+		UploadDir:  cfg.UploadDir,
+		AppVersion: AppVersion,
+		MaxSchema:  database.CurrentSchemaVersion(),
+		Location:   cfg.Location,
+	})
+	if err != nil {
+		slog.Error("inizializzazione backup", "err", err)
+		os.Exit(1)
+	}
+	go bk.Scheduler(ctx, time.Duration(cfg.BackupIntervalHours)*time.Hour)
+
 	srv, err := web.New(web.Options{
 		DB:      db,
 		Config:  cfg,
 		Auth:    auth.NewLDAP(cfg.LDAP),
+		Backup:  bk,
 		Version: AppVersion,
 	})
 	if err != nil {
@@ -82,9 +101,6 @@ func main() {
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		slog.Info("CruscottoPA avviato", "version", AppVersion, "port", cfg.Port, "db", cfg.DBPath, "ldap", cfg.LDAP.Host)

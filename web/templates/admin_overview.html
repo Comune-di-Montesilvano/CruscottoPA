@@ -1,6 +1,7 @@
 {{define "admin_overview.html"}}{{template "admin_top" .}}
 <h1>Panoramica</h1>
 {{with .Body}}
+{{with .BackupWarning}}<p class="flash error" role="alert">{{.}} <a href="/admin/backup">Vai ai backup</a></p>{{end}}
 <div class="stats">
 	<a class="stat" href="/admin/app"><b>{{.Apps}}</b>applicativi</a>
 	<a class="stat" href="/admin/guide"><b>{{.Guides}}</b>guide</a>

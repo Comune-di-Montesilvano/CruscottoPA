@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
@@ -25,9 +26,15 @@ type fakeAuth struct {
 
 func (f fakeAuth) Authenticate(_, _ string) (bool, bool, error) { return f.ok, f.admin, f.err }
 
+// serverExits raccoglie le chiamate a exit del servizio backup di ogni server di test.
+var serverExits = map[*Server]chan int{}
+
 func newTestServer(t *testing.T, a auth.Authenticator) (*Server, *database.DB) {
 	t.Helper()
-	db, err := database.Open(filepath.Join(t.TempDir(), "test.db"))
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+	uploadDir := filepath.Join(dir, "uploads")
+	db, err := database.Open(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,17 +43,30 @@ func newTestServer(t *testing.T, a auth.Authenticator) (*Server, *database.DB) {
 	if a == nil {
 		a = fakeAuth{ok: true, admin: true}
 	}
-	s, err := New(Options{
-		DB:      db,
-		Config:  config.Config{SessionSecret: strings.Repeat("s", 32), UploadDir: t.TempDir(), Location: rome},
-		Auth:    a,
-		Version: "test",
-		WebDir:  "../../web",
-		Now:     func() time.Time { return fixedNow },
+	exits := make(chan int, 4)
+	bk, err := backup.New(backup.Options{
+		Store: db, DBPath: dbPath, UploadDir: uploadDir, AppVersion: "test",
+		MaxSchema: database.CurrentSchemaVersion(), Location: rome,
+		Now:  func() time.Time { return fixedNow },
+		Exit: func(code int) { exits <- code },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	s, err := New(Options{
+		DB:           db,
+		Config:       config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome},
+		Auth:         a,
+		Backup:       bk,
+		RestoreDelay: time.Nanosecond,
+		Version:      "test",
+		WebDir:       "../../web",
+		Now:          func() time.Time { return fixedNow },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverExits[s] = exits
 	return s, db
 }
 
