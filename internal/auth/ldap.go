@@ -90,7 +90,7 @@ func (l *LDAP) Authenticate(username, password string) (bool, bool, error) {
 		isAdmin = inGroup(memberOf, l.cfg.AdminGroup) || l.nestedMember(conn, l.cfg.AdminGroup, entry.DN)
 	}
 	if !hasRequired && !isAdmin {
-		slog.Info("ldap: utente fuori dal gruppo richiesto", "user", username, "group", l.cfg.RequiredGroup)
+		slog.Info("ldap: utente fuori dal gruppo richiesto", "user", SafeLog(username), "group", l.cfg.RequiredGroup)
 		return false, false, nil
 	}
 	return true, isAdmin, nil

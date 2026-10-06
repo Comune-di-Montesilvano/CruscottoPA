@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
 )
 
 type loginView struct {
@@ -50,7 +52,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	ok, admin, err := s.auth.Authenticate(user, pass)
 	if err != nil {
-		slog.Warn("login: errore di autenticazione", "user", user, "err", err)
+		slog.Warn("login: errore di autenticazione", "user", auth.SafeLog(user), "err", err)
 	}
 	if err != nil || !ok {
 		s.limiter.Fail(keys...)
@@ -64,13 +66,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	s.limiter.Success(keys...)
 
 	if !admin {
-		slog.Info("login: utente non amministratore", "user", user)
+		slog.Info("login: utente non amministratore", "user", auth.SafeLog(user))
 		view.Error = "Accesso non autorizzato: il tuo account non è amministratore di CruscottoPA."
 		s.render(w, http.StatusForbidden, "admin_login.html", view)
 		return
 	}
 	if s.cookieWouldBeDropped(r) {
-		slog.Warn("login: cookie Secure richiesto su HTTP in chiaro", "host", r.Host)
+		slog.Warn("login: cookie Secure richiesto su HTTP in chiaro", "host", auth.SafeLog(r.Host))
 		view.Error = "Il cookie di sessione richiede HTTPS: accedi tramite https:// oppure, solo su rete interna fidata, imposta SECURE_COOKIES=false."
 		s.render(w, http.StatusBadRequest, "admin_login.html", view)
 		return
@@ -79,7 +81,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	slog.Info("login amministratore", "user", user)
+	slog.Info("login amministratore", "user", auth.SafeLog(user))
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
