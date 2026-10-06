@@ -51,7 +51,7 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	slog.SetDefault(logger)
 
-	db, err := database.InitDB(cfg.DBPath)
+	db, err := database.Open(cfg.DBPath)
 	if err != nil {
 		slog.Error("inizializzazione database", "err", err)
 		os.Exit(1)
