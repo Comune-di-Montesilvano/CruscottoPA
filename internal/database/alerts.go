@@ -18,6 +18,7 @@ type Alert struct {
 	Title     string
 	Body      string
 	Level     string
+	Source    string // fonte mostrata in plancia; "" = Servizio informatico
 	StartsAt  time.Time
 	EndsAt    *time.Time
 	Notify    bool
@@ -25,7 +26,7 @@ type Alert struct {
 	CreatedBy string
 }
 
-const alertCols = `id, title, body, level, starts_at, ends_at, notify, created_at, created_by`
+const alertCols = `id, title, body, level, source, starts_at, ends_at, notify, created_at, created_by`
 
 const levelOrder = `CASE level WHEN 'urgent' THEN 0 WHEN 'maintenance' THEN 1 ELSE 2 END`
 
@@ -33,7 +34,7 @@ func scanAlert(s scanner) (Alert, error) {
 	var a Alert
 	var starts, created string
 	var ends sql.NullString
-	if err := s.Scan(&a.ID, &a.Title, &a.Body, &a.Level, &starts, &ends, &a.Notify, &created, &a.CreatedBy); err != nil {
+	if err := s.Scan(&a.ID, &a.Title, &a.Body, &a.Level, &a.Source, &starts, &ends, &a.Notify, &created, &a.CreatedBy); err != nil {
 		return a, err
 	}
 	var err error
@@ -108,9 +109,9 @@ func (db *DB) GetAlert(id int64) (Alert, error) {
 
 func (db *DB) CreateAlert(a Alert) (int64, error) {
 	res, err := db.Exec(`
-INSERT INTO alerts (title, body, level, starts_at, ends_at, notify, created_at, created_by)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.Title, a.Body, a.Level, formatTime(a.StartsAt), nullableTime(a.EndsAt), a.Notify, formatTime(a.CreatedAt), a.CreatedBy)
+INSERT INTO alerts (title, body, level, source, starts_at, ends_at, notify, created_at, created_by)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		a.Title, a.Body, a.Level, a.Source, formatTime(a.StartsAt), nullableTime(a.EndsAt), a.Notify, formatTime(a.CreatedAt), a.CreatedBy)
 	if err != nil {
 		return 0, err
 	}
@@ -119,9 +120,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 
 func (db *DB) UpdateAlert(a Alert) error {
 	return checkAffected(db.Exec(`
-UPDATE alerts SET title = ?, body = ?, level = ?, starts_at = ?, ends_at = ?, notify = ?
+UPDATE alerts SET title = ?, body = ?, level = ?, source = ?, starts_at = ?, ends_at = ?, notify = ?
 WHERE id = ?`,
-		a.Title, a.Body, a.Level, formatTime(a.StartsAt), nullableTime(a.EndsAt), a.Notify, a.ID))
+		a.Title, a.Body, a.Level, a.Source, formatTime(a.StartsAt), nullableTime(a.EndsAt), a.Notify, a.ID))
 }
 
 func (db *DB) DeleteAlert(id int64) error {

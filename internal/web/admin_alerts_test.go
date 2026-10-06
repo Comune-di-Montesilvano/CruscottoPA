@@ -41,7 +41,7 @@ func TestCreateAlertShowsInDashboard(t *testing.T) {
 	if !current[0].StartsAt.Equal(time.Date(2026, 10, 6, 7, 0, 0, 0, time.UTC)) {
 		t.Fatalf("09:00 a Roma (CEST) = 07:00Z, ottenuto %v", current[0].StartsAt)
 	}
-	if dash := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(dash, "pill-maintenance") {
+	if dash := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(dash, "news-maintenance") {
 		t.Fatal("l'avviso attivo deve comparire in plancia")
 	}
 }
@@ -110,5 +110,22 @@ func TestExpiredAlertReactivation(t *testing.T) {
 	}
 	if rec := do(t, s, "POST", "/admin/avvisi/"+itoa(id)+"/elimina", nil, c, hx); rec.Code != http.StatusNotFound {
 		t.Fatalf("elimina due volte: %d", rec.Code)
+	}
+}
+
+func TestAlertSourceField(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	rec := do(t, s, "POST", "/admin/avvisi", alertValues(map[string]string{"source": "Ufficio Stipendi"}), c, hx)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Ufficio Stipendi") {
+		t.Fatalf("fonte: %d\n%s", rec.Code, rec.Body)
+	}
+	current, _, _ := db.ListAlertsForAdmin(fixedNow)
+	if len(current) != 1 || current[0].Source != "Ufficio Stipendi" {
+		t.Fatalf("DB: %+v", current)
+	}
+	rec = do(t, s, "POST", "/admin/avvisi", alertValues(map[string]string{"source": strings.Repeat("x", 61)}), c, hx)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Massimo 60 caratteri.") {
+		t.Fatalf("fonte troppo lunga: %d", rec.Code)
 	}
 }

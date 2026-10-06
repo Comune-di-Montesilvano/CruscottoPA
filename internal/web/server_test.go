@@ -134,3 +134,13 @@ func TestStaticServed(t *testing.T) {
 func itoa(v int64) string { return strconv.FormatInt(v, 10) }
 
 func url_(k, v string) url.Values { return url.Values{k: {v}} }
+
+// Dopo un aggiornamento il browser non deve usare JS/CSS vecchi dalla cache:
+// gli statici si rivalidano sempre (304 se invariati).
+func TestStaticRevalidated(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	rec := do(t, s, "GET", "/static/js/dashboard.js", nil, nil, nil)
+	if rec.Code != 200 || rec.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("statici: %d Cache-Control=%q", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+}

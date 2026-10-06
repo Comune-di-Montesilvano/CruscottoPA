@@ -5,8 +5,22 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/calendar"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
+
+type todayView struct {
+	Day      int
+	Weekday  string
+	Week     int
+	YearDay  int
+	YearDays int
+}
+
+type calendarWidget struct {
+	Month    calendar.MonthView
+	Upcoming []calendar.Occurrence
+}
 
 type dashboardView struct {
 	database.Dashboard
@@ -14,6 +28,26 @@ type dashboardView struct {
 	DateLabel string
 	Clock     string
 	Version   string
+	Today     todayView
+	Calendar  calendarWidget
+}
+
+type avvisiView struct {
+	Alerts  []database.Alert
+	Version string
+}
+
+func (s *Server) calendarWidgetFor(year int, month time.Month) (calendarWidget, error) {
+	evs, err := s.db.ListCalendarEvents()
+	if err != nil {
+		return calendarWidget{}, err
+	}
+	ce := toCalendarEvents(evs)
+	today := s.today()
+	return calendarWidget{
+		Month:    calendar.Month(year, month, ce, today),
+		Upcoming: calendar.Upcoming(today, ce, 5),
+	}, nil
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
@@ -23,12 +57,19 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := s.now().In(s.loc())
+	cw, err := s.calendarWidgetFor(now.Year(), now.Month())
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Dashboard: d,
 		Greeting:  greeting(now.Hour()),
 		DateLabel: italianDate(now),
 		Clock:     now.Format("15:04"),
 		Version:   s.version,
+		Today:     todayInfo(now),
+		Calendar:  cw,
 	})
 }
 
@@ -38,7 +79,27 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, http.StatusOK, "alerts_strip", alerts)
+	s.render(w, http.StatusOK, "alerts_carousel", alerts)
+}
+
+// handleCalendarPartial: mese non valido → mese corrente (mai un errore).
+func (s *Server) handleCalendarPartial(w http.ResponseWriter, r *http.Request) {
+	y, m := calendar.ParseMonth(r.URL.Query().Get("mese"), s.today())
+	cw, err := s.calendarWidgetFor(y, m)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.render(w, http.StatusOK, "widget_calendario", cw)
+}
+
+func (s *Server) handleAvvisi(w http.ResponseWriter, r *http.Request) {
+	alerts, err := s.db.ListActiveAlerts(s.now())
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.render(w, http.StatusOK, "avvisi.html", avvisiView{Alerts: alerts, Version: s.version})
 }
 
 // greeting: stesse soglie di dashboard.js (che lo aggiorna lato client).
@@ -61,4 +122,13 @@ var (
 
 func italianDate(t time.Time) string {
 	return fmt.Sprintf("%s %d %s %d", weekdays[t.Weekday()], t.Day(), months[t.Month()-1], t.Year())
+}
+
+func todayInfo(t time.Time) todayView {
+	_, week := t.ISOWeek()
+	days := 365
+	if y := t.Year(); y%4 == 0 && (y%100 != 0 || y%400 == 0) {
+		days = 366
+	}
+	return todayView{Day: t.Day(), Weekday: weekdays[t.Weekday()], Week: week, YearDay: t.YearDay(), YearDays: days}
 }

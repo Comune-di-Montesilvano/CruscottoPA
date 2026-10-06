@@ -89,10 +89,12 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) routes() {
 	static := http.FileServer(http.Dir(filepath.Join(s.webDir, "static")))
-	s.mux.Handle("GET /static/", http.StripPrefix("/static/", static))
+	s.mux.Handle("GET /static/", revalidate(http.StripPrefix("/static/", static)))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
+	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
+	s.mux.HandleFunc("GET /avvisi", s.handleAvvisi)
 	s.mux.HandleFunc("GET /admin/login", s.handleLoginForm)
 	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)
@@ -116,6 +118,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/avvisi", s.requireAdmin(s.handleAlertSave))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}", s.requireAdmin(s.handleAlertSave))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}/elimina", s.requireAdmin(s.handleAlertDelete))
+	s.mux.HandleFunc("GET /admin/calendario", s.requireAdmin(s.handleCalendarPage))
+	s.mux.HandleFunc("GET /admin/calendario/{id}/modifica", s.requireAdmin(s.handleCalendarEdit))
+	s.mux.HandleFunc("POST /admin/calendario", s.requireAdmin(s.handleCalendarSave))
+	s.mux.HandleFunc("POST /admin/calendario/{id}", s.requireAdmin(s.handleCalendarSave))
+	s.mux.HandleFunc("POST /admin/calendario/{id}/elimina", s.requireAdmin(s.handleCalendarDelete))
 	s.mux.HandleFunc("GET /admin/categorie", s.requireAdmin(s.handleCategoriesPage))
 	s.mux.HandleFunc("GET /admin/categorie/{id}/modifica", s.requireAdmin(s.handleCategoryEdit))
 	s.mux.HandleFunc("POST /admin/categorie", s.requireAdmin(s.handleCategorySave))
@@ -140,4 +147,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"status": status, "version": s.version})
+}
+
+// revalidate impone al browser di ricontrollare gli statici a ogni uso
+// (304 se invariati): dopo un aggiornamento nessuno resta con JS/CSS vecchi.
+func revalidate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
 }

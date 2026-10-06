@@ -7,7 +7,7 @@
 {{range .}}
 <tr>
 	<td><span class="pill pill-{{.Level}}">{{levelLabel .Level}}</span></td>
-	<td>{{.Title}}<br><small class="muted">di {{.CreatedBy}}</small></td>
+	<td>{{.Title}}<br><small class="muted">{{alertSource .Source}} · di {{.CreatedBy}}</small></td>
 	<td class="muted">{{fmtDate .StartsAt}}{{if .EndsAt}} → {{fmtDatePtr .EndsAt}}{{else}} → senza scadenza{{end}}</td>
 	<td><span class="tag{{if eq .Status "Scaduto"}}{{else if eq .Status "Programmato"}} warn{{end}}">{{.Status}}</span></td>
 	<td class="actions">
@@ -34,6 +34,8 @@
 		</div>
 		{{with .Errors.title}}<p class="field-error">{{.}}</p>{{end}}
 		{{with .Errors.level}}<p class="field-error">{{.}}</p>{{end}}
+		<label>Fonte (facoltativa)<input name="source" value="{{.Form.Source}}" maxlength="60" placeholder="Servizio informatico"></label>
+		{{with .Errors.source}}<p class="field-error">{{.}}</p>{{end}}
 		<label>Testo<textarea name="body" maxlength="2000" rows="5">{{.Form.Body}}</textarea></label>
 		{{with .Errors.body}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">Testo semplice: gli a capo vengono mantenuti, gli indirizzi https://… diventano link.</p>{{end}}
 		<div class="row">
