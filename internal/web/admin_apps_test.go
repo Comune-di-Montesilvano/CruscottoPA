@@ -110,8 +110,8 @@ func TestAppUploadLifecycle(t *testing.T) {
 		t.Fatalf("upload PNG: %d\n%s", rec.Code, rec.Body)
 	}
 	a, _ := db.GetApp(id)
-	file := filepath.Join(s.iconDir(), a.IconValue)
-	if a.IconKind != "upload" || !iconFileRe.MatchString(a.IconValue) {
+	file := filepath.Join(s.uploadDir(uploadIcons), a.IconValue)
+	if a.IconKind != "upload" || !uploadFileRe.MatchString(a.IconValue) {
 		t.Fatalf("icona caricata: %+v", a)
 	}
 	// 5) salvataggio senza nuovo file → mantiene l'icona

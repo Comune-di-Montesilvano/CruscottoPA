@@ -202,7 +202,7 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 		file, _, err := r.FormFile("icon_file")
 		switch {
 		case err == nil:
-			name, saveErr := s.saveIcon(file)
+			name, saveErr := s.saveUpload(uploadIcons, file)
 			file.Close()
 			switch {
 			case errors.Is(saveErr, errIconType), errors.Is(saveErr, errIconSize):
@@ -236,12 +236,12 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 		err = s.db.UpdateApp(a)
 	}
 	if err != nil {
-		s.removeIcon(uploaded)
+		s.removeUpload(uploadIcons, uploaded)
 		s.serverError(w, err)
 		return
 	}
 	if current.IconKind == database.IconUpload && current.IconValue != a.IconValue {
-		s.removeIcon(current.IconValue)
+		s.removeUpload(uploadIcons, current.IconValue)
 	}
 	s.renderApps(w, http.StatusOK, newAppForm(), nil)
 }
@@ -265,7 +265,7 @@ func (s *Server) handleAppDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.IconKind == database.IconUpload {
-		s.removeIcon(a.IconValue)
+		s.removeUpload(uploadIcons, a.IconValue)
 	}
 	s.renderApps(w, http.StatusOK, newAppForm(), nil)
 }
