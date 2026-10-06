@@ -1,6 +1,6 @@
 # Riconoscimento utente
 
-Data: 2026-10-06 · Stato: in revisione · Sotto-progetto 4, prima parte: riconoscimento e saluto
+Data: 2026-10-06 · Stato: implementata · Sotto-progetto 4, prima parte: riconoscimento e saluto
 
 ## Contesto e obiettivo
 
