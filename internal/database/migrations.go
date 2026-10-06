@@ -12,6 +12,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV1Schema,
 	migrateV2Seed,
 	migrateV3CalendarAndSource,
+	migrateV4Branding,
 }
 
 func (db *DB) migrate() error {
@@ -122,6 +123,20 @@ CREATE TABLE calendar_events (
 CREATE INDEX idx_calendar_range ON calendar_events(starts_on, ends_on);
 
 ALTER TABLE alerts ADD COLUMN source TEXT NOT NULL DEFAULT '';
+`)
+	return err
+}
+
+func migrateV4Branding(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE branding (
+	id         INTEGER PRIMARY KEY CHECK (id = 1),
+	ente_name  TEXT NOT NULL DEFAULT '',
+	logo_file  TEXT NOT NULL DEFAULT '',
+	updated_at TEXT NOT NULL DEFAULT '',
+	updated_by TEXT NOT NULL DEFAULT ''
+);
+INSERT INTO branding (id) VALUES (1);
 `)
 	return err
 }
