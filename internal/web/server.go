@@ -86,6 +86,12 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	s.mux.HandleFunc("GET /admin", s.requireAdmin(s.handleOverview))
+	s.mux.HandleFunc("GET /admin/categorie", s.requireAdmin(s.handleCategoriesPage))
+	s.mux.HandleFunc("GET /admin/categorie/{id}/modifica", s.requireAdmin(s.handleCategoryEdit))
+	s.mux.HandleFunc("POST /admin/categorie", s.requireAdmin(s.handleCategorySave))
+	s.mux.HandleFunc("POST /admin/categorie/{id}", s.requireAdmin(s.handleCategorySave))
+	s.mux.HandleFunc("POST /admin/categorie/{id}/elimina", s.requireAdmin(s.handleCategoryDelete))
+	s.mux.HandleFunc("POST /admin/categorie/{id}/sposta", s.requireAdmin(s.handleCategoryMove))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
