@@ -1,0 +1,69 @@
+{{define "admin_avvisi.html"}}{{template "admin_top" .}}
+<h1>Avvisi</h1>
+{{template "alerts_section" .Body}}
+{{template "admin_bottom" .}}{{end}}
+
+{{define "alert_rows"}}
+{{range .}}
+<tr>
+	<td><span class="pill pill-{{.Level}}">{{levelLabel .Level}}</span></td>
+	<td>{{.Title}}<br><small class="muted">di {{.CreatedBy}}</small></td>
+	<td class="muted">{{fmtDate .StartsAt}}{{if .EndsAt}} → {{fmtDatePtr .EndsAt}}{{else}} → senza scadenza{{end}}</td>
+	<td><span class="tag{{if eq .Status "Scaduto"}}{{else if eq .Status "Programmato"}} warn{{end}}">{{.Status}}</span></td>
+	<td class="actions">
+		<button type="button" hx-get="/admin/avvisi/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
+		<button class="danger" type="button" hx-post="/admin/avvisi/{{.ID}}/elimina" hx-confirm="Eliminare l'avviso «{{.Title}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
+	</td>
+</tr>
+{{end}}
+{{end}}
+
+{{define "alerts_section"}}
+<div id="section">
+	<form class="card form" hx-post="{{if .Form.ID}}/admin/avvisi/{{.Form.ID}}{{else}}/admin/avvisi{{end}}" hx-target="#section" hx-swap="outerHTML">
+		<h2>{{if .Form.ID}}Modifica avviso{{else}}Nuovo avviso{{end}}</h2>
+		<div class="row">
+			<label>Titolo<input name="title" value="{{.Form.Title}}" maxlength="120" required></label>
+			<label>Livello
+				<select name="level">
+					<option value="urgent"{{if eq .Form.Level "urgent"}} selected{{end}}>Urgente</option>
+					<option value="maintenance"{{if eq .Form.Level "maintenance"}} selected{{end}}>Manutenzione</option>
+					<option value="news"{{if eq .Form.Level "news"}} selected{{end}}>Novità</option>
+				</select>
+			</label>
+		</div>
+		{{with .Errors.title}}<p class="field-error">{{.}}</p>{{end}}
+		{{with .Errors.level}}<p class="field-error">{{.}}</p>{{end}}
+		<label>Testo<textarea name="body" maxlength="2000" rows="5">{{.Form.Body}}</textarea></label>
+		{{with .Errors.body}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">Testo semplice: gli a capo vengono mantenuti, gli indirizzi https://… diventano link.</p>{{end}}
+		<div class="row">
+			<label>Visibile dal<input type="datetime-local" name="starts_at" value="{{.Form.StartsAt}}" required></label>
+			<label>Fino al (facoltativo)<input type="datetime-local" name="ends_at" value="{{.Form.EndsAt}}"></label>
+		</div>
+		{{with .Errors.starts_at}}<p class="field-error">{{.}}</p>{{end}}
+		{{with .Errors.ends_at}}<p class="field-error">{{.}}</p>{{end}}
+		<div class="actions">
+			<button class="primary" type="submit">Salva</button>
+			{{if .Form.ID}}<a class="button" href="/admin/avvisi">Annulla</a>{{end}}
+		</div>
+	</form>
+
+	<h2>Attivi e programmati</h2>
+	<table class="list">
+		<thead><tr><th>Livello</th><th>Avviso</th><th>Periodo</th><th>Stato</th><th></th></tr></thead>
+		<tbody>
+			{{template "alert_rows" .Current}}
+			{{if not .Current}}<tr><td colspan="5" class="muted">Nessun avviso attivo o programmato.</td></tr>{{end}}
+		</tbody>
+	</table>
+
+	{{if .Expired}}
+	<h2 class="spaced">Scaduti (ultimi 30)</h2>
+	<p class="hint">Per riattivarne uno, modificalo e sposta o togli la data di fine.</p>
+	<table class="list">
+		<thead><tr><th>Livello</th><th>Avviso</th><th>Periodo</th><th>Stato</th><th></th></tr></thead>
+		<tbody>{{template "alert_rows" .Expired}}</tbody>
+	</table>
+	{{end}}
+</div>
+{{end}}

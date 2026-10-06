@@ -1,0 +1,21 @@
+{{define "admin_login.html"}}<!doctype html>
+<html lang="it">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Accesso · CruscottoPA</title>
+	<link rel="stylesheet" href="/static/css/app.css">
+	<link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body class="login">
+	<form class="login-card" method="post" action="/admin/login">
+		<h1>CruscottoPA</h1>
+		<p class="hint">Accesso amministratori con le credenziali di dominio.</p>
+		{{with .Error}}<p class="flash error" role="alert">{{.}}</p>{{end}}
+		<label>Utente<input name="username" value="{{.Username}}" autocomplete="username" required autofocus></label>
+		<label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+		<button class="primary" type="submit">Accedi</button>
+		<small>v{{.Version}}</small>
+	</form>
+</body>
+</html>{{end}}

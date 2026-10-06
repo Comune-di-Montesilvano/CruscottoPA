@@ -1,0 +1,32 @@
+{{define "admin_overview.html"}}{{template "admin_top" .}}
+<h1>Panoramica</h1>
+{{with .Body}}
+<div class="stats">
+	<a class="stat" href="/admin/app"><b>{{.Apps}}</b>applicativi</a>
+	<a class="stat" href="/admin/guide"><b>{{.Guides}}</b>guide</a>
+	<a class="stat" href="/admin/categorie"><b>{{.Categories}}</b>categorie</a>
+	<a class="stat" href="/admin/avvisi"><b>{{len .ActiveAlerts}}</b>avvisi attivi</a>
+</div>
+
+{{if .Incomplete}}
+<section class="card">
+	<h2>Applicativi da completare</h2>
+	<p class="hint">Non compaiono in plancia finché non hanno un indirizzo.</p>
+	<ul class="plain">
+		{{range .Incomplete}}
+		<li>{{template "app_icon" .}}<span>{{.Title}}</span><a href="/admin/app?modifica={{.ID}}">Aggiungi indirizzo</a></li>
+		{{end}}
+	</ul>
+</section>
+{{end}}
+
+<section class="card">
+	<h2>Avvisi attivi</h2>
+	{{range .ActiveAlerts}}
+	<p><span class="pill pill-{{.Level}}">{{levelLabel .Level}}</span> {{.Title}}</p>
+	{{else}}
+	<p class="hint">Nessun avviso attivo.</p>
+	{{end}}
+</section>
+{{end}}
+{{template "admin_bottom" .}}{{end}}

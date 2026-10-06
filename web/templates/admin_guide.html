@@ -1,0 +1,51 @@
+{{define "admin_guide.html"}}{{template "admin_top" .}}
+<h1>Guide</h1>
+{{template "guides_section" .Body}}
+{{template "admin_bottom" .}}{{end}}
+
+{{define "guides_section"}}
+<div id="section">
+	<form class="card form" hx-post="{{if .Form.ID}}/admin/guide/{{.Form.ID}}{{else}}/admin/guide{{end}}" hx-target="#section" hx-swap="outerHTML">
+		<h2>{{if .Form.ID}}Modifica guida{{else}}Nuova guida{{end}}</h2>
+		<div class="row">
+			<label>Titolo<input name="title" value="{{.Form.Title}}" maxlength="120" required></label>
+			<label>Applicativo
+				<select name="app_id">
+					<option value="0"{{if eq .Form.AppID 0}} selected{{end}}>Generale (colonna laterale)</option>
+					{{$sel := .Form.AppID}}
+					{{range .Apps}}<option value="{{.ID}}"{{if eq .ID $sel}} selected{{end}}>{{.Title}}</option>{{end}}
+				</select>
+			</label>
+		</div>
+		{{with .Errors.title}}<p class="field-error">{{.}}</p>{{end}}
+		{{with .Errors.app}}<p class="field-error">{{.}}</p>{{end}}
+		<label>Indirizzo (URL)<input name="url" value="{{.Form.URL}}" placeholder="https://…" required></label>
+		{{with .Errors.url}}<p class="field-error">{{.}}</p>{{end}}
+		<label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Form.Enabled}} checked{{end}}>Visibile in plancia</label>
+		<div class="actions">
+			<button class="primary" type="submit">Salva</button>
+			{{if .Form.ID}}<a class="button" href="/admin/guide">Annulla</a>{{end}}
+		</div>
+	</form>
+
+	<table class="list">
+		<thead><tr><th>Guida</th><th>Applicativo</th><th></th></tr></thead>
+		<tbody>
+			{{range .Guides}}
+			<tr>
+				<td><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if not .Enabled}} <span class="tag">nascosta</span>{{end}}</td>
+				<td class="muted">{{if .AppTitle}}{{.AppTitle}}{{else}}Generale{{end}}</td>
+				<td class="actions">
+					<button class="icon" type="button" title="Su" hx-post="/admin/guide/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>
+					<button class="icon" type="button" title="Giù" hx-post="/admin/guide/{{.ID}}/sposta" hx-vals='{"dir":"down"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_downward</span></button>
+					<button type="button" hx-get="/admin/guide/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
+					<button class="danger" type="button" hx-post="/admin/guide/{{.ID}}/elimina" hx-confirm="Eliminare la guida «{{.Title}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
+				</td>
+			</tr>
+			{{else}}
+			<tr><td colspan="3" class="muted">Nessuna guida.</td></tr>
+			{{end}}
+		</tbody>
+	</table>
+</div>
+{{end}}

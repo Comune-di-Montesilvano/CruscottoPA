@@ -1,0 +1,91 @@
+{{define "admin_app.html"}}{{template "admin_top" .}}
+<h1>Applicativi</h1>
+{{template "apps_section" .Body}}
+{{template "admin_bottom" .}}{{end}}
+
+{{define "icon_results"}}{{range .}}<button type="button" class="icon-choice" data-icon="{{.}}" title="{{.}}"><span class="material-icons" aria-hidden="true">{{.}}</span></button>{{else}}<p class="hint">Nessuna icona trovata.</p>{{end}}{{end}}
+
+{{define "apps_section"}}
+<div id="section">
+	{{with .Errors.general}}<p class="flash error" role="alert">{{.}}</p>{{end}}
+	{{if not .Categories}}
+	<p class="flash">Crea prima una <a href="/admin/categorie">categoria</a>.</p>
+	{{else}}
+	<form class="card form" hx-post="{{if .Form.ID}}/admin/app/{{.Form.ID}}{{else}}/admin/app{{end}}" hx-encoding="multipart/form-data" hx-target="#section" hx-swap="outerHTML">
+		<h2>{{if .Form.ID}}Modifica applicativo{{else}}Nuovo applicativo{{end}}</h2>
+		<div class="row">
+			<label>Titolo<input name="title" value="{{.Form.Title}}" maxlength="120" required></label>
+			<label>Categoria
+				<select name="category_id">
+					{{$sel := .Form.CategoryID}}
+					{{range .Categories}}<option value="{{.ID}}"{{if eq .ID $sel}} selected{{end}}>{{.Name}}</option>{{end}}
+				</select>
+			</label>
+		</div>
+		{{with .Errors.title}}<p class="field-error">{{.}}</p>{{end}}
+		{{with .Errors.category}}<p class="field-error">{{.}}</p>{{end}}
+		<label>Descrizione breve<input name="description" value="{{.Form.Description}}" maxlength="200"></label>
+		{{with .Errors.description}}<p class="field-error">{{.}}</p>{{end}}
+		<label>Indirizzo (URL)<input name="url" value="{{.Form.URL}}" placeholder="https://…"></label>
+		{{with .Errors.url}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">Senza indirizzo l'applicativo non compare in plancia.</p>{{end}}
+
+		<fieldset class="icon-field">
+			<legend>Icona</legend>
+			<div class="icon-tabs">
+				<label class="inline"><input type="radio" name="icon_kind" value="pack" id="ik-pack"{{if eq .Form.IconKind "pack"}} checked{{end}}>Pacchetto</label>
+				<label class="inline"><input type="radio" name="icon_kind" value="upload" id="ik-upload"{{if eq .Form.IconKind "upload"}} checked{{end}}>Carica file</label>
+				<label class="inline"><input type="radio" name="icon_kind" value="url" id="ik-url"{{if eq .Form.IconKind "url"}} checked{{end}}>Da URL</label>
+				<label class="inline"><input type="radio" name="icon_kind" value="" id="ik-none"{{if eq .Form.IconKind ""}} checked{{end}}>Iniziali</label>
+			</div>
+			<div class="icon-panel" data-kind="pack">
+				<div class="icon-pick">
+					<span class="app-icon" data-preview style="background:{{.Form.IconColor}}"><span class="material-icons" aria-hidden="true" data-preview-icon>{{if eq .Form.IconKind "pack"}}{{.Form.IconValue}}{{else}}apps{{end}}</span></span>
+					<label>Icona scelta<input name="icon_value_pack" value="{{if eq .Form.IconKind "pack"}}{{.Form.IconValue}}{{end}}" readonly></label>
+				</div>
+				<input type="search" name="q" placeholder="Cerca nel catalogo: mail, account, receipt…" autocomplete="off" hx-get="/admin/icone" hx-trigger="input changed delay:300ms, focus once" hx-target="#icon-results" hx-swap="innerHTML">
+				<div id="icon-results" class="icon-results"></div>
+			</div>
+			<div class="icon-panel" data-kind="upload">
+				<input type="file" name="icon_file" accept="image/png,image/webp,image/svg+xml">
+				<p class="hint">PNG, WebP o SVG, massimo 512 KB.{{if eq .Form.IconKind "upload"}} Lascia vuoto per mantenere l'icona attuale.{{end}}</p>
+			</div>
+			<div class="icon-panel" data-kind="url">
+				<input name="icon_value_url" value="{{if eq .Form.IconKind "url"}}{{.Form.IconValue}}{{end}}" placeholder="https://…/logo.png">
+				<p class="hint">Se l'immagine non è raggiungibile, in plancia compaiono le iniziali.</p>
+			</div>
+			<label class="inline">Colore di sfondo<input type="color" name="icon_color" value="{{.Form.IconColor}}"></label>
+			{{with .Errors.icon}}<p class="field-error">{{.}}</p>{{end}}
+		</fieldset>
+
+		<label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Form.Enabled}} checked{{end}}>Visibile in plancia</label>
+		<div class="actions">
+			<button class="primary" type="submit">Salva</button>
+			{{if .Form.ID}}<a class="button" href="/admin/app">Annulla</a>{{end}}
+		</div>
+	</form>
+	{{end}}
+
+	<table class="list">
+		<thead><tr><th></th><th>Applicativo</th><th>Categoria</th><th>Indirizzo</th><th></th></tr></thead>
+		<tbody>
+			{{range .Apps}}
+			<tr>
+				<td>{{template "app_icon" .App}}</td>
+				<td>{{.Title}}{{if not .Enabled}} <span class="tag">nascosto</span>{{end}}{{if .GuideCount}} <span class="tag">{{.GuideCount}} guide</span>{{end}}</td>
+				<td class="muted">{{.CategoryName}}</td>
+				<td>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener" class="muted">{{.URL}}</a>{{else}}<span class="tag warn">da completare</span>{{end}}</td>
+				<td class="actions">
+					<button class="icon" type="button" title="Su" hx-post="/admin/app/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>
+					<button class="icon" type="button" title="Giù" hx-post="/admin/app/{{.ID}}/sposta" hx-vals='{"dir":"down"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_downward</span></button>
+					<button type="button" hx-get="/admin/app/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
+					<button class="danger" type="button" hx-post="/admin/app/{{.ID}}/elimina" hx-target="#section" hx-swap="outerHTML"
+						hx-confirm="Eliminare «{{.Title}}»?{{if eq .GuideCount 1}} La sua guida diventerà generale.{{else if .GuideCount}} Le sue {{.GuideCount}} guide diventeranno generali.{{end}}">Elimina</button>
+				</td>
+			</tr>
+			{{else}}
+			<tr><td colspan="5" class="muted">Nessun applicativo.</td></tr>
+			{{end}}
+		</tbody>
+	</table>
+</div>
+{{end}}

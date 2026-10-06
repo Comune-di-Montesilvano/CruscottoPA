@@ -21,10 +21,23 @@ I dati (database SQLite) vivono nel volume nominato `cruscottopa-data`, montato 
 
 Puntare lo stack a questo repository, file `docker-compose.yml`, e impostare le variabili di `.env.example` nella sezione *Environment variables* dello stack.
 
+## Amministrazione
+
+`/admin` richiede il login con le credenziali di dominio (LDAP/Active Directory). Sono amministratori gli utenti del gruppo `LDAP_ADMIN_GROUP` o elencati in `ADMIN_USERS`. Da lì si gestiscono:
+
+- **Avvisi**: urgente, manutenzione o novità, con periodo di visibilità;
+- **Applicativi**: titolo, indirizzo, categoria e icona (catalogo Material Icons, file caricato o URL);
+- **Guide**: link a guide e FAQ, generali oppure agganciate a un applicativo (pulsante "?" sulla sua card);
+- **Categorie**: raggruppamento delle card in plancia.
+
+Al primo avvio esistono solo la categoria "Applicativi" con Rubrica e Webmail **senza indirizzo**: compaiono in plancia dopo averlo inserito.
+
+`LDAP_HOST` è obbligatorio. Solo in sviluppo si può usare `LDAP_HOST=mock`, che accetta qualsiasi credenziale come amministratore: mai in produzione.
+
 ## Sviluppo
 
 ```bash
-go run ./cmd/server           # http://localhost:8080
+LDAP_HOST=mock go run ./cmd/server   # http://localhost:8080
 go test ./...
 go vet ./...
 ```

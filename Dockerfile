@@ -39,6 +39,7 @@ RUN apk add --no-cache ca-certificates tzdata \
 WORKDIR /app
 
 ENV DB_PATH=/data/cruscotto.db \
+  UPLOAD_DIR=/data/uploads \
   PORT=8080 \
   TZ=Europe/Rome
 
