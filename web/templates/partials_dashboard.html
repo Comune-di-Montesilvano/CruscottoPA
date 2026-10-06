@@ -1,0 +1,38 @@
+{{define "alerts_strip"}}{{if .}}
+<div class="ticker">
+	{{range .}}
+	<button type="button" class="pill pill-{{.Level}}" data-dialog="alert-{{.ID}}"><b>{{levelLabel .Level}}</b> {{.Title}}</button>
+	{{end}}
+</div>
+{{range .}}
+<dialog id="alert-{{.ID}}" class="alert-dialog alert-{{.Level}}">
+	<h3><span class="badge">{{levelLabel .Level}}</span> {{.Title}}</h3>
+	<p class="when">Dal {{fmtDate .StartsAt}}{{if .EndsAt}} al {{fmtDatePtr .EndsAt}}{{end}}</p>
+	{{if .Body}}<div class="alert-body">{{linkify .Body}}</div>{{end}}
+	<form method="dialog"><button>Chiudi</button></form>
+</dialog>
+{{end}}
+{{end}}{{end}}
+
+{{define "app_icon"}}{{if eq .IconKind "pack"}}<span class="app-icon" style="background:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<img class="app-icon" src="/uploads/icons/{{.IconValue}}" alt="">{{else if eq .IconKind "url"}}<img class="app-icon" src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}">{{else}}<span class="app-icon" style="background:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
+
+{{define "app_tile"}}
+<div class="tile" data-search-item data-search="{{.Title}} {{.Description}}{{range .Guides}} {{.Title}}{{end}}">
+	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
+		{{template "app_icon" .App}}
+		<span class="tile-text">
+			<span class="tile-title">{{.Title}}</span>
+			{{with .Description}}<small>{{.}}</small>{{end}}
+		</span>
+	</a>
+	{{if .Guides}}
+	<button type="button" class="tile-guides" popovertarget="guides-{{.ID}}" aria-label="Guide per {{.Title}}"><b>?</b>{{len .Guides}}</button>
+	<div class="guides-pop" id="guides-{{.ID}}" popover>
+		<div class="pop-title">Guide {{.Title}}</div>
+		<ul>
+			{{range .Guides}}<li><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></li>{{end}}
+		</ul>
+	</div>
+	{{end}}
+</div>
+{{end}}

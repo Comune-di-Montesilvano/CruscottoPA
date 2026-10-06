@@ -79,7 +79,8 @@ func (s *Server) routes() {
 	static := http.FileServer(http.Dir(filepath.Join(s.webDir, "static")))
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", static))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
-	s.mux.HandleFunc("GET /{$}", s.handleIndex)
+	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
+	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -90,9 +91,4 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"status": status, "version": s.version})
-}
-
-// handleIndex è temporaneo: il Task 8 lo sostituisce con la plancia.
-func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	s.render(w, http.StatusOK, "index.html", map[string]any{"Version": s.version})
 }

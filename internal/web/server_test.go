@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -109,3 +110,5 @@ func TestStaticServed(t *testing.T) {
 		t.Fatalf("static: %d", rec.Code)
 	}
 }
+
+func itoa(v int64) string { return strconv.FormatInt(v, 10) }
