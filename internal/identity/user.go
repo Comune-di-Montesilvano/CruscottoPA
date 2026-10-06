@@ -13,7 +13,6 @@ import (
 type User struct {
 	Username  string
 	Name      string
-	Office    string
 	Anonymous bool // riconoscimento tentato e non riuscito
 }
 
@@ -52,22 +51,4 @@ func (c *CookieCodec) Decode(v string) (User, bool) {
 		return User{}, false
 	}
 	return u, true
-}
-
-// Concerns dice se un contenuto assegnato a offices riguarda chi è in
-// userOffice. Nessun ufficio = per tutti.
-func Concerns(userOffice string, offices []string) bool {
-	if len(offices) == 0 {
-		return true
-	}
-	userOffice = strings.TrimSpace(userOffice)
-	if userOffice == "" {
-		return false
-	}
-	for _, o := range offices {
-		if strings.EqualFold(strings.TrimSpace(o), userOffice) {
-			return true
-		}
-	}
-	return false
 }

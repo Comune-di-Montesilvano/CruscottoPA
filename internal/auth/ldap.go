@@ -53,7 +53,7 @@ func (l *LDAP) Authenticate(username, password string) (bool, bool, error) {
 		return true, isAdmin || len(l.cfg.AdminUsers) == 0, nil
 	}
 
-	conn, err := l.dial()
+	conn, err := Dial(l.cfg)
 	if err != nil {
 		return false, false, err
 	}
@@ -96,18 +96,20 @@ func (l *LDAP) Authenticate(username, password string) (bool, bool, error) {
 	return true, isAdmin, nil
 }
 
-func (l *LDAP) dial() (*ldap.Conn, error) {
+// Dial apre la connessione LDAP con le stesse regole TLS del login admin
+// (StartTLS fallito = errore, nessun ripiego in chiaro).
+func Dial(cfg config.LDAP) (*ldap.Conn, error) {
 	tlsCfg := &tls.Config{
-		InsecureSkipVerify: l.cfg.TLSSkipVerify, //nolint:gosec // opzione esplicita per CA interne
-		ServerName:         ldapHostname(l.cfg.Host),
+		InsecureSkipVerify: cfg.TLSSkipVerify, //nolint:gosec // opzione esplicita per CA interne
+		ServerName:         ldapHostname(cfg.Host),
 	}
-	conn, err := ldap.DialURL(l.cfg.Host, ldap.DialWithTLSConfig(tlsCfg))
+	conn, err := ldap.DialURL(cfg.Host, ldap.DialWithTLSConfig(tlsCfg))
 	if err != nil {
 		return nil, fmt.Errorf("ldap dial: %w", err)
 	}
 	conn.SetTimeout(5 * time.Second)
 
-	if l.cfg.StartTLS && strings.HasPrefix(l.cfg.Host, "ldap://") {
+	if cfg.StartTLS && strings.HasPrefix(cfg.Host, "ldap://") {
 		if err := conn.StartTLS(tlsCfg); err != nil {
 			conn.Close()
 			return nil, fmt.Errorf("ldap StartTLS: %w (LDAP_STARTTLS=false solo su rete fidata)", err)
