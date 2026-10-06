@@ -1,38 +1,100 @@
-{{define "alerts_strip"}}{{if .}}
-<div class="ticker">
-	{{range .}}
-	<button type="button" class="pill pill-{{.Level}}" data-dialog="alert-{{.ID}}"><b>{{levelLabel .Level}}</b> {{.Title}}</button>
-	{{end}}
-</div>
-{{range .}}
-<dialog id="alert-{{.ID}}" class="alert-dialog alert-{{.Level}}">
-	<h3><span class="badge">{{levelLabel .Level}}</span> {{.Title}}</h3>
-	<p class="when">Dal {{fmtDate .StartsAt}}{{if .EndsAt}} al {{fmtDatePtr .EndsAt}}{{end}}</p>
-	{{if .Body}}<div class="alert-body">{{linkify .Body}}</div>{{end}}
-	<form method="dialog"><button>Chiudi</button></form>
-</dialog>
+{{define "alert_card"}}
+<article class="news news-{{.Level}}" data-alert="{{.ID}}">
+	<div class="news-head">
+		<span class="news-level">{{levelLabel .Level}}</span>
+		<span class="news-source">{{alertSource .Source}}</span>
+		<span class="news-when">dal {{fmtDate .StartsAt}}{{if .EndsAt}} · fino al {{fmtDatePtr .EndsAt}}{{end}}</span>
+	</div>
+	<h3 class="news-title">{{.Title}}</h3>
+	{{if .Body}}<div class="news-body">{{linkify .Body}}</div>{{end}}
+</article>
 {{end}}
+
+{{define "alerts_carousel"}}{{if .}}
+<section class="carousel" data-carousel tabindex="0" aria-roledescription="carosello" aria-label="Avvisi">
+	<div class="carousel-track">{{range .}}{{template "alert_card" .}}{{end}}</div>
+	<div class="carousel-controls">
+		{{if gt (len .) 1}}
+		<button type="button" data-prev aria-label="Avviso precedente">‹</button>
+		<span class="counter" data-counter></span>
+		<button type="button" data-next aria-label="Avviso successivo">›</button>
+		<button type="button" data-pause aria-label="Metti in pausa">❚❚</button>
+		<span class="dots">{{range .}}<span class="dot"></span>{{end}}</span>
+		{{end}}
+		<a class="more" href="/avvisi">Tutti gli avvisi →</a>
+	</div>
+</section>
+{{range .}}{{if eq .Level "urgent"}}
+<dialog class="urgent" data-urgent="{{.ID}}" data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
+	<div class="urgent-head"><span class="urgent-badge">Urgente</span><span class="urgent-title" id="urgent-{{.ID}}">{{.Title}}</span></div>
+	{{if .Body}}<div class="urgent-body">{{linkify .Body}}</div>{{end}}
+	<form method="dialog" class="urgent-foot">
+		<span>{{alertSource .Source}} · {{fmtDate .StartsAt}}</span>
+		<button value="letto">Ho letto</button>
+	</form>
+</dialog>
+{{end}}{{end}}
 {{end}}{{end}}
 
 {{define "app_icon"}}{{if eq .IconKind "pack"}}<span class="app-icon" style="background:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<img class="app-icon" src="/uploads/icons/{{.IconValue}}" alt="">{{else if eq .IconKind "url"}}<img class="app-icon" src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}">{{else}}<span class="app-icon" style="background:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
+{{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"><img src="/uploads/icons/{{.IconValue}}" alt=""></span>{{else if eq .IconKind "url"}}<span class="tile-icon"><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
+
 {{define "app_tile"}}
-<div class="tile" data-search-item data-search="{{.Title}} {{.Description}}{{range .Guides}} {{.Title}}{{end}}">
+<div class="tile" style="background:{{tint .IconColor}}" data-search-item data-search="{{.Title}} {{.Description}}{{range .Guides}} {{.Title}}{{end}}">
 	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
-		{{template "app_icon" .App}}
+		{{template "tile_icon" .App}}
 		<span class="tile-text">
 			<span class="tile-title">{{.Title}}</span>
-			{{with .Description}}<small>{{.}}</small>{{end}}
+			{{with .Description}}<span class="tile-desc">{{.}}</span>{{end}}
 		</span>
 	</a>
-	{{if .Guides}}
-	<button type="button" class="tile-guides" popovertarget="guides-{{.ID}}" aria-label="Guide per {{.Title}}"><b>?</b>{{len .Guides}}</button>
-	<div class="guides-pop" id="guides-{{.ID}}" popover>
-		<div class="pop-title">Guide {{.Title}}</div>
-		<ul>
-			{{range .Guides}}<li><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></li>{{end}}
-		</ul>
+	{{if .Guides}}<button type="button" class="tile-badge" data-flyout-toggle aria-expanded="false">{{len .Guides}} {{if eq (len .Guides) 1}}guida{{else}}guide{{end}}</button>{{end}}
+	<div class="tile-fly" aria-label="Dettagli {{.Title}}">
+		{{with .Description}}<p>{{.}}</p>{{end}}
+		{{if .Guides}}
+		<div class="fly-label">Guide</div>
+		<ul>{{range .Guides}}<li><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></li>{{end}}</ul>
+		{{end}}
+		<a class="fly-open" href="{{.URL}}" target="_blank" rel="noopener">Apri {{.Title}} ↗</a>
 	</div>
-	{{end}}
 </div>
 {{end}}
+
+{{define "widget_oggi"}}
+<section class="widget today" aria-label="Oggi">
+	<div class="today-num">{{.Day}}</div>
+	<div><div class="today-wd">{{.Weekday}}</div><small>Settimana {{.Week}} · giorno {{.YearDay}} di {{.YearDays}}</small></div>
+</section>
+{{end}}
+
+{{define "widget_calendario"}}
+<section class="widget cal" id="widget-calendario" aria-label="Calendario">
+	<div class="cal-head">
+		<h2 class="widget-title">{{.Month.Label}}</h2>
+		<span class="cal-nav">
+			<button type="button" hx-get="/partials/calendario?mese={{.Month.Prev}}" hx-target="#widget-calendario" hx-swap="outerHTML" aria-label="Mese precedente">‹</button>
+			<button type="button" hx-get="/partials/calendario?mese={{.Month.Next}}" hx-target="#widget-calendario" hx-swap="outerHTML" aria-label="Mese successivo">›</button>
+		</span>
+	</div>
+	<table class="cal-grid">
+		<thead><tr><th>L</th><th>M</th><th>M</th><th>G</th><th>V</th><th>S</th><th>D</th></tr></thead>
+		<tbody>
+			{{range .Month.Weeks}}<tr>{{range .}}<td class="{{if not .InMonth}}out{{end}}{{if .Today}} now{{end}}{{if .Red}} red{{end}}{{if .Closure}} closed{{end}}{{if .Event}} ev{{end}}">{{if .Entries}}<button type="button" class="cal-day" popovertarget="giorno-{{.ID}}">{{.Num}}</button><div class="pop" id="giorno-{{.ID}}" popover><div class="pop-title">{{shortDay .Date}}</div><ul>{{range .Entries}}<li><b>{{.Title}}</b>{{with .Description}}<br><small>{{.}}</small>{{end}}</li>{{end}}</ul></div>{{else}}<span>{{.Num}}</span>{{end}}</td>{{end}}</tr>{{end}}
+		</tbody>
+	</table>
+	<div class="legend"><span><i class="lg-red"></i>Festivo</span><span><i class="lg-closed"></i>Chiusura ente</span><span><i class="lg-ev"></i>Scadenza / evento</span></div>
+	{{if .Upcoming}}
+	<ul class="upcoming">
+		{{range .Upcoming}}<li class="up-{{.Kind}}"><b>{{occRange .}}</b><span>{{.Title}}</span></li>{{end}}
+	</ul>
+	{{end}}
+</section>
+{{end}}
+
+{{define "widget_guide"}}{{if .}}
+<section class="widget guides" aria-label="Guide generali">
+	<h2 class="widget-title">Guide generali</h2>
+	<ul>{{range .}}<li data-search-item data-search="{{.Title}}"><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></li>{{end}}</ul>
+</section>
+{{end}}{{end}}

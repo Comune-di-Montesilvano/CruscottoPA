@@ -1,36 +1,40 @@
-{{define "dashboard.html"}}<!doctype html>
-<html lang="it">
-<head>
+{{define "plancia_head"}}
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
-	<title>CruscottoPA</title>
 	<link rel="stylesheet" href="/static/fonts/material-icons.css">
 	<link rel="stylesheet" href="/static/css/app.css">
+	<link rel="stylesheet" href="/static/css/plancia.css">
 	<script src="/static/js/htmx.min.js" defer></script>
 	<script src="/static/js/dashboard.js" defer></script>
+{{end}}
+
+{{define "dashboard.html"}}<!doctype html>
+<html lang="it">
+<head>
+	{{template "plancia_head"}}
+	<title>CruscottoPA</title>
 </head>
-<body>
-	<header class="top">
-		<div>
-			<div class="hello" data-greeting>{{.Greeting}}</div>
-			<div class="date" data-date>{{.DateLabel}}</div>
-		</div>
-		<div class="clock" data-clock>{{.Clock}}</div>
-		<label class="search">
-			<span class="material-icons" aria-hidden="true">search</span>
-			<input type="search" id="search" placeholder="Cerca applicativo o guida…" autocomplete="off" aria-label="Cerca applicativo o guida">
-			<kbd>/</kbd>
-		</label>
+<body class="plancia">
+	<header class="hero">
+		<div class="hero-bar"><span class="brand">CruscottoPA · Comune di Montesilvano</span><span class="clock" data-clock>{{.Clock}}</span></div>
+		<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name"></span></h1>
+		<p class="hero-date" data-date>{{.DateLabel}}</p>
 	</header>
 
-	<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_strip" .Alerts}}</div>
+	<label class="search">
+		<span class="material-icons" aria-hidden="true">search</span>
+		<input type="search" id="search" placeholder="Cerca un applicativo o una guida…" autocomplete="off" aria-label="Cerca un applicativo o una guida">
+		<kbd>/</kbd>
+	</label>
 
-	<main class="body">
-		<section class="apps">
+	<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
+
+	<main class="layout">
+		<section class="apps" aria-label="Applicativi">
 			{{range .Categories}}
 			<div class="category" data-category>
-				<h2>{{.Name}}</h2>
+				<h2 class="section-title">{{.Name}} <span>{{len .Apps}}</span></h2>
 				<div class="grid">
 					{{range .Apps}}{{template "app_tile" .}}{{end}}
 				</div>
@@ -41,18 +45,13 @@
 			<p class="empty" id="no-results" hidden>Nessun risultato.</p>
 		</section>
 
-		{{if .GeneralGuides}}
-		<aside class="guides">
-			<h2>Guide generali</h2>
-			<ul>
-				{{range .GeneralGuides}}
-				<li data-search-item data-search="{{.Title}}"><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></li>
-				{{end}}
-			</ul>
+		<aside class="widgets" aria-label="Oggi, calendario e guide">
+			{{template "widget_oggi" .Today}}
+			{{template "widget_calendario" .Calendar}}
+			{{template "widget_guide" .GeneralGuides}}
 		</aside>
-		{{end}}
 	</main>
 
-	<footer>CruscottoPA v{{.Version}}</footer>
+	<footer class="foot">CruscottoPA v{{.Version}}</footer>
 </body>
 </html>{{end}}

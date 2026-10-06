@@ -41,7 +41,7 @@ func TestCreateAlertShowsInDashboard(t *testing.T) {
 	if !current[0].StartsAt.Equal(time.Date(2026, 10, 6, 7, 0, 0, 0, time.UTC)) {
 		t.Fatalf("09:00 a Roma (CEST) = 07:00Z, ottenuto %v", current[0].StartsAt)
 	}
-	if dash := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(dash, "pill-maintenance") {
+	if dash := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(dash, "news-maintenance") {
 		t.Fatal("l'avviso attivo deve comparire in plancia")
 	}
 }

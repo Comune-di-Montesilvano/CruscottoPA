@@ -93,6 +93,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
+	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
+	s.mux.HandleFunc("GET /avvisi", s.handleAvvisi)
 	s.mux.HandleFunc("GET /admin/login", s.handleLoginForm)
 	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)

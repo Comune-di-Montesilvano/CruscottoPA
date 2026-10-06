@@ -143,7 +143,7 @@ func TestDeleteAppWarnsAboutGuides(t *testing.T) { // Review Focus #4
 		t.Fatalf("elimina: %d", rec.Code)
 	}
 	dash := do(t, s, "GET", "/", nil, nil, nil).Body.String()
-	if !strings.Contains(dash, `class="guides"`) || !strings.Contains(dash, "Cercare un interno") {
+	if !strings.Contains(dash, `class="widget guides"`) || !strings.Contains(dash, "Cercare un interno") {
 		t.Fatal("dopo l'eliminazione la guida deve comparire tra le generali")
 	}
 }
