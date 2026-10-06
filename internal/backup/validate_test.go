@@ -135,3 +135,17 @@ func TestExtractSizeLimit(t *testing.T) {
 		t.Fatalf("atteso rifiuto per dimensione, ottenuto %v", err)
 	}
 }
+
+// Difesa in profondità: anche se entryName lasciasse passare un percorso,
+// safeJoin non deve mai restituire un file fuori dalla cartella di destinazione.
+func TestSafeJoin(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "restore-tmp")
+	if p, err := safeJoin(dest, "uploads/icons/a.png"); err != nil || !strings.HasPrefix(p, dest) {
+		t.Fatalf("percorso valido rifiutato: %q %v", p, err)
+	}
+	for _, bad := range []string{"../evil", "uploads/../../evil", "/etc/passwd", ".."} {
+		if _, err := safeJoin(dest, bad); err == nil {
+			t.Errorf("safeJoin(%q): atteso errore", bad)
+		}
+	}
+}

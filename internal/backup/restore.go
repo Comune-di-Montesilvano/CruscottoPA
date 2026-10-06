@@ -65,7 +65,10 @@ func (s *Service) extract(archive string) (m Manifest, err error) {
 		if err != nil {
 			return m, err
 		}
-		target := filepath.Join(dest, filepath.FromSlash(name))
+		target, err := safeJoin(dest, name)
+		if err != nil {
+			return m, err
+		}
 		switch {
 		case hdr.Typeflag == tar.TypeDir:
 			if err := os.MkdirAll(target, 0o750); err != nil {
@@ -106,6 +109,20 @@ func (s *Service) extract(archive string) (m Manifest, err error) {
 		return m, err
 	}
 	return *manifest, nil
+}
+
+// safeJoin unisce dest e il nome di una voce garantendo che il risultato resti
+// dentro dest (difesa in profondità oltre a entryName, contro lo "zip slip").
+func safeJoin(dest, name string) (string, error) {
+	if name == "" || strings.HasPrefix(name, "/") || filepath.IsAbs(name) {
+		return "", invalid("Percorso non ammesso nell'archivio: %s", name)
+	}
+	base := filepath.Clean(dest)
+	target := filepath.Join(base, filepath.FromSlash(name))
+	if !strings.HasPrefix(target, base+string(os.PathSeparator)) {
+		return "", invalid("Percorso non ammesso nell'archivio: %s", name)
+	}
+	return target, nil
 }
 
 // entryName ammette solo file/cartelle regolari sotto manifest.json, cruscotto.db, uploads/.
