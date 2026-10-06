@@ -1,10 +1,10 @@
-# Riconoscimento utente e filtri per ufficio — Implementation Plan
+# Riconoscimento utente — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** riconoscere via NTLM (identità dichiarata) chi apre la plancia da un PC del dominio, salutarlo per nome e mostrargli i contenuti per tutti più quelli del suo ufficio (da AD), con "Mostra tutto"; uffici assegnabili da admin.
+**Goal:** riconoscere via NTLM (identità dichiarata) chi apre la plancia da un PC del dominio e salutarlo per nome. I filtri sui contenuti sono una fase successiva (spec §9), configurabile da interfaccia.
 
-**Architecture:** nuovo pacchetto `internal/identity` (parser NTLM, cookie firmato dell'utente, regola di pertinenza, directory LDAP/mock). Endpoint `/io` chiamato in background da `dashboard.js` fa l'handshake e salva il cookie. Il server filtra plancia/avvisi in base al cookie e al cookie di preferenza `cruscotto_tutto`. Tabelle `*_offices` (migrazione v5) collegano app, guide e avvisi agli uffici.
+**Architecture:** nuovo pacchetto `internal/identity` (parser NTLM, cookie firmato dell'utente, directory LDAP/mock che legge solo il nome). Endpoint `/io` chiamato in background da `dashboard.js` fa l'handshake e salva il cookie; la plancia saluta per nome.
 
 **Tech Stack:** Go 1.26 (`net/http`, `html/template`), `github.com/go-ldap/ldap/v3`, `github.com/gorilla/securecookie`, SQLite `modernc.org/sqlite`, JS senza dipendenze.
 
@@ -13,23 +13,23 @@
 ## Global Constraints
 
 - **Identità dichiarata, mai usata per autorizzare**: il cookie utente non dà accesso a `/admin` né ad alcuna azione. Scriverlo nei commenti di `identity` e di `/io`.
-- Ufficio = `physicalDeliveryOfficeName` di AD; confronto senza maiuscole/minuscole e spazi ai bordi.
+- Nessun criterio di filtro nel codice: di AD si legge solo il nome (`displayName`).
 - `NTLM_DOMAIN` vuota = riconoscimento disattivato; attivo solo se c'è anche una directory (`LDAP_BIND_DN` impostato oppure `LDAP_HOST=mock`).
 - Cookie `cruscotto_utente`: `Path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` come il cookie admin; 30 giorni se riconosciuto, 24 ore se anonimo.
-- Cookie di preferenza `cruscotto_tutto=1`: `Path=/`, 1 anno, `SameSite=Lax`, non `HttpOnly`.
 - `/io`: `Cache-Control: no-store`; 404 con riconoscimento disattivato.
-- Migrazioni: la v5 va in coda, mai modificare le precedenti.
 - Nuova env var in tre posti: `docker-compose.yml`, `.env.example`, codice.
 - CSP invariata: niente script/stili inline, niente `on*=`.
 - Testi in italiano. `go test ./...`, `go vet ./...`, `gofmt -l internal/` vuoto.
 
 ## Review Focus
 
-- Messaggio NTLM ostile (offset/lunghezze oltre il buffer, overflow di `offset+len`, lunghezza dispari): mai panic, risposta 400 → fuzz + casi in Task 2.
-- Cookie utente valido ma richiesta a `/admin`: deve restare 303 al login → test in Task 6.
-- Utente riconosciuto senza ufficio in AD: vede solo i contenuti per tutti, nessun errore → test in Task 7.
-- Avviso urgente di un altro ufficio con "Mostra tutto" attivo: compare nel carosello ma **senza** popup → test in Task 7.
-- Ufficio assegnato a un elemento e poi sparito da AD: resta modificabile in admin ("non più in AD") e il salvataggio non lo rifiuta → test in Task 8.
+- Messaggio NTLM ostile (offset/lunghezze oltre il buffer, overflow di `offset+len`, lunghezza dispari): mai panic, risposta 400 → fuzz e casi in Task 2.
+- Cookie utente valido ma richiesta a `/admin`: deve restare 303 al login → test in Task 5.
+- Utente riconosciuto senza `displayName` in AD: solo il saluto, nessuna virgola orfana → test in Task 6.
+- Browser che non completa NTLM (PC fuori dominio): cookie anonimo, nessun nuovo tentativo per 24 ore → test in Task 5 e 6.
+- `NTLM_DOMAIN` impostato senza `LDAP_BIND_DN`: riconoscimento spento con warning, plancia normale → `TestIoDisabled`/wiring in Task 5.
+
+> Revisione 2026-10-06: su richiesta dell'utente i filtri per ufficio (ex task 5, 7, 8) sono rimandati alla fase successiva, con criterio (gruppi AD o attributo) e regole "mostra solo a"/"nascondi a" configurati da interfaccia. Il Task 4 rimuove ciò che il Task 3 aveva aggiunto per i filtri.
 
 ## Prima di iniziare
 
@@ -582,22 +582,23 @@ git commit -m "feat(identity): cookie firmato dell'utente e regola di pertinenza
 
 ---
 
-### Task 4: directory LDAP e mock
+### Task 4: directory AD (solo nome) e pulizia di `identity`
+
+> Revisione 2026-10-06: i filtri sui contenuti passano alla fase successiva (spec §9). Questo task toglie da `identity` ciò che il Task 3 aveva aggiunto per i filtri (`User.Office`, `Concerns`).
 
 **Files:**
 - Modify: `internal/auth/ldap.go` (esportare `Dial`)
 - Create: `internal/identity/directory.go`, `internal/identity/directory_test.go`
+- Modify: `internal/identity/user.go`, `internal/identity/user_test.go` (via `Office` e `Concerns`)
 
 **Interfaces:**
-- Consumes: `config.LDAP`, `auth.Dial`.
+- Consumes: `config.LDAP`.
 - Produces:
-  - `auth.Dial(cfg config.LDAP) (*ldap.Conn, error)` (ex metodo `dial`)
-  - `identity.Person{Username, Name, Office string}`
-  - `identity.Directory` interface: `Lookup(username string) (Person, error)`, `Offices() ([]string, error)`
-  - `identity.ErrUnknownUser`
-  - `identity.NewLDAPDirectory(cfg config.LDAP) *LDAPDirectory`
-  - `identity.MockDirectory{}` (Lookup: Name=username, Office=`INFORMATIZZAZIONE`; Offices: `AMMINISTRATIVO`, `INFORMATIZZAZIONE`, `TRIBUTI`)
-  - `identity.userFilter(username string) (string, error)` (non esportata, testata)
+  - `auth.Dial(cfg config.LDAP) (*ldap.Conn, error)`
+  - `identity.Person{Username, Name string}`
+  - `identity.Directory` interface: `Lookup(username string) (Person, error)`
+  - `identity.ErrUnknownUser`, `identity.NewLDAPDirectory(cfg config.LDAP) *LDAPDirectory`, `identity.MockDirectory{}`
+  - `identity.User{Username, Name string; Anonymous bool}` (senza `Office`)
 
 - [ ] **Step 1: test che falliscono**
 
@@ -627,50 +628,27 @@ func TestUserFilter(t *testing.T) {
 func TestMockDirectory(t *testing.T) {
 	var d Directory = MockDirectory{}
 	p, err := d.Lookup("MRossi")
-	if err != nil || p.Username != "mrossi" || p.Office != "INFORMATIZZAZIONE" {
+	if err != nil || p != (Person{Username: "mrossi", Name: "MRossi"}) {
 		t.Fatalf("Lookup: %+v %v", p, err)
 	}
-	if o, err := d.Offices(); err != nil || len(o) != 3 {
-		t.Fatalf("Offices: %v %v", o, err)
+	if _, err := d.Lookup("a b"); !errors.Is(err, ErrUnknownUser) {
+		t.Fatal("username non valido accettato")
 	}
 }
 ```
+
+In `user_test.go` togliere `TestConcerns` e il campo `Office` dall'utente di `TestCookieRoundTrip`.
 
 - [ ] **Step 2: verifica che falliscano**
 
-Run: `go test ./internal/identity/ -run 'UserFilter|MockDirectory'`
-Expected: errori di compilazione.
+Run: `go test ./internal/identity/`
+Expected: errori di compilazione (`userFilter`, `MockDirectory` non definiti).
 
-- [ ] **Step 3: esportare `Dial`**
+- [ ] **Step 3: `auth.Dial`**
 
-In `internal/auth/ldap.go` sostituire il metodo `dial` con una funzione esportata e farlo usare a `Authenticate`:
+In `internal/auth/ldap.go` trasformare il metodo `dial` in funzione esportata `Dial(cfg config.LDAP) (*ldap.Conn, error)` (stesso corpo, `l.cfg` → `cfg`, commento: "stesse regole TLS del login admin, StartTLS fallito = errore") e in `Authenticate` usare `Dial(l.cfg)`.
 
-```go
-// Dial apre la connessione LDAP con le stesse regole TLS del login admin
-// (StartTLS fallito = errore, nessun ripiego in chiaro).
-func Dial(cfg config.LDAP) (*ldap.Conn, error) {
-	tlsCfg := &tls.Config{
-		InsecureSkipVerify: cfg.TLSSkipVerify, //nolint:gosec // opzione esplicita per CA interne
-		ServerName:         ldapHostname(cfg.Host),
-	}
-	conn, err := ldap.DialURL(cfg.Host, ldap.DialWithTLSConfig(tlsCfg))
-	if err != nil {
-		return nil, fmt.Errorf("ldap dial: %w", err)
-	}
-	conn.SetTimeout(5 * time.Second)
-	if cfg.StartTLS && strings.HasPrefix(cfg.Host, "ldap://") {
-		if err := conn.StartTLS(tlsCfg); err != nil {
-			conn.Close()
-			return nil, fmt.Errorf("ldap StartTLS: %w (LDAP_STARTTLS=false solo su rete fidata)", err)
-		}
-	}
-	return conn, nil
-}
-```
-
-e in `Authenticate`: `conn, err := Dial(l.cfg)`.
-
-- [ ] **Step 4: directory**
+- [ ] **Step 4: directory e pulizia**
 
 `internal/identity/directory.go`:
 
@@ -681,10 +659,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/go-ldap/ldap/v3"
 
@@ -698,65 +673,46 @@ var ErrUnknownUser = errors.New("identity: utente non trovato in AD")
 // Person è un utente di AD come serve alla plancia.
 type Person struct {
 	Username string // sAMAccountName, minuscolo
-	Name     string // displayName
-	Office   string // physicalDeliveryOfficeName, spazi ai bordi rimossi
+	Name     string // displayName, "" se assente
 }
 
-// Directory cerca utenti e uffici.
+// Directory cerca gli utenti riconosciuti via NTLM.
 type Directory interface {
 	Lookup(username string) (Person, error)
-	Offices() ([]string, error) // valori distinti, ordinati
 }
 
 // Stessa regola dello username del login admin.
 var usernameRe = regexp.MustCompile(`^[A-Za-z0-9._@-]{1,128}$`)
 
-const activeUsers = `(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))`
-
+// userFilter cerca per sAMAccountName (il nome che NTLM trasmette), solo utenti attivi.
 func userFilter(username string) (string, error) {
 	if !usernameRe.MatchString(username) {
 		return "", ErrUnknownUser
 	}
-	return fmt.Sprintf("(&%s(sAMAccountName=%s))", activeUsers, ldap.EscapeFilter(username)), nil
+	return fmt.Sprintf("(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(sAMAccountName=%s))",
+		ldap.EscapeFilter(username)), nil
 }
 
 // LDAPDirectory interroga AD con l'account di servizio (LDAP_BIND_DN).
-type LDAPDirectory struct {
-	cfg config.LDAP
-
-	mu        sync.Mutex
-	offices   []string
-	officesAt time.Time
-}
-
-const officesTTL = 6 * time.Hour
+type LDAPDirectory struct{ cfg config.LDAP }
 
 func NewLDAPDirectory(cfg config.LDAP) *LDAPDirectory { return &LDAPDirectory{cfg: cfg} }
-
-func (d *LDAPDirectory) conn() (*ldap.Conn, error) {
-	conn, err := auth.Dial(d.cfg)
-	if err != nil {
-		return nil, err
-	}
-	if err := conn.Bind(d.cfg.BindDN, d.cfg.BindPassword); err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("ldap bind di servizio: %w", err)
-	}
-	return conn, nil
-}
 
 func (d *LDAPDirectory) Lookup(username string) (Person, error) {
 	filter, err := userFilter(username)
 	if err != nil {
 		return Person{}, err
 	}
-	conn, err := d.conn()
+	conn, err := auth.Dial(d.cfg)
 	if err != nil {
 		return Person{}, err
 	}
 	defer conn.Close()
+	if err := conn.Bind(d.cfg.BindDN, d.cfg.BindPassword); err != nil {
+		return Person{}, fmt.Errorf("ldap bind di servizio: %w", err)
+	}
 	res, err := conn.Search(ldap.NewSearchRequest(d.cfg.BaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 1, 5, false,
-		filter, []string{"sAMAccountName", "displayName", "physicalDeliveryOfficeName"}, nil))
+		filter, []string{"sAMAccountName", "displayName"}, nil))
 	if err != nil {
 		return Person{}, fmt.Errorf("ldap search: %w", err)
 	}
@@ -767,50 +723,7 @@ func (d *LDAPDirectory) Lookup(username string) (Person, error) {
 	return Person{
 		Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")),
 		Name:     strings.TrimSpace(e.GetAttributeValue("displayName")),
-		Office:   strings.TrimSpace(e.GetAttributeValue("physicalDeliveryOfficeName")),
 	}, nil
-}
-
-// Offices: cache di 6 ore; se AD non risponde restituisce l'ultimo elenco valido.
-func (d *LDAPDirectory) Offices() ([]string, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.offices != nil && time.Since(d.officesAt) < officesTTL {
-		return d.offices, nil
-	}
-	list, err := d.loadOffices()
-	if err != nil {
-		if d.offices != nil {
-			return d.offices, nil
-		}
-		return nil, err
-	}
-	d.offices, d.officesAt = list, time.Now()
-	return list, nil
-}
-
-func (d *LDAPDirectory) loadOffices() ([]string, error) {
-	conn, err := d.conn()
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-	res, err := conn.SearchWithPaging(ldap.NewSearchRequest(d.cfg.BaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 30, false,
-		"(&"+activeUsers+"(physicalDeliveryOfficeName=*))", []string{"physicalDeliveryOfficeName"}, nil), 500)
-	if err != nil {
-		return nil, fmt.Errorf("ldap search uffici: %w", err)
-	}
-	seen := map[string]bool{}
-	list := []string{}
-	for _, e := range res.Entries {
-		o := strings.TrimSpace(e.GetAttributeValue("physicalDeliveryOfficeName"))
-		if k := strings.ToUpper(o); o != "" && !seen[k] {
-			seen[k] = true
-			list = append(list, o)
-		}
-	}
-	sort.Strings(list)
-	return list, nil
 }
 
 // MockDirectory: per LDAP_HOST=mock (solo sviluppo).
@@ -820,272 +733,37 @@ func (MockDirectory) Lookup(username string) (Person, error) {
 	if !usernameRe.MatchString(username) {
 		return Person{}, ErrUnknownUser
 	}
-	return Person{Username: strings.ToLower(username), Name: username, Office: "INFORMATIZZAZIONE"}, nil
-}
-
-func (MockDirectory) Offices() ([]string, error) {
-	return []string{"AMMINISTRATIVO", "INFORMATIZZAZIONE", "TRIBUTI"}, nil
+	return Person{Username: strings.ToLower(username), Name: username}, nil
 }
 ```
 
+In `user.go`: togliere il campo `Office` e la funzione `Concerns`.
+
 - [ ] **Step 5: verifica**
 
-Run: `go test ./internal/identity/ ./internal/auth/ && go vet ./...`
-Expected: PASS (i test di `auth` usano ancora `Authenticate` invariato).
+Run: `go test ./internal/identity/ ./internal/auth/ && go vet ./... && gofmt -l internal/`
+Expected: PASS.
 
 - [ ] **Step 6: commit**
 
 ```bash
 git add internal/auth/ldap.go internal/identity
-git commit -m "feat(identity): directory AD (utente e uffici) e mock"
+git commit -m "feat(identity): directory AD per il nome dell'utente; filtri rimandati"
 ```
 
 ---
 
-### Task 5: uffici nel database (migrazione v5)
+### Task 5: endpoint `/io` e cookie dell'utente nel server
 
 **Files:**
-- Modify: `internal/database/migrations.go`
-- Create: `internal/database/offices.go`, `internal/database/offices_test.go`
-- Modify: `internal/database/alerts.go` (campo `OtherOffices`)
-
-**Interfaces:**
-- Produces:
-  - `database.OfficeKind` con `OfficesApp`, `OfficesGuide`, `OfficesAlert`
-  - `func (db *DB) Offices(k OfficeKind) (map[int64][]string, error)`
-  - `func (db *DB) OfficesOf(k OfficeKind, id int64) ([]string, error)` (slice mai nil)
-  - `func (db *DB) SetOffices(k OfficeKind, id int64, offices []string) error`
-  - `database.Alert.OtherOffices bool` (calcolato dal web, non salvato)
-
-- [ ] **Step 1: test che falliscono**
-
-`internal/database/offices_test.go`:
-
-```go
-package database
-
-import (
-	"reflect"
-	"testing"
-	"time"
-)
-
-func TestOfficesLifecycle(t *testing.T) {
-	db := newTestDB(t)
-	apps, _ := db.ListApps()
-	app := apps[0].ID
-
-	if got, err := db.OfficesOf(OfficesApp, app); err != nil || len(got) != 0 || got == nil {
-		t.Fatalf("iniziale: %v %v", got, err)
-	}
-	if err := db.SetOffices(OfficesApp, app, []string{"TRIBUTI", " LLPP ", "tributi", ""}); err != nil {
-		t.Fatal(err)
-	}
-	if got, _ := db.OfficesOf(OfficesApp, app); !reflect.DeepEqual(got, []string{"LLPP", "TRIBUTI"}) {
-		t.Fatalf("dopo Set (trim, vuoti e doppioni senza maiuscole tolti, ordinati): %v", got)
-	}
-	if m, _ := db.Offices(OfficesApp); !reflect.DeepEqual(m[app], []string{"LLPP", "TRIBUTI"}) {
-		t.Fatalf("Offices: %v", m)
-	}
-	if err := db.SetOffices(OfficesApp, app, nil); err != nil {
-		t.Fatal(err)
-	}
-	if got, _ := db.OfficesOf(OfficesApp, app); len(got) != 0 {
-		t.Fatalf("dopo Set vuoto: %v", got)
-	}
-
-	id, err := db.CreateAlert(Alert{Title: "x", Level: LevelNews, StartsAt: time.Now()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetOffices(OfficesAlert, id, []string{"TRIBUTI"})
-	if err := db.DeleteAlert(id); err != nil {
-		t.Fatal(err)
-	}
-	var n int
-	db.QueryRow(`SELECT COUNT(*) FROM alert_offices`).Scan(&n)
-	if n != 0 {
-		t.Fatalf("cancellazione a cascata mancante: %d righe", n)
-	}
-}
-```
-
-(Se `DeleteAlert` ha un altro nome, usare il metodo di cancellazione esistente in `alerts.go`.)
-
-- [ ] **Step 2: verifica che falliscano**
-
-Run: `go test ./internal/database/ -run Offices`
-Expected: errori di compilazione.
-
-- [ ] **Step 3: migrazione e metodi**
-
-`migrations.go`: aggiungere `migrateV5Offices` in coda all'elenco e:
-
-```go
-func migrateV5Offices(tx *sql.Tx) error {
-	_, err := tx.Exec(`
-CREATE TABLE app_offices (
-	app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
-	office TEXT    NOT NULL,
-	PRIMARY KEY (app_id, office)
-);
-CREATE TABLE guide_offices (
-	guide_id INTEGER NOT NULL REFERENCES guides(id) ON DELETE CASCADE,
-	office   TEXT    NOT NULL,
-	PRIMARY KEY (guide_id, office)
-);
-CREATE TABLE alert_offices (
-	alert_id INTEGER NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
-	office   TEXT    NOT NULL,
-	PRIMARY KEY (alert_id, office)
-);
-`)
-	return err
-}
-```
-
-`internal/database/offices.go`:
-
-```go
-package database
-
-import (
-	"fmt"
-	"sort"
-	"strings"
-)
-
-// OfficeKind sceglie la tabella degli uffici (valori AD di physicalDeliveryOfficeName).
-type OfficeKind string
-
-const (
-	OfficesApp   OfficeKind = "app"
-	OfficesGuide OfficeKind = "guide"
-	OfficesAlert OfficeKind = "alert"
-)
-
-func (k OfficeKind) table() (table, col string) {
-	switch k {
-	case OfficesApp:
-		return "app_offices", "app_id"
-	case OfficesGuide:
-		return "guide_offices", "guide_id"
-	case OfficesAlert:
-		return "alert_offices", "alert_id"
-	}
-	panic(fmt.Sprintf("OfficeKind non valido: %q", string(k)))
-}
-
-// Offices restituisce gli uffici di tutti gli elementi del tipo k che ne hanno.
-func (db *DB) Offices(k OfficeKind) (map[int64][]string, error) {
-	table, col := k.table()
-	rows, err := db.Query(`SELECT ` + col + `, office FROM ` + table + ` ORDER BY ` + col + `, office COLLATE NOCASE`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[int64][]string{}
-	for rows.Next() {
-		var id int64
-		var o string
-		if err := rows.Scan(&id, &o); err != nil {
-			return nil, err
-		}
-		out[id] = append(out[id], o)
-	}
-	return out, rows.Err()
-}
-
-func (db *DB) OfficesOf(k OfficeKind, id int64) ([]string, error) {
-	table, col := k.table()
-	rows, err := db.Query(`SELECT office FROM `+table+` WHERE `+col+` = ? ORDER BY office COLLATE NOCASE`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []string{}
-	for rows.Next() {
-		var o string
-		if err := rows.Scan(&o); err != nil {
-			return nil, err
-		}
-		out = append(out, o)
-	}
-	return out, rows.Err()
-}
-
-// SetOffices sostituisce gli uffici dell'elemento. Nessun ufficio = per tutti.
-func (db *DB) SetOffices(k OfficeKind, id int64, offices []string) error {
-	table, col := k.table()
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err := tx.Exec(`DELETE FROM `+table+` WHERE `+col+` = ?`, id); err != nil {
-		return err
-	}
-	for _, o := range normalizeOffices(offices) {
-		if _, err := tx.Exec(`INSERT INTO `+table+` (`+col+`, office) VALUES (?, ?)`, id, o); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
-}
-
-// normalizeOffices toglie spazi, vuoti e doppioni (senza maiuscole/minuscole) e ordina.
-func normalizeOffices(in []string) []string {
-	seen := map[string]bool{}
-	out := []string{}
-	for _, o := range in {
-		o = strings.TrimSpace(o)
-		if k := strings.ToUpper(o); o != "" && !seen[k] {
-			seen[k] = true
-			out = append(out, o)
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return strings.ToUpper(out[i]) < strings.ToUpper(out[j]) })
-	return out
-}
-```
-
-`alerts.go`, nello struct `Alert` dopo `CreatedBy`:
-
-```go
-	OtherOffices bool // calcolato dal web per chi guarda, non salvato
-```
-
-- [ ] **Step 4: verifica**
-
-Run: `go test ./internal/database/ ./internal/backup/ ./internal/web/ && go vet ./...`
-Expected: PASS (`TestOpenAppliesMigrationsAndSeed` usa `len(migrations)`).
-
-- [ ] **Step 5: commit**
-
-```bash
-git add internal/database
-git commit -m "feat(database): migrazione 5 con gli uffici di app, guide e avvisi"
-```
-
----
-
-### Task 6: endpoint `/io` e cookie dell'utente nel server
-
-**Files:**
-- Modify: `internal/web/server.go` (Options/Server: `Directory`, `cookies`; route)
+- Modify: `internal/web/server.go` (Options/Server: `Directory`, `directory`, `cookies`; route)
 - Create: `internal/web/identity.go`, `internal/web/identity_test.go`
-- Modify: `internal/web/server_test.go` (directory finta nei test)
+- Modify: `internal/web/server_test.go` (directory finta e `NTLMDomain` nei test)
 - Modify: `cmd/server/main.go`
 
 **Interfaces:**
 - Consumes: `identity.*` (Task 2–4), `config.Config.NTLMDomain` (Task 1).
-- Produces:
-  - `web.Options.Directory identity.Directory`
-  - `func (s *Server) recognitionEnabled() bool`
-  - `func (s *Server) viewer(r *http.Request) (identity.User, bool)` (`false` = nessun cookie valido)
-  - `func (s *Server) setViewer(w http.ResponseWriter, r *http.Request, u identity.User)`
-  - route `GET /io`
-  - nei test: `fakeDirectory` con `people map[string]identity.Person`, `offices []string`, `err error`
+- Produces: `web.Options.Directory identity.Directory`; `s.recognitionEnabled() bool`; `s.viewer(r) (identity.User, bool)`; `s.setViewer(w, r, u)`; `s.cookies *identity.CookieCodec`; route `GET /io`; nei test `fakeDirectory{people map[string]identity.Person; err error}` e `testDirectory`.
 
 - [ ] **Step 1: directory finta nei test**
 
@@ -1093,9 +771,8 @@ In `internal/web/server_test.go`, vicino a `fakeAuth`:
 
 ```go
 type fakeDirectory struct {
-	people  map[string]identity.Person
-	offices []string
-	err     error
+	people map[string]identity.Person
+	err    error
 }
 
 func (f fakeDirectory) Lookup(u string) (identity.Person, error) {
@@ -1109,18 +786,13 @@ func (f fakeDirectory) Lookup(u string) (identity.Person, error) {
 	return p, nil
 }
 
-func (f fakeDirectory) Offices() ([]string, error) { return f.offices, f.err }
-
-var testDirectory = fakeDirectory{
-	people: map[string]identity.Person{
-		"mrossi":  {Username: "mrossi", Name: "Mario Rossi", Office: "TRIBUTI"},
-		"nessuno": {Username: "nessuno", Name: "Senza Ufficio"},
-	},
-	offices: []string{"LLPP", "TRIBUTI"},
-}
+var testDirectory = fakeDirectory{people: map[string]identity.Person{
+	"mrossi":  {Username: "mrossi", Name: "Mario Rossi"},
+	"senzanome": {Username: "senzanome"},
+}}
 ```
 
-In `newTestServerWith`, nell'`Options` di default: `Directory: testDirectory,` e nella `config.Config` del test: `NTLMDomain: "COMUNE-MS",`.
+In `newTestServerWith`, nelle `Options` di default `Directory: testDirectory,` e nella `config.Config` `NTLMDomain: "COMUNE-MS",`.
 
 - [ ] **Step 2: test che falliscono**
 
@@ -1133,6 +805,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -1144,8 +817,7 @@ func ntlmHeader(msg []byte) map[string]string {
 	return map[string]string{"Authorization": "NTLM " + base64.StdEncoding.EncodeToString(msg)}
 }
 
-func cookieNamed(t *testing.T, rec interface{ Result() *http.Response }, name string) *http.Cookie {
-	t.Helper()
+func cookieNamed(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	for _, c := range rec.Result().Cookies() {
 		if c.Name == name {
 			return c
@@ -1161,7 +833,7 @@ func TestIoHandshake(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized || rec.Header().Get("WWW-Authenticate") != "NTLM" || rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("passo 0: %d %v", rec.Code, rec.Header())
 	}
-	if c := cookieNamed(t, rec, identity.CookieName); c == nil || c.MaxAge != int(identity.AnonymousTTL.Seconds()) {
+	if c := cookieNamed(rec, identity.CookieName); c == nil || c.MaxAge != int(identity.AnonymousTTL.Seconds()) {
 		t.Fatal("passo 0: atteso il cookie anonimo da 24 ore")
 	}
 
@@ -1171,22 +843,25 @@ func TestIoHandshake(t *testing.T) {
 	}
 
 	rec = do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("comune-ms", "MRossi", "PC-1")))
-	c := cookieNamed(t, rec, identity.CookieName)
+	c := cookieNamed(rec, identity.CookieName)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"riconosciuto":true`) || !strings.Contains(rec.Body.String(), `"nome":"Mario"`) || c == nil {
 		t.Fatalf("tipo 3: %d %s", rec.Code, rec.Body)
 	}
 	if !c.HttpOnly || c.Path != "/" || c.SameSite != http.SameSiteLaxMode || c.MaxAge != int(identity.UserTTL.Seconds()) {
 		t.Fatalf("attributi del cookie: %+v", c)
 	}
-	if u, ok := s.cookies.Decode(c.Value); !ok || u.Office != "TRIBUTI" || u.Anonymous {
+	if u, ok := s.cookies.Decode(c.Value); !ok || u.Name != "Mario Rossi" || u.Anonymous {
 		t.Fatalf("contenuto del cookie: %+v %v", u, ok)
 	}
 }
 
 func TestIoRejections(t *testing.T) {
 	s, _ := newTestServer(t, nil)
-	anon := func(rec interface{ Result() *http.Response }) bool {
-		c := cookieNamed(t, rec, identity.CookieName)
+	anon := func(rec *httptest.ResponseRecorder) bool {
+		c := cookieNamed(rec, identity.CookieName)
+		if c == nil {
+			return false
+		}
 		u, ok := s.cookies.Decode(c.Value)
 		return ok && u.Anonymous
 	}
@@ -1210,7 +885,7 @@ func TestIoRejections(t *testing.T) {
 func TestIoLDAPDown(t *testing.T) {
 	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Directory = fakeDirectory{err: errors.New("giù")} })
 	rec := do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("COMUNE-MS", "mrossi", "W")))
-	if rec.Code != http.StatusServiceUnavailable || cookieNamed(t, rec, identity.CookieName) != nil {
+	if rec.Code != http.StatusServiceUnavailable || cookieNamed(rec, identity.CookieName) != nil {
 		t.Fatalf("LDAP giù: %d", rec.Code)
 	}
 }
@@ -1225,7 +900,7 @@ func TestIoDisabled(t *testing.T) {
 // Identità dichiarata: il cookie utente non deve mai aprire l'admin.
 func TestViewerCookieDoesNotOpenAdmin(t *testing.T) {
 	s, _ := newTestServer(t, nil)
-	v, _ := s.cookies.Encode(identity.User{Username: "mrossi", Name: "Mario Rossi", Office: "TRIBUTI"})
+	v, _ := s.cookies.Encode(identity.User{Username: "mrossi", Name: "Mario Rossi"})
 	rec := do(t, s, "GET", "/admin", nil, &http.Cookie{Name: identity.CookieName, Value: v}, nil)
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("/admin con il solo cookie utente: atteso 303, ottenuto %d", rec.Code)
@@ -1236,15 +911,11 @@ func TestViewerCookieDoesNotOpenAdmin(t *testing.T) {
 - [ ] **Step 3: verifica che falliscano**
 
 Run: `go test ./internal/web/ -run 'Io|ViewerCookie'`
-Expected: errori di compilazione (`s.cookies undefined`, `Options.Directory`…).
+Expected: errori di compilazione (`s.cookies`, `Options.Directory`).
 
 - [ ] **Step 4: server**
 
-`internal/web/server.go`:
-- in `Options`: `Directory identity.Directory // nil = nessuna directory (riconoscimento spento, uffici AD non disponibili)`
-- in `Server`: `directory identity.Directory` e `cookies *identity.CookieCodec`
-- in `New`: `directory: o.Directory,` nel letterale e, dopo `s.store = newSessionStore(...)`, `s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)`
-- in `routes()`, dopo `/health`: `s.mux.HandleFunc("GET /io", s.handleIo)`
+`internal/web/server.go`: in `Options` `Directory identity.Directory // nil = riconoscimento spento`; in `Server` `directory identity.Directory` e `cookies *identity.CookieCodec`; in `New` `directory: o.Directory,` e, dopo `s.store = …`, `s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)`; in `routes()` dopo `/health`: `s.mux.HandleFunc("GET /io", s.handleIo)`.
 
 `internal/web/identity.go`:
 
@@ -1292,7 +963,7 @@ func (s *Server) setViewer(w http.ResponseWriter, r *http.Request, u identity.Us
 }
 
 // handleIo fa l'handshake NTLM chiamato in background da dashboard.js e salva
-// chi è l'utente (nome e ufficio da AD). Il nome NTLM NON è verificato.
+// chi è l'utente (nome da AD). Il nome NTLM NON è verificato.
 func (s *Server) handleIo(w http.ResponseWriter, r *http.Request) {
 	if !s.recognitionEnabled() {
 		http.NotFound(w, r)
@@ -1344,7 +1015,7 @@ func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg [
 		slog.Warn("riconoscimento: AD non disponibile", "err", err)
 		http.Error(w, "Directory non disponibile", http.StatusServiceUnavailable)
 	default:
-		s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name, Office: p.Office})
+		s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name})
 	}
 }
 
@@ -1355,7 +1026,7 @@ func (s *Server) recognized(w http.ResponseWriter, r *http.Request, u identity.U
 }
 ```
 
-`cmd/server/main.go`, dove si costruiscono le `web.Options` (vicino a `Auth: auth.NewLDAP(cfg.LDAP)`):
+`cmd/server/main.go`, prima di costruire le `web.Options`:
 
 ```go
 	var directory identity.Directory
@@ -1370,142 +1041,57 @@ func (s *Server) recognized(w http.ResponseWriter, r *http.Request, u identity.U
 	}
 ```
 
-e nel letterale `Directory: directory,`.
+e `Directory: directory,` nel letterale.
 
 - [ ] **Step 5: verifica**
 
 Run: `go test ./... && go vet ./... && gofmt -l internal/ cmd/`
-Expected: PASS, nessun file da gofmt.
+Expected: PASS.
 
 - [ ] **Step 6: commit**
 
 ```bash
 git add internal/web cmd/server/main.go
-git commit -m "feat(web): /io riconosce l'utente via NTLM e salva nome e ufficio nel cookie"
+git commit -m "feat(web): /io riconosce l'utente via NTLM e salva il nome nel cookie"
 ```
 
 ---
 
-### Task 7: plancia personalizzata e filtrata
+### Task 6: saluto per nome in plancia
 
 **Files:**
-- Create: `internal/web/offices.go`, `internal/web/offices_test.go`
-- Modify: `internal/web/dashboard.go` (view, handler della plancia, `/partials/alerts`, `/avvisi`)
-- Modify: `web/templates/dashboard.html`, `web/templates/partials_dashboard.html`
-- Modify: `web/static/js/dashboard.js`, `web/static/css/plancia.css`
+- Modify: `internal/web/dashboard.go`, `web/templates/dashboard.html`, `web/static/js/dashboard.js`
+- Test: `internal/web/identity_test.go`
 
 **Interfaces:**
-- Consumes: `s.viewer`, `s.recognitionEnabled` (Task 6); `db.Offices`, `Alert.OtherOffices` (Task 5); `identity.Concerns` (Task 3).
-- Produces:
-  - `const showAllCookie = "cruscotto_tutto"`
-  - `type officeFilter struct { Office string; ShowAll bool; Hidden int }`
-  - `func (s *Server) officeFilterFor(r *http.Request, u identity.User) officeFilter`
-  - `func (f *officeFilter) dashboard(d *database.Dashboard, apps, guides, alerts map[int64][]string)`
-  - `func (f *officeFilter) alerts(list []database.Alert, offices map[int64][]string) []database.Alert`
-  - in `dashboardView`: `User identity.User`, `Recognize bool`, `Filter officeFilter`
+- Consumes: `s.viewer`, `s.recognitionEnabled`, `s.cookies` (Task 5).
+- Produces: in `dashboardView` i campi `User identity.User` e `Recognize bool`.
 
 - [ ] **Step 1: test che falliscono**
 
-`internal/web/offices_test.go`:
+In `internal/web/identity_test.go`:
 
 ```go
-package web
-
-import (
-	"net/http"
-	"strings"
-	"testing"
-	"time"
-
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
-)
-
-// seedOffices: Rubrica (per tutti), Webmail (solo LLPP), una guida generale
-// solo TRIBUTI, un urgente solo LLPP e una novità per tutti.
-func seedOffices(t *testing.T, db *database.DB) {
-	t.Helper()
-	apps, _ := db.ListApps()
-	for _, a := range apps {
-		a.URL = "https://example.it/" + strings.ToLower(a.Title)
-		if err := db.UpdateApp(a.App); err != nil {
-			t.Fatal(err)
-		}
-		if a.Title == "Webmail" {
-			db.SetOffices(database.OfficesApp, a.ID, []string{"LLPP"})
-		}
+func TestDashboardGreetsRecognizedUser(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	v, _ := s.cookies.Encode(identity.User{Username: "mrossi", Name: "Mario Rossi"})
+	body := do(t, s, "GET", "/", nil, &http.Cookie{Name: identity.CookieName, Value: v}, nil).Body.String()
+	if !strings.Contains(body, `<span class="hello-name">, Mario</span>`) || strings.Contains(body, "data-riconosci") {
+		t.Fatal("utente riconosciuto: saluto per nome e nessun nuovo tentativo")
 	}
-	gid, err := db.CreateGuide(database.Guide{Title: "Guida Tributi", URL: "https://example.it/g", Kind: "link", Enabled: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetOffices(database.OfficesGuide, gid, []string{"TRIBUTI"})
-	start := fixedNow.Add(-time.Hour)
-	uid, _ := db.CreateAlert(database.Alert{Title: "Urgente LLPP", Level: database.LevelUrgent, StartsAt: start})
-	db.SetOffices(database.OfficesAlert, uid, []string{"LLPP"})
-	db.CreateAlert(database.Alert{Title: "Novità per tutti", Level: database.LevelNews, StartsAt: start})
-}
-
-func viewerCookie(t *testing.T, s *Server, u identity.User) *http.Cookie {
-	t.Helper()
-	v, err := s.cookies.Encode(u)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &http.Cookie{Name: identity.CookieName, Value: v}
-}
-
-func TestDashboardFilteredByOffice(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	seedOffices(t, db)
-	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", Office: "TRIBUTI"})
-	body := do(t, s, "GET", "/", nil, c, nil).Body.String()
-
-	for _, want := range []string{"Rubrica", "Guida Tributi", "Novità per tutti", ", Mario", "Ufficio TRIBUTI", "Mostra anche i contenuti degli altri uffici (2)"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("manca %q", want)
-		}
-	}
-	for _, no := range []string{"Webmail", "Urgente LLPP", "data-riconosci"} {
-		if strings.Contains(body, no) {
-			t.Errorf("non doveva esserci %q", no)
-		}
+	v, _ = s.cookies.Encode(identity.User{Username: "senzanome"})
+	if body := do(t, s, "GET", "/", nil, &http.Cookie{Name: identity.CookieName, Value: v}, nil).Body.String(); !strings.Contains(body, `<span class="hello-name"></span>`) {
+		t.Fatal("senza nome visualizzato: solo il saluto")
 	}
 }
 
-func TestDashboardShowAll(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	seedOffices(t, db)
-	req := map[string]string{"Cookie": viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", Office: "TRIBUTI"}).String() + "; " + showAllCookie + "=1"}
-	body := do(t, s, "GET", "/", nil, nil, req).Body.String()
-	for _, want := range []string{"Webmail", "Urgente LLPP", "Mostra solo il mio ufficio"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("con Mostra tutto manca %q", want)
-		}
+func TestDashboardRecognizeAttribute(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, "data-riconosci") {
+		t.Fatal("senza cookie: data-riconosci atteso")
 	}
-	// L'urgente di un altro ufficio sta nel carosello ma non apre il popup.
-	if strings.Contains(body, `<dialog class="urgent"`) {
-		t.Error("popup urgente per un altro ufficio")
-	}
-}
-
-func TestDashboardUserWithoutOffice(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	seedOffices(t, db)
-	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "nessuno", Name: "Senza Ufficio"}), nil).Body.String()
-	if !strings.Contains(body, "Rubrica") || strings.Contains(body, "Guida Tributi") || strings.Contains(body, "Webmail") || strings.Contains(body, "Ufficio ") {
-		t.Fatal("senza ufficio: solo contenuti per tutti, nessuna riga ufficio")
-	}
-}
-
-func TestDashboardAnonymousRecognize(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	seedOffices(t, db)
-	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, "data-riconosci") || strings.Contains(body, "Webmail") {
-		t.Fatal("senza cookie: data-riconosci presente e solo contenuti per tutti")
-	}
-	anon := viewerCookie(t, s, identity.User{Anonymous: true})
-	if body := do(t, s, "GET", "/", nil, anon, nil).Body.String(); strings.Contains(body, "data-riconosci") {
+	v, _ := s.cookies.Encode(identity.User{Anonymous: true})
+	if body := do(t, s, "GET", "/", nil, &http.Cookie{Name: identity.CookieName, Value: v}, nil).Body.String(); strings.Contains(body, "data-riconosci") {
 		t.Fatal("con il cookie anonimo non si ritenta")
 	}
 	s2, _ := newTestServerWith(t, nil, func(o *Options) { o.Config.NTLMDomain = "" })
@@ -1513,182 +1099,20 @@ func TestDashboardAnonymousRecognize(t *testing.T) {
 		t.Fatal("riconoscimento spento: nessun tentativo")
 	}
 }
-
-func TestUrgentPopupForOwnOffice(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	seedOffices(t, db)
-	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "x", Name: "X", Office: "llpp"}), nil).Body.String()
-	if !strings.Contains(body, `<dialog class="urgent"`) || !strings.Contains(body, "Webmail") {
-		t.Fatal("LLPP deve vedere Webmail e il popup del proprio urgente")
-	}
-}
-
-func TestAvvisiAndPartialFiltered(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	seedOffices(t, db)
-	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", Office: "TRIBUTI"})
-	for _, path := range []string{"/avvisi", "/partials/alerts"} {
-		body := do(t, s, "GET", path, nil, c, nil).Body.String()
-		if strings.Contains(body, "Urgente LLPP") || !strings.Contains(body, "Novità per tutti") {
-			t.Errorf("%s: filtro avvisi mancante", path)
-		}
-	}
-}
 ```
-
-Prima di scrivere il test verificare i nomi reali: `ListApps` restituisce righe con `App` incorporato (adeguare `a.App`/`a` al tipo reale), `CreateGuide` richiede i campi effettivi di `database.Guide` (es. `Kind`), e il nome del metodo di cancellazione. Adeguare il test, non l'implementazione.
 
 - [ ] **Step 2: verifica che falliscano**
 
-Run: `go test ./internal/web/ -run 'Dashboard|Urgent|AvvisiAndPartial'`
-Expected: errori di compilazione (`showAllCookie undefined`) e poi FAIL sui contenuti.
+Run: `go test ./internal/web/ -run 'Greets|RecognizeAttribute'`
+Expected: FAIL (saluto e attributo assenti).
 
-- [ ] **Step 3: filtro**
+- [ ] **Step 3: implementazione**
 
-`internal/web/offices.go`:
-
-```go
-package web
-
-import (
-	"net/http"
-
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
-)
-
-// showAllCookie: preferenza "Mostra tutto", impostata da dashboard.js.
-const showAllCookie = "cruscotto_tutto"
-
-// officeFilter toglie dalla vista i contenuti di altri uffici. È
-// presentazione, non sicurezza: chi sceglie "Mostra tutto" li vede.
-type officeFilter struct {
-	Office  string
-	ShowAll bool
-	Hidden  int // contenuti esclusi (per il testo dell'interruttore)
-}
-
-func (s *Server) officeFilterFor(r *http.Request, u identity.User) officeFilter {
-	c, err := r.Cookie(showAllCookie)
-	return officeFilter{Office: u.Office, ShowAll: err == nil && c.Value == "1"}
-}
-
-// keep conta ciò che esclude e dice se l'elemento resta in pagina.
-func (f *officeFilter) keep(concerns bool) bool {
-	if concerns || f.ShowAll {
-		return true
-	}
-	f.Hidden++
-	return false
-}
-
-func (f *officeFilter) dashboard(d *database.Dashboard, apps, guides, alerts map[int64][]string) {
-	d.Alerts = f.alerts(d.Alerts, alerts)
-
-	cats := d.Categories[:0]
-	for _, c := range d.Categories {
-		kept := c.Apps[:0]
-		for _, a := range c.Apps {
-			if !f.keep(identity.Concerns(f.Office, apps[a.ID])) {
-				continue
-			}
-			gs := a.Guides[:0]
-			for _, g := range a.Guides {
-				if f.keep(identity.Concerns(f.Office, guides[g.ID])) {
-					gs = append(gs, g)
-				}
-			}
-			a.Guides = gs
-			kept = append(kept, a)
-		}
-		if len(kept) > 0 {
-			c.Apps = kept
-			cats = append(cats, c)
-		}
-	}
-	d.Categories = cats
-
-	gen := d.GeneralGuides[:0]
-	for _, g := range d.GeneralGuides {
-		if f.keep(identity.Concerns(f.Office, guides[g.ID])) {
-			gen = append(gen, g)
-		}
-	}
-	d.GeneralGuides = gen
-}
-
-// alerts filtra gli avvisi; con "Mostra tutto" quelli di altri uffici restano
-// ma marcati, così non aprono il popup degli urgenti.
-func (f *officeFilter) alerts(list []database.Alert, offices map[int64][]string) []database.Alert {
-	out := list[:0]
-	for _, a := range list {
-		concerns := identity.Concerns(f.Office, offices[a.ID])
-		if !f.keep(concerns) {
-			continue
-		}
-		a.OtherOffices = !concerns
-		out = append(out, a)
-	}
-	return out
-}
-```
-
-`internal/web/dashboard.go`:
-- `dashboardView` riceve `User identity.User`, `Recognize bool`, `Filter officeFilter`; `avvisiView` riceve `Filter officeFilter` (non usato nel template, ma utile per coerenza: se non serve, ometterlo).
-- Helper:
-
-```go
-// visibleAlerts applica il filtro uffici a una lista di avvisi attivi.
-func (s *Server) visibleAlerts(r *http.Request, list []database.Alert) ([]database.Alert, officeFilter, error) {
-	u, _ := s.viewer(r)
-	f := s.officeFilterFor(r, u)
-	offices, err := s.db.Offices(database.OfficesAlert)
-	if err != nil {
-		return nil, f, err
-	}
-	return f.alerts(list, offices), f, nil
-}
-```
-
-- `handleDashboard`, dopo `GetDashboard`:
-
-```go
-	u, known := s.viewer(r)
-	f := s.officeFilterFor(r, u)
-	apps, err := s.db.Offices(database.OfficesApp)
-	if err != nil {
-		s.serverError(w, err)
-		return
-	}
-	guides, err := s.db.Offices(database.OfficesGuide)
-	if err != nil {
-		s.serverError(w, err)
-		return
-	}
-	alerts, err := s.db.Offices(database.OfficesAlert)
-	if err != nil {
-		s.serverError(w, err)
-		return
-	}
-	f.dashboard(&d, apps, guides, alerts)
-```
-
-e nel letterale della view: `User: u, Recognize: !known && s.recognitionEnabled(), Filter: f,`.
-- `handleAlertsPartial` e `handleAvvisi`: dopo `ListActiveAlerts`, `alerts, _, err = s.visibleAlerts(r, alerts)` con gestione errore `s.serverError`.
-
-- [ ] **Step 4: template, JS e CSS**
+`internal/web/dashboard.go`: in `dashboardView` aggiungere `User identity.User` e `Recognize bool`; in `handleDashboard`, prima del render, `u, known := s.viewer(r)` e nel letterale `User: u, Recognize: !known && s.recognitionEnabled(),`.
 
 `web/templates/dashboard.html`:
 - `<body class="plancia">` → `<body class="plancia"{{if .Recognize}} data-riconosci{{end}}>`
 - `<span class="hello-name"></span>` → `<span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span>`
-- dopo `<p class="hero-date" data-date>…</p>`: `{{with .User.Office}}<p class="hero-office">Ufficio {{.}}</p>{{end}}`
-- dopo la `</label>` della ricerca:
-
-```html
-	{{if or .Filter.Hidden .Filter.ShowAll}}<div class="office-toggle"><button type="button" data-mostra-tutto="{{if .Filter.ShowAll}}0{{else}}1{{end}}" hidden>{{if .Filter.ShowAll}}Mostra solo il mio ufficio{{else}}Mostra anche i contenuti degli altri uffici ({{.Filter.Hidden}}){{end}}</button></div>{{end}}
-```
-
-`web/templates/partials_dashboard.html`, nel ciclo degli urgenti: `{{range .}}{{if eq .Level "urgent"}}` → `{{range .}}{{if and (eq .Level "urgent") (not .OtherOffices)}}`.
 
 `web/static/js/dashboard.js`, subito prima di `initCarousel();` in fondo:
 
@@ -1701,304 +1125,23 @@ e nel letterale della view: `User: u, Recognize: !known && s.recognitionEnabled(
 			.then((j) => { if (j && j.riconosciuto) location.reload(); })
 			.catch(() => { /* resta anonimo */ });
 	}
-
-	// "Mostra tutto": preferenza in un cookie letto dal server, poi ricarica.
-	const officeToggle = document.querySelector("[data-mostra-tutto]");
-	if (officeToggle) {
-		officeToggle.hidden = false;
-		officeToggle.addEventListener("click", () => {
-			document.cookie = officeToggle.dataset.mostraTutto === "1"
-				? "cruscotto_tutto=1; Path=/; Max-Age=31536000; SameSite=Lax"
-				: "cruscotto_tutto=; Path=/; Max-Age=0; SameSite=Lax";
-			location.reload();
-		});
-	}
 ```
 
-`web/static/css/plancia.css`, dopo `.hero-date { … }`:
-
-```css
-.hero-office { margin: .15rem 0 0; opacity: .75; font-size: .8rem; letter-spacing: .02em; }
-.office-toggle { margin: .7rem var(--p-gutter) 0; text-align: right; }
-.office-toggle button { border: 0; background: none; color: var(--p-blue-2); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; padding: .2rem 0; }
-.office-toggle button:hover { text-decoration: underline; }
-```
-
-e nel blocco `@media (max-width: 640px)` niente da aggiungere (`--p-gutter` vale già 1rem).
-
-- [ ] **Step 5: verifica**
+- [ ] **Step 4: verifica**
 
 Run: `go test ./... && go vet ./... && gofmt -l internal/`
 Expected: PASS.
 
-- [ ] **Step 6: commit**
+- [ ] **Step 5: commit**
 
 ```bash
-git add internal/web web/templates web/static
-git commit -m "feat(plancia): saluto per nome e contenuti filtrati per ufficio con Mostra tutto"
+git add internal/web web/templates/dashboard.html web/static/js/dashboard.js
+git commit -m "feat(plancia): saluto per nome dell'utente riconosciuto"
 ```
 
 ---
 
-### Task 8: uffici in admin (applicativi, guide, avvisi)
-
-**Files:**
-- Modify: `internal/web/offices.go` (helper admin)
-- Modify: `internal/web/admin_apps.go`, `internal/web/admin_guides.go`, `internal/web/admin_alerts.go`
-- Modify: `web/templates/admin_app.html`, `web/templates/admin_guide.html`, `web/templates/admin_avvisi.html`
-- Create: `web/templates/partials_offices.html`
-- Modify: `web/static/css/admin.css`
-- Test: `internal/web/admin_offices_test.go`
-
-**Interfaces:**
-- Consumes: `s.directory` (Task 6), `db.Offices/OfficesOf/SetOffices` (Task 5).
-- Produces:
-  - `type officeChoice struct { Name string; Checked, Missing bool }`
-  - `type officesField struct { Choices []officeChoice; Unavailable bool }`
-  - `func (s *Server) officeChoices(selected []string) officesField`
-  - `func (s *Server) parseOffices(r *http.Request, current []string, errs formErrors) []string` (campo form `uffici`, ripetuto)
-  - template `offices_fieldset` (dati: `officesField`) e `offices_label` (dati: `[]string`)
-  - nei tre form: campo `Offices []string`; nelle tre sezioni: `OfficeChoices officesField`, `ItemOffices map[int64][]string`
-
-- [ ] **Step 1: test che falliscono**
-
-`internal/web/admin_offices_test.go`:
-
-```go
-package web
-
-import (
-	"errors"
-	"net/http"
-	"net/url"
-	"strings"
-	"testing"
-
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
-)
-
-func TestAlertOfficesSaved(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	c := login(t, s)
-	page := do(t, s, "GET", "/admin/avvisi", nil, c, nil).Body.String()
-	if !strings.Contains(page, `name="uffici" value="LLPP"`) || !strings.Contains(page, `name="uffici" value="TRIBUTI"`) {
-		t.Fatal("caselle degli uffici da AD mancanti")
-	}
-	form := url.Values{"title": {"Solo tributi"}, "level": {"news"}, "starts_at": {"2026-10-06T09:00"}, "uffici": {"TRIBUTI"}}
-	rec := do(t, s, "POST", "/admin/avvisi", form, c, map[string]string{"HX-Request": "true"})
-	if rec.Code != 200 {
-		t.Fatalf("salvataggio: %d\n%s", rec.Code, rec.Body)
-	}
-	all, _ := db.ListActiveAlerts(fixedNow)
-	got, _ := db.OfficesOf(database.OfficesAlert, all[0].ID)
-	if len(got) != 1 || got[0] != "TRIBUTI" {
-		t.Fatalf("uffici salvati: %v", got)
-	}
-	if !strings.Contains(rec.Body.String(), "TRIBUTI") {
-		t.Fatal("l'elenco deve mostrare l'ufficio dell'avviso")
-	}
-}
-
-func TestOfficeNotAllowed(t *testing.T) {
-	s, _ := newTestServer(t, nil)
-	c := login(t, s)
-	form := url.Values{"title": {"x"}, "level": {"news"}, "starts_at": {"2026-10-06T09:00"}, "uffici": {"INVENTATO"}}
-	if rec := do(t, s, "POST", "/admin/avvisi", form, c, map[string]string{"HX-Request": "true"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Ufficio non riconosciuto") {
-		t.Fatalf("ufficio inventato: %d", rec.Code)
-	}
-}
-
-// Un ufficio sparito da AD resta modificabile e non blocca il salvataggio.
-func TestOfficeGoneFromAD(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	c := login(t, s)
-	apps, _ := db.ListApps()
-	id := apps[0].ID
-	db.SetOffices(database.OfficesApp, id, []string{"SCIOLTO"})
-	page := do(t, s, "GET", "/admin/app/"+itoa(id)+"/modifica", nil, c, map[string]string{"HX-Request": "true"}).Body.String()
-	if !strings.Contains(page, "SCIOLTO") || !strings.Contains(page, "non più in AD") {
-		t.Fatal("ufficio sparito da AD non mostrato")
-	}
-	rec := postMultipart(t, s, "/admin/app/"+itoa(id), appFields(db, map[string]string{"uffici": "SCIOLTO"}), nil, c)
-	if rec.Code != 200 {
-		t.Fatalf("salvataggio con ufficio sparito: %d\n%s", rec.Code, rec.Body)
-	}
-}
-
-func TestOfficesADUnavailable(t *testing.T) {
-	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Directory = fakeDirectory{err: errors.New("giù")} })
-	c := login(t, s)
-	if page := do(t, s, "GET", "/admin/guide", nil, c, nil).Body.String(); !strings.Contains(page, "Elenco uffici da AD non disponibile") {
-		t.Fatal("avviso AD non disponibile mancante")
-	}
-}
-```
-
-Verificare i nomi dei campi reali dei form (`title`, `level`, `starts_at` per gli avvisi; `appFields` già esistente per le app) e adeguare il test se diversi.
-
-- [ ] **Step 2: verifica che falliscano**
-
-Run: `go test ./internal/web/ -run 'Office'`
-Expected: FAIL (caselle assenti, uffici non salvati).
-
-- [ ] **Step 3: helper**
-
-In `internal/web/offices.go` aggiungere (import `strings`, `sort`):
-
-```go
-type officeChoice struct {
-	Name    string
-	Checked bool
-	Missing bool // assegnato ma non più presente in AD
-}
-
-type officesField struct {
-	Choices     []officeChoice
-	Unavailable bool // elenco AD non leggibile
-}
-
-const maxOffices = 30
-
-// officeChoices: uffici di AD più quelli già assegnati che AD non ha più.
-func (s *Server) officeChoices(selected []string) officesField {
-	var f officesField
-	var ad []string
-	if s.directory != nil {
-		var err error
-		if ad, err = s.directory.Offices(); err != nil {
-			slog.Warn("uffici da AD", "err", err)
-			f.Unavailable = true
-		}
-	} else {
-		f.Unavailable = true
-	}
-	sel := map[string]bool{}
-	for _, o := range selected {
-		sel[strings.ToUpper(o)] = true
-	}
-	inAD := map[string]bool{}
-	for _, o := range ad {
-		inAD[strings.ToUpper(o)] = true
-		f.Choices = append(f.Choices, officeChoice{Name: o, Checked: sel[strings.ToUpper(o)]})
-	}
-	for _, o := range selected {
-		if !inAD[strings.ToUpper(o)] {
-			f.Choices = append(f.Choices, officeChoice{Name: o, Checked: true, Missing: !f.Unavailable})
-		}
-	}
-	sort.Slice(f.Choices, func(i, j int) bool { return strings.ToUpper(f.Choices[i].Name) < strings.ToUpper(f.Choices[j].Name) })
-	return f
-}
-
-// parseOffices legge le caselle "uffici": ammessi quelli di AD e quelli già
-// assegnati all'elemento (current). Nessuna casella = per tutti.
-func (s *Server) parseOffices(r *http.Request, current []string, errs formErrors) []string {
-	allowed := map[string]bool{}
-	for _, o := range current {
-		allowed[strings.ToUpper(o)] = true
-	}
-	if s.directory != nil {
-		if ad, err := s.directory.Offices(); err == nil {
-			for _, o := range ad {
-				allowed[strings.ToUpper(o)] = true
-			}
-		}
-	}
-	out := []string{}
-	for _, o := range r.Form["uffici"] {
-		o = strings.TrimSpace(o)
-		if o == "" {
-			continue
-		}
-		if !allowed[strings.ToUpper(o)] {
-			errs.add("uffici", "Ufficio non riconosciuto: "+o)
-			continue
-		}
-		out = append(out, o)
-	}
-	if len(out) > maxOffices {
-		errs.add("uffici", fmt.Sprintf("Massimo %d uffici.", maxOffices))
-	}
-	return out
-}
-```
-
-(import anche `fmt` e `log/slog`).
-
-- [ ] **Step 4: template condivisi**
-
-`web/templates/partials_offices.html`:
-
-```html
-{{define "offices_fieldset"}}
-<fieldset class="offices">
-	<legend>Uffici</legend>
-	{{if .Unavailable}}<p class="flash error">Elenco uffici da AD non disponibile: si possono solo togliere quelli già assegnati.</p>{{end}}
-	<div class="offices-grid">
-		{{range .Choices}}<label class="inline"><input type="checkbox" name="uffici" value="{{.Name}}"{{if .Checked}} checked{{end}}>{{.Name}}{{if .Missing}} <span class="tag warn">non più in AD</span>{{end}}</label>{{end}}
-	</div>
-	<p class="hint">Nessun ufficio selezionato: visibile a tutti. Con uno o più uffici: solo a chi ne fa parte (gli altri possono scegliere "Mostra tutto").</p>
-</fieldset>
-{{end}}
-
-{{define "offices_label"}}{{if .}}{{range $i, $o := .}}{{if $i}}, {{end}}{{$o}}{{end}}{{else}}Tutti{{end}}{{end}}
-```
-
-`web/static/css/admin.css`, in coda:
-
-```css
-.offices-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .25rem .9rem; margin: .3rem 0; }
-```
-
-- [ ] **Step 5: i tre form**
-
-Per **ognuno** di `admin_apps.go` (kind `database.OfficesApp`), `admin_guides.go` (`database.OfficesGuide`), `admin_alerts.go` (`database.OfficesAlert`):
-
-1. Nel form struct aggiungere `Offices []string`.
-2. Nella section struct aggiungere `OfficeChoices officesField` e `ItemOffices map[int64][]string`.
-3. Nella funzione `xxxData(form, errs)`: dopo aver caricato le righe, `sec.OfficeChoices = s.officeChoices(form.Offices)` e `sec.ItemOffices, err = s.db.Offices(<kind>)` (restituire l'errore come per le altre letture).
-4. Nell'handler `…Edit`, dopo aver costruito il form dall'elemento: `form.Offices, err = s.db.OfficesOf(<kind>, id)`; errore → `s.serverError`.
-5. Nell'handler `…Save`, dopo la lettura degli altri campi e prima del controllo `len(errs) > 0`:
-
-```go
-	var current []string
-	if id != 0 {
-		if current, err = s.db.OfficesOf(<kind>, id); err != nil {
-			s.serverError(w, err)
-			return
-		}
-	}
-	form.Offices = s.parseOffices(r, current, errs)
-```
-
-   (per le app `r.Form` è già popolato da `ParseMultipartForm`; per guide e avvisi chiamare `r.ParseForm()` prima, se l'handler usa solo `FormValue`, perché `r.Form["uffici"]` sia letto).
-6. Dove oggi si fa `CreateX`/`UpdateX`, conservare l'id (`newID, err := s.db.CreateX(...)`; per l'update l'id è `id`) e subito dopo il successo:
-
-```go
-	if err := s.db.SetOffices(<kind>, savedID, form.Offices); err != nil {
-		s.serverError(w, err)
-		return
-	}
-```
-
-7. Template del form: prima di `<div class="actions">` del form, `{{template "offices_fieldset" .OfficeChoices}}` e, subito dopo, `{{with .Errors.uffici}}<p class="field-error">{{.}}</p>{{end}}`.
-8. Template dell'elenco: nella cella del titolo (`admin_app.html` riga con `{{.Title}}`, `admin_guide.html` riga con il link della guida, `admin_avvisi.html` nel template `alert_rows` sotto la fonte) aggiungere `<br><small class="muted">Uffici: {{template "offices_label" (index $.ItemOffices .ID)}}</small>`. Nel template `alert_rows` il `$` è la lista passata: passare la mappa con un campo della riga oppure aggiungere `Offices []string` a `alertRow` popolato in `alertsData` e usare `{{template "offices_label" .Offices}}` (scelta consigliata per gli avvisi).
-
-- [ ] **Step 6: verifica**
-
-Run: `go test ./... && go vet ./... && gofmt -l internal/`
-Expected: PASS, compresi i test admin esistenti.
-
-- [ ] **Step 7: commit**
-
-```bash
-git add internal/web web/templates web/static/css/admin.css
-git commit -m "feat(admin): uffici da AD per applicativi, guide e avvisi"
-```
-
----
-
-### Task 9: verifica manuale e documentazione
+### Task 7: verifica manuale e documentazione
 
 **Files:**
 - Modify: `CLAUDE.md`
@@ -2006,20 +1149,13 @@ git commit -m "feat(admin): uffici da AD per applicativi, guide e avvisi"
 
 - [ ] **Step 1: prova manuale (mock)**
 
-```bash
-LDAP_HOST=mock NTLM_DOMAIN=COMUNE-MS SECURE_COOKIES=false PORT=18091 DB_PATH=<scratch>/r.db UPLOAD_DIR=<scratch>/up go run ./cmd/server
-```
-
-- In admin assegnare "Webmail" (con URL) all'ufficio `TRIBUTI` e creare un avviso solo `AMMINISTRATIVO`.
-- Simulare il riconoscimento con PowerShell: `Invoke-WebRequest http://localhost:18091/io -UseDefaultCredentials -SessionVariable s` (oppure Edge headless `--dump-dom` come nella sonda) e poi aprire `/` con la stessa sessione: saluto per nome (in mock il nome è lo username), "Ufficio INFORMATIZZAZIONE", contenuti di TRIBUTI e AMMINISTRATIVO assenti, interruttore con il conteggio; "Mostra tutto" li fa comparire e il pulsante diventa "Mostra solo il mio ufficio".
-- 390 px: interruttore leggibile, nessuno scroll orizzontale.
+Avviare `LDAP_HOST=mock NTLM_DOMAIN=<dominio del PC> SECURE_COOKIES=false PORT=18091 DB_PATH=<scratch>/r.db UPLOAD_DIR=<scratch>/up` e aprire `http://localhost:18091/` con Edge headless (`--dump-dom`, come nella sonda) o con il browser: dopo la ricarica il saluto contiene lo username (in mock il nome è lo username). Con `NTLM_DOMAIN` diverso dal dominio del PC: nessun saluto, cookie anonimo.
 
 - [ ] **Step 2: CLAUDE.md**
 
-- Architettura, nuovo punto **`internal/identity`**: NTLM (identità **dichiarata**, mai per autorizzare), cookie `cruscotto_utente`, `Concerns`, directory AD/mock; flusso `/io` chiamato da `dashboard.js`; filtro lato server + cookie `cruscotto_tutto`.
-- `internal/database`: tabelle `app_offices`, `guide_offices`, `alert_offices` (v5).
+- Architettura, nuovo punto **`internal/identity`**: NTLM (identità **dichiarata**, mai per autorizzare), cookie `cruscotto_utente`, directory AD (solo nome) e mock; flusso `/io` chiamato da `dashboard.js`.
 - Route pubbliche: aggiungere `/io`.
-- Sezione "Identificazione utente": sostituire il testo con i risultati della sonda (nginx `revprx01` → container; `RemoteAddr` sempre `10.89.11.8` per rootlessport → IP inutilizzabile; NTLM automatico da Edge; Kerberos no per SPN mancante e CNAME).
+- Sezione "Identificazione utente": risultati della sonda (nginx `revprx01` → container; `RemoteAddr` sempre `10.89.11.8` con rootlessport → IP inutilizzabile; NTLM automatico da Edge; Kerberos no per SPN mancante e CNAME) e rimando alla spec §9 per i filtri.
 - Variabili: `NTLM_DOMAIN`.
 - Debito noto: togliere il punto sul rate limiter per IP.
 
@@ -2036,5 +1172,5 @@ Expected: tutto PASS.
 
 ```bash
 git add CLAUDE.md docs/superpowers/specs/2026-10-06-riconoscimento-utente-design.md
-git commit -m "docs: riconoscimento utente e uffici in CLAUDE.md"
+git commit -m "docs: riconoscimento utente in CLAUDE.md"
 ```
