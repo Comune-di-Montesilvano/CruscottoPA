@@ -161,3 +161,24 @@ func TestTodayInfoAndGreeting(t *testing.T) {
 		t.Fatalf("todayInfo 31/12/2028 (bisestile): %+v", ti)
 	}
 }
+
+// Il carosello non deve cambiare altezza a ogni rotazione (la pagina sotto
+// salterebbe): le card occupano la stessa cella di griglia, visibile solo l'attiva.
+func TestCarouselStableHeightCSS(t *testing.T) {
+	css, err := os.ReadFile("../../web/static/css/plancia.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		".carousel.js-on .carousel-track { display: grid; }",
+		".carousel.js-on .news { grid-area: 1 / 1; visibility: hidden;",
+		".carousel.js-on .news.active { visibility: visible;",
+	} {
+		if !strings.Contains(string(css), want) {
+			t.Errorf("manca la regola %q", want)
+		}
+	}
+	if strings.Contains(string(css), ".carousel.js-on .news { display: none;") {
+		t.Error("display:none sulle card non attive fa variare l'altezza")
+	}
+}

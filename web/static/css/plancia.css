@@ -51,8 +51,12 @@ body.plancia {
 /* Senza JS: tutte le card impilate e niente controlli di scorrimento. */
 .carousel:not(.js-on) [data-prev], .carousel:not(.js-on) [data-next], .carousel:not(.js-on) [data-pause],
 .carousel:not(.js-on) .counter, .carousel:not(.js-on) .dots { display: none; }
-.carousel.js-on .news { display: none; margin-bottom: .6rem; }
-.carousel.js-on .news.active { display: block; animation: news-in .35s ease; }
+/* Tutte le card nella stessa cella: il carosello è alto quanto la card più alta,
+   così la pagina sotto non salta a ogni rotazione. */
+.carousel.js-on .carousel-track { display: grid; }
+.carousel.js-on .news { grid-area: 1 / 1; visibility: hidden; margin-bottom: 0; }
+.carousel.js-on .news.active { visibility: visible; animation: news-in .35s ease; }
+.carousel.js-on .carousel-controls { margin-top: .6rem; }
 @keyframes news-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .carousel.js-on .news.active { animation: none; } }
 
