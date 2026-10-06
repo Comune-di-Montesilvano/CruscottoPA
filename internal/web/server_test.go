@@ -112,3 +112,5 @@ func TestStaticServed(t *testing.T) {
 }
 
 func itoa(v int64) string { return strconv.FormatInt(v, 10) }
+
+func url_(k, v string) url.Values { return url.Values{k: {v}} }

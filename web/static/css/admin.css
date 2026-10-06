@@ -74,3 +74,15 @@ body.login { min-height: 100vh; display: grid; place-items: center; background: 
 	.form .row { grid-template-columns: minmax(0, 1fr); }
 	.admin-main { padding: 1rem; }
 }
+
+/* ── Campo icona: un pannello per tipo, scelto dal radio (senza JS) ── */
+.icon-tabs { display: flex; flex-wrap: wrap; gap: 1rem; }
+.icon-panel { display: none; gap: .6rem; }
+.icon-field:has(#ik-pack:checked) .icon-panel[data-kind="pack"],
+.icon-field:has(#ik-upload:checked) .icon-panel[data-kind="upload"],
+.icon-field:has(#ik-url:checked) .icon-panel[data-kind="url"] { display: grid; }
+.icon-pick { display: flex; align-items: end; gap: .7rem; }
+.icon-pick .app-icon { width: 42px; height: 42px; }
+.icon-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: .3rem; max-height: 220px; overflow-y: auto; }
+.icon-choice { justify-content: center; padding: .35rem; }
+.icon-choice[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent); }
