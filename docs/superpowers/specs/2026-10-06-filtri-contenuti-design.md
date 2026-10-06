@@ -52,7 +52,7 @@ CREATE TABLE content_audience (
 
 - Nessuna riga in `content_audience` per un contenuto = **Pubblico**.
 - `content_audience.group_id` **senza** cascata: un gruppo in uso non si può eliminare (§4).
-- Le righe di un contenuto eliminato si cancellano nello stesso handler che lo elimina (app, guida, avviso). Un'app eliminata porta via anche le sue guide: cancellare anche le righe di quelle guide.
+- Le righe di un contenuto eliminato si cancellano in `DeleteApp`/`DeleteGuide`/`DeleteAlert`, nella stessa transazione. Le guide di un'app eliminata diventano generali (`ON DELETE SET NULL`) e tengono la loro visibilità.
 - Lo username nelle regole `user`/`exclude` è salvato minuscolo; i confronti sono senza maiuscole/minuscole e spazi ai bordi.
 
 ## 2. Appartenenza e visibilità (logica pura)
@@ -73,11 +73,13 @@ func Member(p Profile, rules []Rule) bool
 
 type Mode string // "" (pubblico) | "only" | "hide"
 
-// Visible: only → l'utente è in almeno uno dei gruppi; hide → in nessuno.
-func Visible(mode Mode, groups []int64, memberOf map[int64]bool) bool
+// Visible: pubblico → sempre; utente non noto (anonimo o profilo non
+// disponibile) → solo i pubblici; only → in almeno uno dei gruppi;
+// hide → in nessuno.
+func Visible(mode Mode, groups []int64, memberOf map[int64]bool, known bool) bool
 ```
 
-- Profilo anonimo o non disponibile: `memberOf` vuoto ⇒ visibili solo i contenuti pubblici e quelli *Nascosto a* (che non lo nascondono a nessun gruppo di cui fa parte). **Regola:** per l'anonimo i contenuti *Nascosto a* restano visibili.
+- **Utente anonimo o profilo non disponibile: solo i contenuti pubblici** (anche i *Nascosto a* restano nascosti), per scelta esplicita.
 - Guida collegata a un applicativo: visibile solo se è visibile **anche** l'applicativo.
 
 ## 3. Profilo dell'utente da AD
@@ -134,13 +136,13 @@ Tutte le azioni seguono il pattern admin esistente (sezione intera restituita, 2
 - Filtro lato server su plancia, `/avvisi` e `/partials/alerts`, in base al profilo (§3) e alla visibilità (§2). Categorie rimaste vuote nascoste; il conteggio della categoria è quello delle app mostrate.
 - **"Mostra tutto"**: cookie `cruscotto_tutto=1` (`Path=/`, 1 anno, `SameSite=Lax`, non `HttpOnly`) impostato da `dashboard.js`, che ricarica. Pulsante sotto la ricerca solo se il filtro ha escluso qualcosa o se è già attivo: "Mostra anche i contenuti non destinati a te (N)" / "Mostra solo i miei contenuti". Senza JS non compare.
 - **Popup degli urgenti** solo per gli avvisi visibili all'utente, anche con "Mostra tutto".
-- Utente anonimo o profilo non disponibile: solo pubblici e *Nascosto a* (§2).
+- Utente anonimo o profilo non disponibile: solo i pubblici (§2).
 
 ## 6. Errori
 
 | Caso | Comportamento |
 |---|---|
-| AD giù in plancia | nessun profilo: pubblici e *Nascosto a*; riprova dopo 1 minuto |
+| AD giù in plancia | nessun profilo: solo i pubblici; riprova dopo 1 minuto |
 | AD giù in admin (suggerimenti, anteprima) | messaggio "AD non disponibile"; salvataggio regole funziona |
 | Valore che non esiste più in AD | la regola resta; l'anteprima dice "Nessun utente corrisponde" |
 | Gruppo in uso da eliminare | 422 con l'elenco dei contenuti |
@@ -150,7 +152,7 @@ Tutte le azioni seguono il pattern admin esistente (sezione intera restituita, 2
 
 ## 7. Test
 
-- `audience`: `Member` (oppure tra regole, exclude vince, maiuscole e spazi, attributo assente, gruppo annidato via DN), `Visible` (pubblico, only, hide, anonimo con hide), ereditarietà guida → app.
+- `audience`: `Member` (oppure tra regole, exclude vince, maiuscole e spazi, attributo assente, gruppo annidato via DN), `Visible` (pubblico, only, hide, anonimo: solo pubblici), ereditarietà guida → app.
 - `identity`: costruzione dei filtri LDAP (escape, nome attributo validato), mock esteso.
 - Cache dei profili con orologio finto: 15 minuti, cache negativa 1 minuto.
 - `database`: migrazione v5, CRUD gruppi/regole/attributi, `content_audience` (set e lettura, pulizia alla cancellazione di app/guida/avviso), gruppo in uso non eliminabile.
