@@ -100,11 +100,16 @@
 	// ── Urgenti a tutto schermo (una volta per avviso e versione) ──
 	let urgentOpen = false;
 	const readKey = (d) => `cruscotto:letto:${d.dataset.urgent}:${d.dataset.version}`;
+	// Copia in memoria: senza localStorage (navigazione privata, criteri) un urgente
+	// letto non si riapre al refresh HTMX ogni 5 minuti, solo al ricaricamento.
+	const readInPage = new Set();
 	function isRead(d) {
+		if (readInPage.has(readKey(d))) return true;
 		try { return localStorage.getItem(readKey(d)) === "1"; } catch (_) { return false; }
 	}
 	function markRead(d) {
-		try { localStorage.setItem(readKey(d), "1"); } catch (_) { /* navigazione privata o criteri: si ripresenterà */ }
+		readInPage.add(readKey(d));
+		try { localStorage.setItem(readKey(d), "1"); } catch (_) { /* si ripresenterà al prossimo caricamento */ }
 	}
 	function showUrgents() {
 		if (urgentOpen) return;
