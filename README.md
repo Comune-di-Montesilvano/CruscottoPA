@@ -1,6 +1,6 @@
 # CruscottoPA
 
-Portale Intranet per i dipendenti dell'ente: homepage e plancia di comando che centralizza i link agli applicativi web, ai portali e alle utility, affiancandoli a guide tecniche e FAQ contestuali. Ogni dipendente vede solo le card del proprio ufficio.
+Portale Intranet per i dipendenti dell'ente: una plancia con gli avvisi del giorno (gli urgenti si aprono a tutto schermo), gli applicativi con le loro guide, un calendario con festività, chiusure dell'ente e scadenze, e le guide generali. Ogni contenuto si gestisce dal pannello `/admin`.
 
 - Backend: Go (`net/http`, `html/template`)
 - Database: SQLite embedded (`modernc.org/sqlite`, pure-Go, nessun CGO)
@@ -29,6 +29,7 @@ Puntare lo stack a questo repository, file `docker-compose.yml`, e impostare le 
 - **Applicativi**: titolo, indirizzo, categoria e icona (catalogo Material Icons, file caricato o URL);
 - **Guide**: link a guide e FAQ, generali oppure agganciate a un applicativo (pulsante "?" sulla sua card);
 - **Categorie**: raggruppamento delle card in plancia.
+- **Calendario**: chiusure dell'ente (anche ricorrenti, come il patrono) ed eventi/scadenze; le festività nazionali sono già incluse.
 
 Al primo avvio esistono solo la categoria "Applicativi" con Rubrica e Webmail **senza indirizzo**: compaiono in plancia dopo averlo inserito.
 
