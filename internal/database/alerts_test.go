@@ -72,3 +72,21 @@ func TestAlertsForAdminAndUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAlertSource(t *testing.T) {
+	db := newTestDB(t)
+	id, err := db.CreateAlert(Alert{Title: "Cedolini disponibili", Level: LevelNews, Source: "Ufficio Stipendi",
+		StartsAt: now, CreatedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := db.GetAlert(id)
+	if a.Source != "Ufficio Stipendi" {
+		t.Fatalf("Source: %q", a.Source)
+	}
+	a.Source = ""
+	db.UpdateAlert(a)
+	if a, _ = db.GetAlert(id); a.Source != "" {
+		t.Fatalf("Source dopo update: %q", a.Source)
+	}
+}

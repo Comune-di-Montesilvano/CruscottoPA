@@ -11,6 +11,7 @@ import (
 var migrations = []func(*sql.Tx) error{
 	migrateV1Schema,
 	migrateV2Seed,
+	migrateV3CalendarAndSource,
 }
 
 func (db *DB) migrate() error {
@@ -104,5 +105,23 @@ INSERT INTO apps (category_id, title, description, icon_kind, icon_value, icon_c
 	(?, 'Rubrica', 'Contatti e interni', 'pack', 'contacts', '#2563eb', 0),
 	(?, 'Webmail', 'Posta elettronica',  'pack', 'mail',     '#0891b2', 1)`,
 		catID, catID)
+	return err
+}
+
+func migrateV3CalendarAndSource(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE calendar_events (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	title       TEXT    NOT NULL,
+	kind        TEXT    NOT NULL CHECK (kind IN ('closure', 'event')),
+	starts_on   TEXT    NOT NULL,
+	ends_on     TEXT    NOT NULL,
+	description TEXT    NOT NULL DEFAULT '',
+	yearly      INTEGER NOT NULL DEFAULT 0 CHECK (yearly IN (0, 1))
+);
+CREATE INDEX idx_calendar_range ON calendar_events(starts_on, ends_on);
+
+ALTER TABLE alerts ADD COLUMN source TEXT NOT NULL DEFAULT '';
+`)
 	return err
 }
