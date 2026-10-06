@@ -63,6 +63,7 @@ func New(o Options) (*Server, error) {
 		return nil, fmt.Errorf("template: %w", err)
 	}
 	s.tmpl = tmpl
+	s.store = newSessionStore(o.Config.SessionSecret)
 	s.routes()
 	return s, nil
 }
@@ -81,6 +82,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
+	s.mux.HandleFunc("GET /admin/login", s.handleLoginForm)
+	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
+	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)
+	s.mux.HandleFunc("GET /admin", s.requireAdmin(s.handleOverview))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
