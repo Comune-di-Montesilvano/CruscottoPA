@@ -36,42 +36,51 @@ func TestDetectIconExt(t *testing.T) {
 	}
 }
 
-func TestSaveIconLimits(t *testing.T) {
+func TestSaveUploadLimits(t *testing.T) {
 	s, _ := newTestServer(t, nil)
-	if _, err := s.saveIcon(bytes.NewReader(make([]byte, maxIconBytes+1))); !errors.Is(err, errIconSize) {
+	if _, err := s.saveUpload(uploadIcons, bytes.NewReader(make([]byte, maxIconBytes+1))); !errors.Is(err, errIconSize) {
 		t.Fatalf("file > 512 KB: atteso errIconSize, ottenuto %v", err)
 	}
-	name, err := s.saveIcon(bytes.NewReader(pngBytes))
-	if err != nil || !iconFileRe.MatchString(name) || !strings.HasSuffix(name, ".png") {
-		t.Fatalf("saveIcon: %q %v", name, err)
+	name, err := s.saveUpload(uploadIcons, bytes.NewReader(pngBytes))
+	if err != nil || !uploadFileRe.MatchString(name) || !strings.HasSuffix(name, ".png") {
+		t.Fatalf("saveUpload: %q %v", name, err)
 	}
-	if _, err := os.Stat(filepath.Join(s.iconDir(), name)); err != nil {
+	if _, err := os.Stat(filepath.Join(s.uploadDir(uploadIcons), name)); err != nil {
 		t.Fatal("file non scritto")
 	}
-	s.removeIcon(name)
-	if _, err := os.Stat(filepath.Join(s.iconDir(), name)); !os.IsNotExist(err) {
-		t.Fatal("removeIcon non ha cancellato il file")
+	s.removeUpload(uploadIcons, name)
+	if _, err := os.Stat(filepath.Join(s.uploadDir(uploadIcons), name)); !os.IsNotExist(err) {
+		t.Fatal("removeUpload non ha cancellato il file")
 	}
-	s.removeIcon("../../etc/passwd") // nome non conforme: ignorato senza panic
+	s.removeUpload(uploadIcons, "../../etc/passwd") // nome non conforme: ignorato senza panic
 }
 
-func TestServeIconSandboxed(t *testing.T) {
+func TestServeUploadsSandboxed(t *testing.T) {
 	s, _ := newTestServer(t, nil)
-	name, _ := s.saveIcon(bytes.NewReader(svgScript))
-
-	rec := do(t, s, "GET", "/uploads/icons/"+name, nil, nil, nil)
-	if rec.Code != 200 {
-		t.Fatalf("icona: %d", rec.Code)
-	}
-	if csp := rec.Header().Get("Content-Security-Policy"); !strings.HasPrefix(csp, "sandbox") || !strings.Contains(csp, "default-src 'none'") {
-		t.Fatalf("SVG servito senza sandbox: %q", csp)
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/svg+xml" {
-		t.Fatalf("Content-Type: %q", ct)
-	}
-	for _, bad := range []string{"/uploads/icons/abc.png", "/uploads/icons/" + strings.Repeat("a", 32) + ".html", "/uploads/icons/..%2f..%2fgo.mod"} {
-		if rec := do(t, s, "GET", bad, nil, nil, nil); rec.Code != http.StatusNotFound {
-			t.Errorf("%s: atteso 404, ottenuto %d", bad, rec.Code)
+	for _, kind := range []string{uploadIcons, uploadBranding} {
+		name, err := s.saveUpload(kind, bytes.NewReader(svgScript))
+		if err != nil {
+			t.Fatal(err)
 		}
+		rec := do(t, s, "GET", "/uploads/"+kind+"/"+name, nil, nil, nil)
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d", kind, rec.Code)
+		}
+		if csp := rec.Header().Get("Content-Security-Policy"); !strings.HasPrefix(csp, "sandbox") || !strings.Contains(csp, "default-src 'none'") {
+			t.Fatalf("%s: SVG servito senza sandbox: %q", kind, csp)
+		}
+		if ct := rec.Header().Get("Content-Type"); ct != "image/svg+xml" {
+			t.Fatalf("%s: Content-Type %q", kind, ct)
+		}
+		for _, bad := range []string{"abc.png", strings.Repeat("a", 32) + ".html", "..%2f..%2fgo.mod"} {
+			if rec := do(t, s, "GET", "/uploads/"+kind+"/"+bad, nil, nil, nil); rec.Code != http.StatusNotFound {
+				t.Errorf("/uploads/%s/%s: atteso 404, ottenuto %d", kind, bad, rec.Code)
+			}
+		}
+	}
+	// Un file delle icone non è raggiungibile dal percorso del branding.
+	name, _ := s.saveUpload(uploadIcons, bytes.NewReader(pngBytes))
+	if rec := do(t, s, "GET", "/uploads/branding/"+name, nil, nil, nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("icona servita da /uploads/branding: %d", rec.Code)
 	}
 }

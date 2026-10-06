@@ -1,0 +1,29 @@
+{{define "admin_ente.html"}}{{template "admin_top" .}}
+<h1>Ente</h1>
+{{template "branding_section" .Body}}
+{{template "admin_bottom" .}}{{end}}
+
+{{define "branding_section"}}
+<div id="section">
+	{{if .Saved}}<p class="flash" role="status">Salvato.</p>{{end}}
+	{{with .Errors.general}}<p class="flash error" role="alert">{{.}}</p>{{end}}
+
+	<form class="card form" hx-post="/admin/ente" hx-encoding="multipart/form-data" hx-target="#section" hx-swap="outerHTML">
+		<h2>Identità dell'ente</h2>
+		<label>Nome dell'ente<input name="ente_name" value="{{.EnteName}}" maxlength="120" placeholder="Comune di …"></label>
+		{{with .Errors.ente_name}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">Compare in testata e nel titolo delle pagine. Vuoto: si mostra solo CruscottoPA.</p>{{end}}
+
+		<fieldset>
+			<legend>Logo</legend>
+			{{with .Branding.LogoFile}}<img class="ente-preview" src="/uploads/branding/{{.}}" alt="Logo attuale">{{else}}<p class="muted">Nessun logo caricato.</p>{{end}}
+			<input type="file" name="logo_file" accept="image/png,image/webp,image/svg+xml">
+			<p class="hint">PNG, WebP o SVG, massimo 512 KB. Orizzontale o quadrato, meglio con sfondo trasparente.{{if .Branding.LogoFile}} Lascia vuoto per mantenere il logo attuale.{{end}}</p>
+			{{if .Branding.LogoFile}}<label class="inline"><input type="checkbox" name="remove_logo" value="1">Rimuovi il logo</label>{{end}}
+			{{with .Errors.logo}}<p class="field-error">{{.}}</p>{{end}}
+		</fieldset>
+
+		<p class="hint">La favicon è quella di CruscottoPA e non si modifica.</p>
+		<div class="actions"><button class="primary" type="submit">Salva</button></div>
+	</form>
+</div>
+{{end}}

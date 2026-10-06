@@ -114,7 +114,7 @@ func (s *Service) extract(archive string) (m Manifest, err error) {
 // safeJoin unisce dest e il nome di una voce garantendo che il risultato resti
 // dentro dest (difesa in profondità oltre a entryName, contro lo "zip slip").
 func safeJoin(dest, name string) (string, error) {
-	if name == "" || strings.HasPrefix(name, "/") || filepath.IsAbs(name) {
+	if !filepath.IsLocal(filepath.FromSlash(name)) {
 		return "", invalid("Percorso non ammesso nell'archivio: %s", name)
 	}
 	base := filepath.Clean(dest)
@@ -136,6 +136,12 @@ func entryName(hdr *tar.Header) (string, error) {
 		if part == "" || part == "." || part == ".." {
 			return "", invalid("Percorso non ammesso nell'archivio: %s", name)
 		}
+	}
+	// IsLocal: niente percorsi assoluti né "..", e su Windows niente nomi di
+	// dispositivo riservati (NUL, COM1…). È anche il controllo che CodeQL
+	// riconosce contro lo "zip slip".
+	if !filepath.IsLocal(filepath.FromSlash(clean)) {
+		return "", invalid("Percorso non ammesso nell'archivio: %s", name)
 	}
 	if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeDir {
 		return "", invalid("Tipo di voce non ammesso nell'archivio: %s", name)

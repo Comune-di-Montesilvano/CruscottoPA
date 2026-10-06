@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -146,6 +147,19 @@ func TestSafeJoin(t *testing.T) {
 	for _, bad := range []string{"../evil", "uploads/../../evil", "/etc/passwd", ".."} {
 		if _, err := safeJoin(dest, bad); err == nil {
 			t.Errorf("safeJoin(%q): atteso errore", bad)
+		}
+	}
+}
+
+// entryName usa filepath.IsLocal: su Windows rifiuta anche i nomi di
+// dispositivo riservati, che aprirebbero un device invece di un file.
+func TestEntryNameRejectsReservedNamesOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("nomi di dispositivo riservati solo su Windows")
+	}
+	for _, bad := range []string{"uploads/NUL", "uploads/icons/COM1"} {
+		if _, err := entryName(&tar.Header{Name: bad, Typeflag: tar.TypeReg}); err == nil {
+			t.Errorf("entryName(%q): atteso errore", bad)
 		}
 	}
 }

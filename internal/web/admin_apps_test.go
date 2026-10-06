@@ -15,20 +15,27 @@ import (
 
 func postMultipart(t *testing.T, s *Server, target string, fields map[string]string, file []byte, c *http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
+	return postMultipartFile(t, s, target, fields, "icon_file", file, c)
+}
+
+func postMultipartFile(t *testing.T, s *Server, target string, fields map[string]string, fileField string, file []byte, c *http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	for k, v := range fields {
 		mw.WriteField(k, v)
 	}
 	if file != nil {
-		fw, _ := mw.CreateFormFile("icon_file", "logo.bin")
+		fw, _ := mw.CreateFormFile(fileField, "file.bin")
 		fw.Write(file)
 	}
 	mw.Close()
 	req := httptest.NewRequest("POST", target, &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	req.Header.Set("HX-Request", "true")
-	req.AddCookie(c)
+	if c != nil {
+		req.AddCookie(c)
+	}
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
 	return rec
@@ -110,8 +117,8 @@ func TestAppUploadLifecycle(t *testing.T) {
 		t.Fatalf("upload PNG: %d\n%s", rec.Code, rec.Body)
 	}
 	a, _ := db.GetApp(id)
-	file := filepath.Join(s.iconDir(), a.IconValue)
-	if a.IconKind != "upload" || !iconFileRe.MatchString(a.IconValue) {
+	file := filepath.Join(s.uploadDir(uploadIcons), a.IconValue)
+	if a.IconKind != "upload" || !uploadFileRe.MatchString(a.IconValue) {
 		t.Fatalf("icona caricata: %+v", a)
 	}
 	// 5) salvataggio senza nuovo file → mantiene l'icona

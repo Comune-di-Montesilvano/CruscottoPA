@@ -2,6 +2,8 @@
 body.admin { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
 .rail { background: var(--navy); color: #c9d6ea; display: flex; flex-direction: column; padding: 1rem .75rem; gap: .15rem; position: sticky; top: 0; height: 100vh; }
 .rail .brand { color: #fff; font-weight: 700; font-size: 1.05rem; padding: .25rem .5rem 1rem; }
+.rail .brand-mark { display: block; height: 30px; width: auto; margin-bottom: .5rem; }
+.rail .brand-ente { display: block; margin-top: .4rem; font-weight: 400; font-size: .8rem; color: var(--navy-text); }
 .rail .brand small { display: block; font-weight: 400; font-size: .7rem; color: var(--navy-text); text-transform: uppercase; letter-spacing: .08em; }
 .rail a, .rail button { display: flex; align-items: center; gap: .6rem; padding: .5rem; border-radius: 6px; color: inherit; text-decoration: none; font: inherit; font-size: .9rem; background: none; border: 0; cursor: pointer; width: 100%; text-align: left; }
 .rail a:hover, .rail button:hover { background: var(--navy-2); color: #fff; }
@@ -67,6 +69,9 @@ table.list .app-icon .material-icons { font-size: 17px; }
 body.login { min-height: 100vh; display: grid; place-items: center; background: var(--navy); }
 .login-card { background: var(--card); border-radius: 12px; padding: 2rem; width: min(360px, 92vw); display: grid; gap: .9rem; box-shadow: 0 20px 60px rgba(0, 0, 0, .3); }
 .login-card h1 { margin: 0; font-size: 1.4rem; }
+.login-mark { height: 56px; width: auto; }
+.login-ente { display: flex; align-items: center; gap: .5rem; margin: 0; color: var(--soft); font-size: .9rem; }
+.login-ente .ente-logo { height: 28px; width: auto; max-width: 160px; object-fit: contain; }
 .login-card small { color: var(--soft); text-align: center; }
 
 @media (max-width: 800px) {
@@ -94,3 +99,4 @@ h2.spaced { margin-top: 1.5rem; }
 .inline-confirm input { width: 8.5rem; padding: .35rem .5rem; }
 #section > .card + .list, #section > .list + .card { margin-top: 1.25rem; }
 progress { width: 100%; }
+.ente-preview { display: block; max-height: 64px; max-width: 260px; width: auto; margin-bottom: .6rem; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .4rem; }

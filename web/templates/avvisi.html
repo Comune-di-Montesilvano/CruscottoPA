@@ -2,16 +2,16 @@
 <html lang="it">
 <head>
 	{{template "plancia_head"}}
-	<title>Avvisi · CruscottoPA</title>
+	<title>Avvisi · CruscottoPA{{template "title_ente"}}</title>
 </head>
 <body class="plancia">
 	<header class="hero hero-compact">
-		<div class="hero-bar"><a class="brand" href="/">← CruscottoPA</a></div>
+		<div class="hero-bar"><a class="brand" href="/">← {{with (ente).EnteName}}{{.}}{{else}}CruscottoPA{{end}}</a></div>
 		<h1 class="hello">Avvisi</h1>
 	</header>
 	<main class="avvisi-list">
 		{{range .Alerts}}{{template "alert_card" .}}{{else}}<p class="empty">Nessun avviso attivo.</p>{{end}}
 	</main>
-	<footer class="foot">CruscottoPA v{{.Version}}</footer>
+	<footer class="foot"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</footer>
 </body>
 </html>{{end}}

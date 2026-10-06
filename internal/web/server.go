@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -36,6 +37,7 @@ type Server struct {
 	limiter      *auth.RateLimiter
 	backup       *backup.Service
 	restoreDelay time.Duration
+	branding     atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
 	tmpl         *template.Template
 	store        *sessions.CookieStore
 	version      string
@@ -69,6 +71,11 @@ func New(o Options) (*Server, error) {
 		now:          o.Now,
 		mux:          http.NewServeMux(),
 	}
+	b, err := o.DB.GetBranding()
+	if err != nil {
+		return nil, fmt.Errorf("branding: %w", err)
+	}
+	s.branding.Store(&b)
 	tmpl, err := template.New("").Funcs(s.funcs()).ParseGlob(filepath.Join(o.WebDir, "templates", "*.html"))
 	if err != nil {
 		return nil, fmt.Errorf("template: %w", err)
@@ -81,6 +88,10 @@ func New(o Options) (*Server, error) {
 
 func (s *Server) loc() *time.Location { return s.cfg.Location }
 
+// ente restituisce il branding corrente. Il ripristino di un backup fa
+// ripartire il processo, quindi la cache non resta mai indietro rispetto al DB.
+func (s *Server) ente() database.Branding { return *s.branding.Load() }
+
 // Handler applica, dall'esterno: header di sicurezza, protezione CSRF
 // (Sec-Fetch-Site/Origin, solo metodi non sicuri), routing.
 func (s *Server) Handler() http.Handler {
@@ -90,6 +101,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) routes() {
 	static := http.FileServer(http.Dir(filepath.Join(s.webDir, "static")))
 	s.mux.Handle("GET /static/", revalidate(http.StripPrefix("/static/", static)))
+	s.mux.Handle("GET /favicon.ico", revalidate(http.HandlerFunc(s.handleFavicon)))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
@@ -99,7 +111,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	s.mux.HandleFunc("GET /admin", s.requireAdmin(s.handleOverview))
-	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleIconFile)
+	s.mux.HandleFunc("GET /admin/ente", s.requireAdmin(s.handleBrandingPage))
+	s.mux.HandleFunc("POST /admin/ente", s.requireAdmin(s.handleBrandingSave))
+	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleUploadFile(uploadIcons))
+	s.mux.HandleFunc("GET /uploads/branding/{file}", s.handleUploadFile(uploadBranding))
 	s.mux.HandleFunc("GET /admin/icone", s.requireAdmin(s.handleIconSearch))
 	s.mux.HandleFunc("GET /admin/app", s.requireAdmin(s.handleAppsPage))
 	s.mux.HandleFunc("GET /admin/app/{id}/modifica", s.requireAdmin(s.handleAppEdit))
@@ -156,4 +171,11 @@ func revalidate(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// handleFavicon serve la favicon fissa di CruscottoPA a chi la chiede senza
+// leggere l'HTML. Il tipo è esplicito: .ico non è nella tabella MIME di Go.
+func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/x-icon")
+	http.ServeFile(w, r, filepath.Join(s.webDir, "static", "img", "favicon.ico"))
 }
