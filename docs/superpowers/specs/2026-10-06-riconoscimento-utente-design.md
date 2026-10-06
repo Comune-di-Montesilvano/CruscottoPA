@@ -112,14 +112,10 @@ L'ufficio è il valore AD così com'è. Il confronto con l'ufficio dell'utente i
 - utente anonimo o senza ufficio in AD: tutto ciò che ha uffici è "di altri uffici".
 
 **Rendering** (il filtro è presentazione, non sicurezza):
-- Il server rende **tutti** i contenuti visibili oggi e marca quelli "di altri uffici" con `data-altri-uffici`.
-- Il CSS li nasconde finché `body` non ha la classe `mostra-tutto`; senza JS restano nascosti.
-- Una categoria con tutte le app "di altri uffici" viene marcata anch'essa e nascosta. Il conteggio nell'intestazione della categoria considera solo le app visibili nella vista filtrata; quello completo è in `data-totale`, e il JS lo mostra quando "Mostra tutto" è attivo.
-- **Avvisi urgenti**: il popup a tutto schermo compare solo per gli urgenti "per tutti" o "del suo ufficio"; nel carosello quelli di altri uffici seguono la regola generale.
-- La ricerca della plancia rispetta lo stato di "Mostra tutto".
-- Le stesse regole valgono in `/avvisi` e nel refresh `/partials/alerts`.
+- Il **server** esclude i contenuti "di altri uffici" da plancia, `/avvisi` e `/partials/alerts`, a meno che l'utente abbia scelto "Mostra tutto". Una categoria rimasta senza app non compare; il conteggio nell'intestazione è quello delle app mostrate. Ricerca, carosello e conteggi lavorano quindi solo su ciò che è in pagina, senza logica in più nel JS.
+- **Avvisi urgenti**: il popup a tutto schermo compare solo per gli urgenti "per tutti" o "del suo ufficio", anche con "Mostra tutto" attivo (con "Mostra tutto" quelli degli altri uffici restano nel carosello).
 
-**Interruttore "Mostra tutto"**: compare sotto la ricerca solo se esiste almeno un contenuto "di altri uffici". Testo: "Mostra anche i contenuti degli altri uffici". Lo stato si salva in `localStorage`, nello stesso try/catch già usato per gli urgenti.
+**Interruttore "Mostra tutto"**: pulsante sotto la ricerca, presente solo se il filtro ha escluso almeno un contenuto oppure se "Mostra tutto" è già attivo (per poterlo spegnere). Testo: "Mostra anche i contenuti degli altri uffici (N)" / "Mostra solo il mio ufficio". La scelta è un cookie di preferenza `cruscotto_tutto=1` (`Path=/`, 1 anno, `SameSite=Lax`, non `HttpOnly`) impostato da `dashboard.js`, che poi ricarica la pagina. Senza JS l'interruttore non compare.
 
 **Saluto**: con l'utente riconosciuto, `hello-name` contiene il nome di battesimo (prima parola di `displayName`), es. "Buongiorno, Mirko". Sotto la data compare una riga piccola con l'ufficio, es. "Ufficio INFORMATIZZAZIONE".
 
@@ -165,7 +161,7 @@ Dietro Podman rootless tutte le richieste hanno lo stesso `RemoteAddr`: la chiav
 
 `internal/web`:
 - `/io`: handshake completo simulato (tipo 1 → sfida → tipo 3) → cookie riconosciuto e JSON con il nome; dominio sbagliato → cookie anonimo; utente sconosciuto → anonimo; LDAP giù → 503 senza cookie; `Authorization` malformato → 400; riconoscimento disattivato → 404;
-- plancia con il cookie: saluto per nome, ufficio, contenuti di altri uffici marcati `data-altri-uffici`, popup urgente solo se pertinente, interruttore presente solo se serve;
+- plancia con il cookie: saluto per nome, ufficio, contenuti di altri uffici esclusi (e inclusi con `cruscotto_tutto=1`), categoria vuota nascosta, popup urgente solo se pertinente, interruttore con il conteggio presente solo se serve;
 - plancia anonima: `data-riconosci` presente solo con il riconoscimento attivo e senza cookie;
 - **un cookie utente non apre `/admin`** (303 al login);
 - form admin: caselle degli uffici, salvataggio, "(non più in AD)", elenco AD non disponibile, ufficio non ammesso → 422;
