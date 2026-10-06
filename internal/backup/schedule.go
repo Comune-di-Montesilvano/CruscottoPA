@@ -69,6 +69,7 @@ func (s *Service) Scheduler(ctx context.Context, interval time.Duration) {
 }
 
 func (s *Service) tick(interval time.Duration) {
+	s.expireUploads()
 	list, err := s.List()
 	if err != nil {
 		slog.Error("backup: elenco", "err", err)

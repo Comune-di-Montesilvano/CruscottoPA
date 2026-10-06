@@ -254,6 +254,3 @@ func (s *Service) Status() Status {
 	}
 	return st
 }
-
-// upload è una sessione di caricamento a pezzi (vedi upload.go).
-type upload struct{}

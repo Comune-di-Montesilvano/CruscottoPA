@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -168,4 +169,67 @@ func checkDB(path string) error {
 		return invalid("Il database nell'archivio è danneggiato.")
 	}
 	return nil
+}
+
+// PrepareRestore valida l'archivio e crea il backup pre-ripristino. Se tutto va
+// a buon fine restituisce la funzione di swap, da eseguire dopo aver risposto al
+// client: sostituisce DB e uploads e termina il processo (il container viene
+// riavviato dalla restart policy). Il lock resta preso fino all'uscita.
+func (s *Service) PrepareRestore(archive string, removeArchive bool) (func(), error) {
+	if !s.mu.TryLock() {
+		return nil, ErrBusy
+	}
+	_, err := s.extract(archive)
+	if removeArchive {
+		os.Remove(archive)
+	}
+	if err == nil {
+		_, err = s.create(KindPreRestore)
+		s.record(KindPreRestore, err)
+		if err != nil {
+			err = fmt.Errorf("backup pre-ripristino non riuscito: %w", err)
+		}
+	}
+	if err != nil {
+		os.RemoveAll(s.restoreDir())
+		s.mu.Unlock()
+		return nil, err
+	}
+	return s.swap, nil
+}
+
+func (s *Service) swap() {
+	src := s.restoreDir()
+	if err := s.o.Store.Close(); err != nil {
+		slog.Error("ripristino: chiusura DB", "err", err)
+	}
+	os.Remove(s.o.DBPath + "-wal")
+	os.Remove(s.o.DBPath + "-shm")
+	if err := os.Rename(filepath.Join(src, dbEntry), s.o.DBPath); err != nil {
+		slog.Error("ripristino: sostituzione DB non riuscita, usare il backup pre-ripristino", "err", err)
+		s.o.Exit(1)
+		return
+	}
+	old := s.o.UploadDir + ".old"
+	os.RemoveAll(old)
+	if _, err := os.Stat(s.o.UploadDir); err == nil {
+		if err := os.Rename(s.o.UploadDir, old); err != nil {
+			slog.Error("ripristino: spostamento uploads", "err", err)
+			s.o.Exit(1)
+			return
+		}
+	}
+	if _, err := os.Stat(filepath.Join(src, uploadsEntry)); err == nil {
+		if err := os.Rename(filepath.Join(src, uploadsEntry), s.o.UploadDir); err != nil {
+			slog.Error("ripristino: sostituzione uploads", "err", err)
+			s.o.Exit(1)
+			return
+		}
+	} else {
+		os.MkdirAll(s.o.UploadDir, 0o750)
+	}
+	os.RemoveAll(old)
+	os.RemoveAll(src)
+	slog.Info("ripristino completato: riavvio")
+	s.o.Exit(0)
 }
