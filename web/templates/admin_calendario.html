@@ -1,0 +1,66 @@
+{{define "admin_calendario.html"}}{{template "admin_top" .}}
+<h1>Calendario</h1>
+{{template "calendar_section" .Body}}
+{{template "admin_bottom" .}}{{end}}
+
+{{define "calendar_rows"}}{{range .}}
+<tr>
+	<td><span class="tag{{if eq .Kind "closure"}} warn{{end}}">{{if eq .Kind "closure"}}Chiusura ente{{else}}Evento{{end}}</span></td>
+	<td>{{.Title}}{{with .Description}}<br><small class="muted">{{.}}</small>{{end}}</td>
+	<td class="muted">{{.When}}</td>
+	<td class="actions">
+		<button type="button" hx-get="/admin/calendario/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
+		<button class="danger" type="button" hx-post="/admin/calendario/{{.ID}}/elimina" hx-confirm="Eliminare «{{.Title}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
+	</td>
+</tr>
+{{end}}{{end}}
+
+{{define "calendar_section"}}
+<div id="section">
+	<form class="card form" hx-post="{{if .Form.ID}}/admin/calendario/{{.Form.ID}}{{else}}/admin/calendario{{end}}" hx-target="#section" hx-swap="outerHTML">
+		<h2>{{if .Form.ID}}Modifica voce{{else}}Nuova voce di calendario{{end}}</h2>
+		<div class="row">
+			<label>Titolo<input name="title" value="{{.Form.Title}}" maxlength="120" required></label>
+			<label>Tipo
+				<select name="kind">
+					<option value="closure"{{if eq .Form.Kind "closure"}} selected{{end}}>Chiusura ente (anche patrono)</option>
+					<option value="event"{{if eq .Form.Kind "event"}} selected{{end}}>Evento o scadenza</option>
+				</select>
+			</label>
+		</div>
+		{{with .Errors.title}}<p class="field-error">{{.}}</p>{{end}}
+		{{with .Errors.kind}}<p class="field-error">{{.}}</p>{{end}}
+		<div class="row">
+			<label>Dal<input type="date" name="starts_on" value="{{.Form.StartsOn}}" required></label>
+			<label>Al (facoltativo)<input type="date" name="ends_on" value="{{.Form.EndsOn}}"></label>
+		</div>
+		{{with .Errors.starts_on}}<p class="field-error">{{.}}</p>{{end}}
+		{{with .Errors.ends_on}}<p class="field-error">{{.}}</p>{{end}}
+		<label>Descrizione (facoltativa)<textarea name="description" maxlength="500" rows="3">{{.Form.Description}}</textarea></label>
+		{{with .Errors.description}}<p class="field-error">{{.}}</p>{{end}}
+		<label class="inline"><input type="checkbox" name="yearly" value="1"{{if .Form.Yearly}} checked{{end}}>Si ripete ogni anno (es. festa patronale)</label>
+		<p class="hint">Le festività nazionali (Pasqua compresa) sono già nel calendario: non serve inserirle.</p>
+		<div class="actions">
+			<button class="primary" type="submit">Salva</button>
+			{{if .Form.ID}}<a class="button" href="/admin/calendario">Annulla</a>{{end}}
+		</div>
+	</form>
+
+	<h2>Prossimi</h2>
+	<table class="list">
+		<thead><tr><th>Tipo</th><th>Voce</th><th>Quando</th><th></th></tr></thead>
+		<tbody>
+			{{template "calendar_rows" .Upcoming}}
+			{{if not .Upcoming}}<tr><td colspan="4" class="muted">Nessuna voce in programma.</td></tr>{{end}}
+		</tbody>
+	</table>
+
+	{{if .Past}}
+	<h2 class="spaced">Passati (ultimi 30)</h2>
+	<table class="list">
+		<thead><tr><th>Tipo</th><th>Voce</th><th>Quando</th><th></th></tr></thead>
+		<tbody>{{template "calendar_rows" .Past}}</tbody>
+	</table>
+	{{end}}
+</div>
+{{end}}

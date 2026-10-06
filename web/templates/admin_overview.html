@@ -9,6 +9,15 @@
 	<a class="stat" href="/admin/avvisi"><b>{{len .ActiveAlerts}}</b>avvisi attivi</a>
 </div>
 
+{{if .Closures}}
+<section class="card">
+	<h2>Chiusure nei prossimi 14 giorni</h2>
+	<ul class="plain">
+		{{range .Closures}}<li><span class="tag warn">{{occRange .}}</span><span>{{.Title}}</span></li>{{end}}
+	</ul>
+</section>
+{{end}}
+
 {{if .Incomplete}}
 <section class="card">
 	<h2>Applicativi da completare</h2>

@@ -112,3 +112,20 @@ func TestExpiredAlertReactivation(t *testing.T) {
 		t.Fatalf("elimina due volte: %d", rec.Code)
 	}
 }
+
+func TestAlertSourceField(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	rec := do(t, s, "POST", "/admin/avvisi", alertValues(map[string]string{"source": "Ufficio Stipendi"}), c, hx)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Ufficio Stipendi") {
+		t.Fatalf("fonte: %d\n%s", rec.Code, rec.Body)
+	}
+	current, _, _ := db.ListAlertsForAdmin(fixedNow)
+	if len(current) != 1 || current[0].Source != "Ufficio Stipendi" {
+		t.Fatalf("DB: %+v", current)
+	}
+	rec = do(t, s, "POST", "/admin/avvisi", alertValues(map[string]string{"source": strings.Repeat("x", 61)}), c, hx)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Massimo 60 caratteri.") {
+		t.Fatalf("fonte troppo lunga: %d", rec.Code)
+	}
+}

@@ -2,15 +2,20 @@ package web
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"log/slog"
+	"math"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/calendar"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
@@ -18,12 +23,17 @@ const inputTimeLayout = "2006-01-02T15:04" // <input type="datetime-local">
 
 func (s *Server) funcs() template.FuncMap {
 	return template.FuncMap{
-		"monogram":   monogram,
-		"levelLabel": levelLabel,
-		"linkify":    linkify,
-		"humanSize":  humanSize,
-		"kindLabel":  kindLabel,
-		"fmtDate":    func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
+		"monogram":     monogram,
+		"levelLabel":   levelLabel,
+		"linkify":      linkify,
+		"humanSize":    humanSize,
+		"tint":         tint,
+		"alertVersion": alertVersion,
+		"alertSource":  alertSource,
+		"shortDay":     shortDay,
+		"occRange":     occRange,
+		"kindLabel":    kindLabel,
+		"fmtDate":      func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
 		"fmtDatePtr": func(t *time.Time) string {
 			if t == nil {
 				return ""
@@ -132,4 +142,53 @@ func kindLabel(kind string) string {
 	default:
 		return "Pre-ripristino"
 	}
+}
+
+// tint schiarisce un colore #rrggbb mescolandolo all'85% con il bianco
+// (sfondo pastello delle tile). Colore non valido → grigio chiaro.
+func tint(hexColor string) string {
+	if !colorRe.MatchString(hexColor) {
+		return "#eef1f5"
+	}
+	var c [3]int64
+	for i := range c {
+		v, _ := strconv.ParseInt(hexColor[1+2*i:3+2*i], 16, 64)
+		c[i] = v + int64(math.Round(float64(255-v)*0.85))
+	}
+	return fmt.Sprintf("#%02x%02x%02x", c[0], c[1], c[2])
+}
+
+// alertVersion identifica il contenuto di un avviso: cambia se cambiano
+// titolo, testo, livello o date (non la fonte), così un urgente modificato
+// si ripresenta anche a chi l'aveva già letto.
+func alertVersion(a database.Alert) string {
+	end := ""
+	if a.EndsAt != nil {
+		end = a.EndsAt.UTC().Format(time.RFC3339)
+	}
+	sum := sha256.Sum256([]byte(strings.Join([]string{a.Title, a.Body, a.Level, a.StartsAt.UTC().Format(time.RFC3339), end}, "\x00")))
+	return hex.EncodeToString(sum[:4])
+}
+
+func alertSource(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return "Servizio informatico"
+	}
+	return s
+}
+
+var (
+	shortWeekdays = [...]string{"dom", "lun", "mar", "mer", "gio", "ven", "sab"}
+	shortMonths   = [...]string{"gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"}
+)
+
+func shortDay(t time.Time) string {
+	return fmt.Sprintf("%s %d %s", shortWeekdays[t.Weekday()], t.Day(), shortMonths[t.Month()-1])
+}
+
+func occRange(o calendar.Occurrence) string {
+	if o.Start.Equal(o.End) {
+		return shortDay(o.Start)
+	}
+	return shortDay(o.Start) + " – " + shortDay(o.End)
 }

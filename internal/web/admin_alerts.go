@@ -14,6 +14,7 @@ type alertForm struct {
 	Title    string
 	Body     string
 	Level    string
+	Source   string
 	StartsAt string // formato inputTimeLayout, fuso s.loc()
 	EndsAt   string // "" = senza scadenza
 }
@@ -41,7 +42,7 @@ func (s *Server) newAlertForm() alertForm {
 }
 
 func (s *Server) formFromAlert(a database.Alert) alertForm {
-	f := alertForm{ID: a.ID, Title: a.Title, Body: a.Body, Level: a.Level,
+	f := alertForm{ID: a.ID, Title: a.Title, Body: a.Body, Level: a.Level, Source: a.Source,
 		StartsAt: a.StartsAt.In(s.loc()).Format(inputTimeLayout)}
 	if a.EndsAt != nil {
 		f.EndsAt = a.EndsAt.In(s.loc()).Format(inputTimeLayout)
@@ -122,6 +123,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 		Title:    strings.TrimSpace(r.FormValue("title")),
 		Body:     strings.TrimSpace(strings.ReplaceAll(r.FormValue("body"), "\r\n", "\n")),
 		Level:    r.FormValue("level"),
+		Source:   strings.TrimSpace(r.FormValue("source")),
 		StartsAt: strings.TrimSpace(r.FormValue("starts_at")),
 		EndsAt:   strings.TrimSpace(r.FormValue("ends_at")),
 	}
@@ -129,6 +131,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 	errs := formErrors{}
 	checkText(errs, "title", form.Title, 120, true)
 	checkText(errs, "body", form.Body, 2000, false)
+	checkText(errs, "source", form.Source, 60, false)
 	validLevel := false
 	for _, l := range alertLevels {
 		validLevel = validLevel || form.Level == l
@@ -157,7 +160,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a := database.Alert{ID: id, Title: form.Title, Body: form.Body, Level: form.Level, StartsAt: starts, EndsAt: ends}
+	a := database.Alert{ID: id, Title: form.Title, Body: form.Body, Level: form.Level, Source: form.Source, StartsAt: starts, EndsAt: ends}
 	if id == 0 {
 		a.CreatedAt = s.now()
 		a.CreatedBy = s.currentAdmin(r)

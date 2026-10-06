@@ -3,6 +3,8 @@ package web
 import (
 	"net/http"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/calendar"
+
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
@@ -32,6 +34,7 @@ type overviewView struct {
 	Guides        int
 	Categories    int
 	BackupWarning string
+	Closures      []calendar.Occurrence
 }
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
@@ -63,5 +66,16 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	v.BackupWarning = backupWarning(s.backup.Status(), s.now())
+	evs, err := s.db.ListCalendarEvents()
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	today := s.today()
+	for _, o := range calendar.Occurrences(toCalendarEvents(evs), today, today.AddDate(0, 0, 13), false) {
+		if o.Kind == calendar.KindClosure {
+			v.Closures = append(v.Closures, o)
+		}
+	}
 	s.renderPage(w, r, "admin_overview.html", "overview", v)
 }
