@@ -89,7 +89,7 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) routes() {
 	static := http.FileServer(http.Dir(filepath.Join(s.webDir, "static")))
-	s.mux.Handle("GET /static/", http.StripPrefix("/static/", static))
+	s.mux.Handle("GET /static/", revalidate(http.StripPrefix("/static/", static)))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
@@ -147,4 +147,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"status": status, "version": s.version})
+}
+
+// revalidate impone al browser di ricontrollare gli statici a ogni uso
+// (304 se invariati): dopo un aggiornamento nessuno resta con JS/CSS vecchi.
+func revalidate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
 }
