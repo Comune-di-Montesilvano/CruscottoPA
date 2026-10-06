@@ -235,3 +235,38 @@ func TestAutoFailureStatus(t *testing.T) {
 		t.Fatalf("dopo un automatico riuscito l'errore va azzerato: %q", st.LastAutoError)
 	}
 }
+
+// Crash tra "uploads → uploads.old" e "restore-tmp/uploads → uploads":
+// all'avvio la sostituzione va completata, non vanno cancellate entrambe le copie.
+func TestCleanupCompletesInterruptedSwap(t *testing.T) {
+	e := newEnv(t)
+	dir := filepath.Dir(e.dbPath)
+	os.Rename(e.uploads, e.uploads+".old") // vecchi uploads (a.png) spostati
+	os.MkdirAll(filepath.Join(dir, "restore-tmp", "uploads", "icons"), 0o750)
+	os.WriteFile(filepath.Join(dir, "restore-tmp", "uploads", "icons", "nuovo.png"), []byte("NEW"), 0o640)
+
+	if _, err := New(e.s.o); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(e.uploads, "icons", "nuovo.png")); err != nil || string(b) != "NEW" {
+		t.Fatalf("la sostituzione interrotta va completata con gli uploads ripristinati: %v", err)
+	}
+	for _, p := range []string{e.uploads + ".old", filepath.Join(dir, "restore-tmp")} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("residuo non rimosso: %s", p)
+		}
+	}
+}
+
+// Se manca anche la copia ripristinata, si torna agli uploads precedenti.
+func TestCleanupRecoversOldUploads(t *testing.T) {
+	e := newEnv(t)
+	os.Rename(e.uploads, e.uploads+".old")
+
+	if _, err := New(e.s.o); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(e.uploads, "icons", "a.png")); err != nil || string(b) != "PNG-A" {
+		t.Fatalf("gli uploads precedenti vanno rimessi al loro posto: %v", err)
+	}
+}

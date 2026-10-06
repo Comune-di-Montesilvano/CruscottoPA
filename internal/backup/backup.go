@@ -5,6 +5,7 @@ package backup
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -122,8 +123,30 @@ func (s *Service) cleanup() {
 			os.Remove(filepath.Join(s.dir, n))
 		}
 	}
+	s.recoverUploads()
 	os.RemoveAll(s.restoreDir())
 	os.RemoveAll(s.o.UploadDir + ".old")
+}
+
+// recoverUploads gestisce un ripristino interrotto tra lo spostamento di
+// UploadDir in UploadDir.old e l'arrivo degli uploads ripristinati: il DB è già
+// stato sostituito per primo, quindi si completa con restore-tmp/uploads; in
+// mancanza si rimettono gli uploads precedenti. Mai cancellare entrambe le copie.
+func (s *Service) recoverUploads() {
+	if _, err := os.Stat(s.o.UploadDir); err == nil {
+		return
+	}
+	for _, src := range []string{filepath.Join(s.restoreDir(), uploadsEntry), s.o.UploadDir + ".old"} {
+		if _, err := os.Stat(src); err != nil {
+			continue
+		}
+		if err := os.Rename(src, s.o.UploadDir); err != nil {
+			slog.Error("backup: recupero uploads dopo un ripristino interrotto", "da", src, "err", err)
+			return
+		}
+		slog.Warn("backup: uploads recuperati dopo un ripristino interrotto", "da", src)
+		return
+	}
 }
 
 // Create crea un backup del tipo indicato (KindAuto o KindManual).
