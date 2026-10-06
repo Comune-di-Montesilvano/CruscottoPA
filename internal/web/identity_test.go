@@ -84,8 +84,8 @@ func TestIoRejections(t *testing.T) {
 func TestIoLDAPDown(t *testing.T) {
 	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Directory = fakeDirectory{err: errors.New("giù")} })
 	rec := do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("COMUNE-MS", "mrossi", "W")))
-	if rec.Code != http.StatusServiceUnavailable || cookieNamed(rec, identity.CookieName) != nil {
-		t.Fatalf("LDAP giù: %d", rec.Code)
+	if c := cookieNamed(rec, identity.CookieName); rec.Code != http.StatusServiceUnavailable || (c != nil && c.MaxAge >= 0) {
+		t.Fatalf("LDAP giù: atteso 503 senza cookie valido, ottenuto %d", rec.Code)
 	}
 }
 
@@ -131,5 +131,32 @@ func TestDashboardRecognizeAttribute(t *testing.T) {
 	s2, _ := newTestServerWith(t, nil, func(o *Options) { o.Config.NTLMDomain = "" })
 	if body := do(t, s2, "GET", "/", nil, nil, nil).Body.String(); strings.Contains(body, "data-riconosci") {
 		t.Fatal("riconoscimento spento: nessun tentativo")
+	}
+}
+
+// Cookie Secure su HTTP in chiaro: il browser lo scarterebbe e la pagina si
+// ricaricherebbe all'infinito. Nessun tentativo di riconoscimento.
+func TestRecognitionSkippedWhenCookieDropped(t *testing.T) {
+	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Config.SecureCookies = true })
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); strings.Contains(body, "data-riconosci") {
+		t.Fatal("cookie che verrebbe scartato: niente data-riconosci")
+	}
+	if rec := do(t, s, "GET", "/io", nil, nil, nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("/io con cookie che verrebbe scartato: atteso 404, ottenuto %d", rec.Code)
+	}
+	https := map[string]string{"X-Forwarded-Proto": "https"}
+	if body := do(t, s, "GET", "/", nil, nil, https).Body.String(); !strings.Contains(body, "data-riconosci") {
+		t.Fatal("dietro proxy HTTPS il riconoscimento deve restare attivo")
+	}
+}
+
+// AD giù a metà handshake: il cookie anonimo del primo passo va tolto,
+// altrimenti l'utente resterebbe anonimo per 24 ore.
+func TestIoLDAPDownExpiresAnonymousCookie(t *testing.T) {
+	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Directory = fakeDirectory{err: errors.New("giù")} })
+	rec := do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("COMUNE-MS", "mrossi", "W")))
+	c := cookieNamed(rec, identity.CookieName)
+	if rec.Code != http.StatusServiceUnavailable || c == nil || c.MaxAge >= 0 {
+		t.Fatalf("LDAP giù: atteso 503 con il cookie scaduto, ottenuto %d %+v", rec.Code, c)
 	}
 }

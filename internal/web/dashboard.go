@@ -75,7 +75,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Today:     todayInfo(now),
 		Calendar:  cw,
 		User:      u,
-		Recognize: !known && s.recognitionEnabled(),
+		Recognize: !known && s.canRecognize(r),
 	})
 }
 

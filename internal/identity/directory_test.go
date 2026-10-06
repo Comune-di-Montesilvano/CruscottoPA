@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/go-ldap/ldap/v3"
 )
 
 func TestUserFilter(t *testing.T) {
@@ -26,5 +28,12 @@ func TestMockDirectory(t *testing.T) {
 	}
 	if _, err := d.Lookup("a b"); !errors.Is(err, ErrUnknownUser) {
 		t.Fatal("username non valido accettato")
+	}
+}
+
+func TestPersonFromEntry(t *testing.T) {
+	e := ldap.NewEntry("CN=x", map[string][]string{"sAMAccountName": {"MRossi"}, "displayName": {" Mario Rossi "}, "givenName": {" Mario "}})
+	if p := personFromEntry(e); p != (Person{Username: "mrossi", Name: "Mario Rossi", GivenName: "Mario"}) {
+		t.Fatalf("personFromEntry = %+v", p)
 	}
 }

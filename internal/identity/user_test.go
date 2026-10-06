@@ -33,3 +33,11 @@ func TestFirstName(t *testing.T) {
 		}
 	}
 }
+
+// Il nome di battesimo viene da givenName quando c'è: displayName può essere
+// "Cognome Nome" o contenere un nome composto.
+func TestFirstNamePrefersGivenName(t *testing.T) {
+	if got := (User{GivenName: "Anna Maria", Name: "Bianchi Anna Maria"}).FirstName(); got != "Anna Maria" {
+		t.Fatalf("FirstName = %q", got)
+	}
+}

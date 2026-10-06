@@ -16,6 +16,13 @@ func (s *Server) recognitionEnabled() bool {
 	return s.cfg.NTLMDomain != "" && s.directory != nil
 }
 
+// canRecognize: riconoscimento attivo e cookie che il browser terrà davvero.
+// Un cookie Secure su HTTP in chiaro verrebbe scartato e dashboard.js
+// ricaricherebbe la pagina all'infinito.
+func (s *Server) canRecognize(r *http.Request) bool {
+	return s.recognitionEnabled() && !s.cookieWouldBeDropped(r)
+}
+
 // viewer legge il cookie dell'utente. Identità DICHIARATA: usarla solo per
 // personalizzare la vista, mai per autorizzare.
 func (s *Server) viewer(r *http.Request) (identity.User, bool) {
@@ -43,7 +50,7 @@ func (s *Server) setViewer(w http.ResponseWriter, r *http.Request, u identity.Us
 // handleIo fa l'handshake NTLM chiamato in background da dashboard.js e salva
 // chi è l'utente (nome da AD). Il nome NTLM NON è verificato.
 func (s *Server) handleIo(w http.ResponseWriter, r *http.Request) {
-	if !s.recognitionEnabled() {
+	if !s.canRecognize(r) {
 		http.NotFound(w, r)
 		return
 	}
@@ -91,9 +98,12 @@ func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg [
 		s.recognized(w, r, identity.User{Anonymous: true})
 	case err != nil:
 		slog.Warn("riconoscimento: AD non disponibile", "err", err)
+		// Via il cookie anonimo del primo passo: si ritenta alla prossima visita.
+		http.SetCookie(w, &http.Cookie{Name: identity.CookieName, Value: "", Path: "/", MaxAge: -1,
+			HttpOnly: true, Secure: s.secureRequest(r), SameSite: http.SameSiteLaxMode})
 		http.Error(w, "Directory non disponibile", http.StatusServiceUnavailable)
 	default:
-		s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name})
+		s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name, GivenName: p.GivenName})
 	}
 }
 

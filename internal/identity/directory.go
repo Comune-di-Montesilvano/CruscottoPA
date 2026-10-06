@@ -17,8 +17,9 @@ var ErrUnknownUser = errors.New("identity: utente non trovato in AD")
 
 // Person è un utente di AD come serve alla plancia.
 type Person struct {
-	Username string // sAMAccountName, minuscolo
-	Name     string // displayName, "" se assente
+	Username  string // sAMAccountName, minuscolo
+	Name      string // displayName, "" se assente
+	GivenName string // givenName, "" se assente
 }
 
 // Directory cerca gli utenti riconosciuti via NTLM.
@@ -57,18 +58,22 @@ func (d *LDAPDirectory) Lookup(username string) (Person, error) {
 		return Person{}, fmt.Errorf("ldap bind di servizio: %w", err)
 	}
 	res, err := conn.Search(ldap.NewSearchRequest(d.cfg.BaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 1, 5, false,
-		filter, []string{"sAMAccountName", "displayName"}, nil))
+		filter, []string{"sAMAccountName", "displayName", "givenName"}, nil))
 	if err != nil {
 		return Person{}, fmt.Errorf("ldap search: %w", err)
 	}
 	if len(res.Entries) == 0 {
 		return Person{}, ErrUnknownUser
 	}
-	e := res.Entries[0]
+	return personFromEntry(res.Entries[0]), nil
+}
+
+func personFromEntry(e *ldap.Entry) Person {
 	return Person{
-		Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")),
-		Name:     strings.TrimSpace(e.GetAttributeValue("displayName")),
-	}, nil
+		Username:  strings.ToLower(e.GetAttributeValue("sAMAccountName")),
+		Name:      strings.TrimSpace(e.GetAttributeValue("displayName")),
+		GivenName: strings.TrimSpace(e.GetAttributeValue("givenName")),
+	}
 }
 
 // MockDirectory: per LDAP_HOST=mock (solo sviluppo).

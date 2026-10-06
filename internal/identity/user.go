@@ -13,11 +13,16 @@ import (
 type User struct {
 	Username  string
 	Name      string
+	GivenName string
 	Anonymous bool // riconoscimento tentato e non riuscito
 }
 
-// FirstName è la prima parola del nome visualizzato ("Mirko D'Addiego" → "Mirko").
+// FirstName è il nome di battesimo: givenName se c'è, altrimenti la prima
+// parola del nome visualizzato ("Mirko D'Addiego" → "Mirko").
 func (u User) FirstName() string {
+	if u.GivenName != "" {
+		return u.GivenName
+	}
 	if f := strings.Fields(u.Name); len(f) > 0 {
 		return f[0]
 	}
