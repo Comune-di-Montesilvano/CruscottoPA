@@ -1,0 +1,86 @@
+publiccodeYmlVersion: 0.5.0
+name: CruscottoPA
+url: https://github.com/Comune-di-Montesilvano/CruscottoPA
+landingURL: https://github.com/Comune-di-Montesilvano/CruscottoPA
+softwareVersion: 0.1.0
+releaseDate: 2026-10-06
+platforms:
+  - web
+categories:
+  - knowledge-management
+  - it-service-management
+  - content-management
+organisation:
+  uri: urn:x-italian-pa:c_f646
+  name: Comune di Montesilvano
+usedBy:
+  - Comune di Montesilvano
+developmentStatus: development
+softwareType: standalone/web
+intendedAudience:
+  countries:
+    - IT
+  scope:
+    - government
+    - local-authorities
+description:
+  it:
+    localisedName: CruscottoPA
+    shortDescription: >
+      Portale Intranet per i dipendenti dell'ente: link agli applicativi e
+      guide/FAQ contestuali, filtrati per ufficio di appartenenza.
+    longDescription: >
+      CruscottoPA è la homepage e plancia di comando dei dipendenti di un ente
+      pubblico. Centralizza in un'unica griglia a card i collegamenti agli
+      applicativi web, ai portali e alle utility usati quotidianamente,
+      affiancandoli a guide tecniche e FAQ contestuali, con l'obiettivo di
+      ridurre le richieste di assistenza al servizio informatico.
+
+
+      Ogni dipendente vede solo le card pertinenti al proprio ufficio: i
+      contenuti sono associati a gruppi (es. Anagrafe, Ufficio Tecnico,
+      Tributi) e l'utente viene riconosciuto automaticamente all'apertura
+      della pagina. Un pannello di amministrazione permette di gestire link,
+      guide e gruppi e di spostare un dipendente da un ufficio all'altro senza
+      ricaricare la pagina.
+
+
+      Il software è un singolo binario Go con database SQLite integrato,
+      distribuito come immagine container su GitHub Container Registry ed
+      eseguibile con Docker o Podman rootless.
+    features:
+      - Dashboard personalizzata per ufficio di appartenenza
+      - Card separate per applicativi e per guide/FAQ
+      - Riconoscimento automatico del dipendente
+      - Pannello di amministrazione per link, guide e gruppi
+      - Assegnazione rapida dei dipendenti agli uffici
+      - Deploy containerizzato compatibile con Podman rootless
+legal:
+  license: EUPL-1.2
+  mainCopyrightOwner: Comune di Montesilvano
+  repoOwner: Comune di Montesilvano
+maintenance:
+  type: internal
+  contacts:
+    - name: Settore Informatica - Comune di Montesilvano
+      email: supporto@comune.montesilvano.pe.it
+      affiliation: Comune di Montesilvano
+localisation:
+  localisationReady: false
+  availableLanguages:
+    - it
+IT:
+  countryExtensionVersion: "1.0"
+  conforme:
+    lineeGuidaDesign: false
+    modelloInteroperabilita: false
+    misureMinimeSicurezza: false
+    gdpr: false
+  piattaforme:
+    spid: false
+    cie: false
+    anpr: false
+    pagopa: false
+    io: false
+  riuso:
+    codiceIPA: c_f646

@@ -1,0 +1,19 @@
+body {
+	margin: 0;
+	font-family: system-ui, sans-serif;
+	color: #1a1a1a;
+	background: #f5f6f8;
+}
+
+main {
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 2rem 1rem;
+}
+
+footer {
+	text-align: center;
+	padding: 1rem;
+	font-size: 0.8rem;
+	color: #6b7280;
+}

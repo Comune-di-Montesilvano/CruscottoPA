@@ -1,0 +1,46 @@
+# CruscottoPA — Docker / Podman Compose (anche Portainer git-stack)
+#
+# Vincoli di deploy (non cambiare senza leggere CLAUDE.md):
+#   - Nome file "docker-compose.yml": Portainer git-stack si aspetta questo nome.
+#   - Nessun env_file: il clone Portainer non ha .env (gitignored). Ogni variabile
+#     è elencata come ${VAR}: in locale Compose la legge da .env, su Portainer
+#     dalle "Environment variables" dello stack.
+#   - /data è un volume NOMINATO, mai bind mount: Portainer clona il repo in un
+#     path per-commit non suo → il bind mount fallisce con "permission denied";
+#     con Podman rootless il bind mount richiederebbe anche :Z/:U e uid mapping.
+#   - pull_policy: always → il redeploy Portainer scarica sempre l'immagine
+#     ghcr.io aggiornata invece di riusare una build locale "dev".
+#
+# Uso locale:
+#   cp .env.example .env
+#   docker compose up -d --build     (oppure: podman compose up -d --build)
+
+services:
+  cruscottopa:
+    image: ghcr.io/comune-di-montesilvano/cruscottopa:latest
+    pull_policy: always
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}
+        VERSION_SUFFIX: "-DEV"
+    container_name: cruscottopa
+    restart: unless-stopped
+    ports:
+      # Porta > 1024: il container gira non root (Podman rootless incluso).
+      - "${PORT:-8080}:${PORT:-8080}"
+    volumes:
+      - cruscottopa-data:/data
+    environment:
+      - PORT=${PORT:-8080}
+      - DB_PATH=/data/cruscotto.db
+      - TZ=${TZ:-Europe/Rome}
+    healthcheck:
+      test: ["CMD", "/app/cruscottopa", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  cruscottopa-data:

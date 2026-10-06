@@ -1,0 +1,32 @@
+# CruscottoPA — .gitignore
+
+# Configurazione locale con credenziali — MAI committare!
+.env
+
+# Binari
+cruscottopa
+*.exe
+*.exe~
+*.test
+*.out
+
+# Database locali
+*.db
+*.db-shm
+*.db-wal
+/data/
+
+# Go
+/vendor/
+go.work
+
+# IDE / tool
+.vscode/
+.idea/
+.serena/
+.superpowers/
+.playwright-mcp/
+
+# OS
+.DS_Store
+Thumbs.db
