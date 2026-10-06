@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Progetto
 
-**CruscottoPA** (module `github.com/Comune-di-Montesilvano/CruscottoPA`): portale Intranet / homepage dei dipendenti del Comune di Montesilvano. "Plancia": striscia avvisi, card degli applicativi per categoria con guide agganciate, guide generali; pannello `/admin` HTMX (login LDAP) per gestirli. CI/CD ereditata da GoPulley. Lavoro diviso in sotto-progetti (vedi `docs/superpowers/specs/`): 1 plancia+admin (fatto), backup e ripristino (fatto), 2 guide ricche (Markdown/GitHub/PDF), 3 PWA + notifiche (SSE + Web Push), 4 riconoscimento utente dal reverse proxy e filtri per ufficio.
+**CruscottoPA** (module `github.com/Comune-di-Montesilvano/CruscottoPA`): portale Intranet / homepage dei dipendenti del Comune di Montesilvano. "Plancia": striscia avvisi, card degli applicativi per categoria con guide agganciate, guide generali; pannello `/admin` HTMX (login LDAP) per gestirli. CI/CD ereditata da GoPulley. Lavoro diviso in sotto-progetti (vedi `docs/superpowers/specs/`): 1 plancia+admin (fatto), backup e ripristino (fatto), 2 guide ricche (Markdown/GitHub/PDF), 3 PWA + notifiche (SSE + Web Push), 4 riconoscimento utente dal reverse proxy e filtri per ufficio. Futuro (non ancora progettato): modulo di invio ticket di assistenza — da decidere se integrarlo con un gestionale esterno o realizzarlo interno.
 
 Immagine: `ghcr.io/comune-di-montesilvano/cruscottopa` (minuscolo: GHCR/OCI lo richiedono). Binario/container/utente di sistema: `cruscottopa` (uid/gid 1001).
 
