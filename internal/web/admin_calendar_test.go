@@ -111,3 +111,23 @@ func TestOverviewShowsUpcomingClosures(t *testing.T) {
 		t.Fatal("solo chiusure entro 14 giorni")
 	}
 }
+
+// Anno digitato male (0026 al posto di 2026, 2062): va segnalato, e nell'elenco
+// admin l'anno deve essere visibile per accorgersi degli errori.
+func TestCalendarAdminImplausibleYear(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	for _, d := range []string{"0026-10-10", "2062-10-10", "2015-10-10"} {
+		rec := do(t, s, "POST", "/admin/calendario", calForm("x", "event", d, ""), c, hx)
+		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Anno non plausibile") {
+			t.Errorf("%s: atteso 422 Anno non plausibile, ottenuto %d", d, rec.Code)
+		}
+	}
+	rec := do(t, s, "POST", "/admin/calendario", calForm("Corso", "event", "2027-03-10", ""), c, hx)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "mer 10 mar 2027") {
+		t.Fatalf("nell'elenco admin la data deve mostrare l'anno: %d\n%s", rec.Code, rec.Body)
+	}
+	if evs, _ := db.ListCalendarEvents(); len(evs) != 1 {
+		t.Fatalf("salvato solo l'evento valido, trovati %d", len(evs))
+	}
+}

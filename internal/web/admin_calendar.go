@@ -2,12 +2,12 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/calendar"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
@@ -47,7 +47,9 @@ func formFromCalendarEvent(e database.CalendarEvent) calendarForm {
 }
 
 // validateCalendarForm restituisce l'evento da salvare oppure gli errori per campo.
-func validateCalendarForm(f calendarForm) (database.CalendarEvent, formErrors) {
+// L'anno di inizio deve cadere tra l'anno scorso e i prossimi 5: intercetta
+// gli errori di battitura (0026, 2062) che altrimenti passerebbero in silenzio.
+func validateCalendarForm(f calendarForm, today time.Time) (database.CalendarEvent, formErrors) {
 	errs := formErrors{}
 	checkText(errs, "title", f.Title, 120, true)
 	checkText(errs, "description", f.Description, 500, false)
@@ -57,6 +59,8 @@ func validateCalendarForm(f calendarForm) (database.CalendarEvent, formErrors) {
 	start, startErr := time.Parse(database.DayLayout, f.StartsOn)
 	if startErr != nil {
 		errs.add("starts_on", "Data non valida.")
+	} else if y := start.Year(); y < today.Year()-1 || y > today.Year()+5 {
+		errs.add("starts_on", "Anno non plausibile: controlla la data.")
 	}
 	end := start
 	if f.EndsOn != "" {
@@ -79,8 +83,12 @@ func validateCalendarForm(f calendarForm) (database.CalendarEvent, formErrors) {
 		Description: f.Description, Yearly: f.Yearly}, errs
 }
 
+// calendarWhen mostra le date con l'anno: in admin serve per accorgersi degli errori.
 func calendarWhen(e database.CalendarEvent) string {
-	w := occRange(calendar.Occurrence{Start: e.StartsOn, End: e.EndsOn})
+	w := longDay(e.StartsOn)
+	if !e.EndsOn.Equal(e.StartsOn) {
+		w = shortDay(e.StartsOn) + " – " + longDay(e.EndsOn)
+	}
 	if e.Yearly {
 		w += " · ogni anno"
 	}
@@ -159,7 +167,7 @@ func (s *Server) handleCalendarSave(w http.ResponseWriter, r *http.Request) {
 		Description: strings.TrimSpace(r.FormValue("description")),
 		Yearly:      r.FormValue("yearly") == "1",
 	}
-	ev, errs := validateCalendarForm(form)
+	ev, errs := validateCalendarForm(form, s.today())
 	if len(errs) > 0 {
 		s.renderCalendar(w, http.StatusUnprocessableEntity, form, errs)
 		return
@@ -194,3 +202,5 @@ func (s *Server) handleCalendarDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	s.renderCalendar(w, http.StatusOK, newCalendarForm(), nil)
 }
+
+func longDay(t time.Time) string { return fmt.Sprintf("%s %d", shortDay(t), t.Year()) }
