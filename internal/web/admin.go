@@ -26,11 +26,12 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, page, sectio
 }
 
 type overviewView struct {
-	ActiveAlerts []database.Alert
-	Incomplete   []database.App
-	Apps         int
-	Guides       int
-	Categories   int
+	ActiveAlerts  []database.Alert
+	Incomplete    []database.App
+	Apps          int
+	Guides        int
+	Categories    int
+	BackupWarning string
 }
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
@@ -61,5 +62,6 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 			v.Incomplete = append(v.Incomplete, a)
 		}
 	}
+	v.BackupWarning = backupWarning(s.backup.Status(), s.now())
 	s.renderPage(w, r, "admin_overview.html", "overview", v)
 }

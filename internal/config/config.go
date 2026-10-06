@@ -29,14 +29,15 @@ type LDAP struct {
 
 // Config è la configurazione completa del server.
 type Config struct {
-	Port          string
-	DBPath        string
-	UploadDir     string
-	SessionSecret string
-	SecureCookies bool
-	LogLevel      slog.Level
-	Location      *time.Location
-	LDAP          LDAP
+	Port                string
+	DBPath              string
+	UploadDir           string
+	SessionSecret       string
+	SecureCookies       bool
+	LogLevel            slog.Level
+	Location            *time.Location
+	BackupIntervalHours int
+	LDAP                LDAP
 }
 
 // Load legge le variabili d'ambiente, applica i default e valida i valori.
@@ -73,6 +74,9 @@ func Load() (Config, error) {
 	}
 	if err = cfg.LogLevel.UnmarshalText([]byte(getEnv("LOG_LEVEL", "info"))); err != nil {
 		return Config{}, fmt.Errorf("LOG_LEVEL: %w", err)
+	}
+	if cfg.BackupIntervalHours, err = getEnvInt("BACKUP_INTERVAL_HOURS", 24); err != nil {
+		return Config{}, err
 	}
 
 	// Nessun default: "mock" rende admin chiunque, deve essere una scelta esplicita.
@@ -120,4 +124,16 @@ func splitList(s string) []string {
 		}
 	}
 	return out
+}
+
+func getEnvInt(key string, fallback int) (int, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("%s: atteso un intero >= 0, ottenuto %q", key, v)
+	}
+	return n, nil
 }

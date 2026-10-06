@@ -21,6 +21,8 @@ func (s *Server) funcs() template.FuncMap {
 		"monogram":   monogram,
 		"levelLabel": levelLabel,
 		"linkify":    linkify,
+		"humanSize":  humanSize,
+		"kindLabel":  kindLabel,
 		"fmtDate":    func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
 		"fmtDatePtr": func(t *time.Time) string {
 			if t == nil {
@@ -105,4 +107,29 @@ func linkify(text string) template.HTML {
 	}
 	b.WriteString(template.HTMLEscapeString(text[last:]))
 	return template.HTML(b.String()) //nolint:gosec // testo escapato sopra
+}
+
+func humanSize(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for m := n / unit; m >= unit && exp < 2; m /= unit {
+		div *= unit
+		exp++
+	}
+	s := fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMG"[exp])
+	return strings.Replace(s, ".", ",", 1)
+}
+
+func kindLabel(kind string) string {
+	switch kind {
+	case "auto":
+		return "Automatico"
+	case "manuale":
+		return "Manuale"
+	default:
+		return "Pre-ripristino"
+	}
 }

@@ -10,6 +10,7 @@ var allVars = []string{
 	"PORT", "DB_PATH", "UPLOAD_DIR", "SESSION_SECRET", "SECURE_COOKIES", "LOG_LEVEL", "TZ",
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
+	"BACKUP_INTERVAL_HOURS",
 }
 
 func clearEnv(t *testing.T) {
@@ -89,5 +90,24 @@ func TestLoadInvalidValues(t *testing.T) {
 				t.Fatalf("%s=%q: atteso errore", tc.key, tc.val)
 			}
 		})
+	}
+}
+
+func TestLoadBackupInterval(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	cfg, err := Load()
+	if err != nil || cfg.BackupIntervalHours != 24 {
+		t.Fatalf("default: atteso 24, ottenuto %d (%v)", cfg.BackupIntervalHours, err)
+	}
+	t.Setenv("BACKUP_INTERVAL_HOURS", "0")
+	if cfg, err := Load(); err != nil || cfg.BackupIntervalHours != 0 {
+		t.Fatalf("0 deve disattivare: %d %v", cfg.BackupIntervalHours, err)
+	}
+	for _, bad := range []string{"-1", "abc", "1.5"} {
+		t.Setenv("BACKUP_INTERVAL_HOURS", bad)
+		if _, err := Load(); err == nil {
+			t.Errorf("BACKUP_INTERVAL_HOURS=%q: atteso errore", bad)
+		}
 	}
 }

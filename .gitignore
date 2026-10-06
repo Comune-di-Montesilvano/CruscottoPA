@@ -15,6 +15,8 @@ cruscottopa
 *.db-shm
 *.db-wal
 /uploads/
+/backups/
+/restore-tmp/
 /data/
 
 # Go

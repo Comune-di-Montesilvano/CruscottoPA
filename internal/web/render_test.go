@@ -38,3 +38,14 @@ func TestLinkify(t *testing.T) {
 		t.Fatal("solo http/https diventano link")
 	}
 }
+
+func TestHumanSizeAndKindLabel(t *testing.T) {
+	for n, want := range map[int64]string{0: "0 B", 512: "512 B", 1536: "1,5 KB", 5 << 20: "5,0 MB", 3 << 30: "3,0 GB"} {
+		if got := humanSize(n); got != want {
+			t.Errorf("humanSize(%d) = %q, atteso %q", n, got, want)
+		}
+	}
+	if kindLabel("auto") != "Automatico" || kindLabel("manuale") != "Manuale" || kindLabel("pre-ripristino") != "Pre-ripristino" {
+		t.Fatal("etichette tipo backup errate")
+	}
+}

@@ -37,6 +37,7 @@ services:
       - UPLOAD_DIR=/data/uploads
       - TZ=${TZ:-Europe/Rome}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - BACKUP_INTERVAL_HOURS=${BACKUP_INTERVAL_HOURS:-24}
       - SESSION_SECRET=${SESSION_SECRET}
       - SECURE_COOKIES=${SECURE_COOKIES:-true}
       - LDAP_HOST=${LDAP_HOST}

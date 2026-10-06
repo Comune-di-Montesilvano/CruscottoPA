@@ -18,4 +18,66 @@
 		const preview = e.target.form?.querySelector("[data-preview]");
 		if (preview) preview.style.background = e.target.value;
 	});
+
+	// ── Ripristino da file: upload a pezzi (sotto il limite del reverse proxy) ──
+	async function uploadRestore(form) {
+		const file = form.querySelector("[name=archivio]").files[0];
+		const conferma = form.querySelector("[name=conferma]").value;
+		const bar = form.querySelector("progress");
+		const msg = form.querySelector("[data-upload-msg]");
+		const button = form.querySelector("button[type=submit]");
+		msg.textContent = "";
+		if (!file) { msg.textContent = "Scegli un file .tar.gz."; return; }
+		if (conferma !== "RIPRISTINA") { msg.textContent = "Per confermare digita RIPRISTINA."; return; }
+		button.disabled = true;
+		try {
+			const start = await fetch("/admin/backup/upload", { method: "POST" });
+			if (!start.ok) throw new Error(start.status === 429 ? (await start.text()).trim() : "Impossibile avviare il caricamento.");
+			const { id, chunk } = await start.json();
+			const total = Math.max(1, Math.ceil(file.size / chunk));
+			for (let n = 0; n < total; n++) {
+				const res = await fetch(`/admin/backup/upload/${id}/chunk?n=${n}`, {
+					method: "POST",
+					body: file.slice(n * chunk, (n + 1) * chunk),
+				});
+				if (!res.ok) throw new Error(`Caricamento interrotto (pezzo ${n + 1} di ${total}): ${(await res.text()).trim()}`);
+				bar.value = (n + 1) / total;
+			}
+			const fin = await fetch(`/admin/backup/upload/${id}/fine`, {
+				method: "POST",
+				body: new URLSearchParams({ conferma }),
+			});
+			document.getElementById("section").outerHTML = await fin.text();
+			watchRestart();
+		} catch (err) {
+			msg.textContent = err.message;
+			button.disabled = false;
+		}
+	}
+
+	document.addEventListener("submit", (e) => {
+		if (!e.target.matches("[data-restore-upload]")) return;
+		e.preventDefault();
+		uploadRestore(e.target);
+	});
+
+	// ── Dopo un ripristino: attende che il servizio riparta e ricarica ──
+	function watchRestart() {
+		if (!document.querySelector("#section[data-restarting]")) return;
+		const started = Date.now();
+		const poll = async () => {
+			try {
+				const res = await fetch("/health", { cache: "no-store" });
+				if (res.ok && Date.now() - started > 3000) {
+					location.href = "/admin/backup";
+					return;
+				}
+			} catch (_) {
+				// servizio in riavvio
+			}
+			setTimeout(poll, 2000);
+		};
+		setTimeout(poll, 2000);
+	}
+	document.addEventListener("htmx:afterSwap", watchRestart);
 })();

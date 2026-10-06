@@ -34,6 +34,17 @@ Al primo avvio esistono solo la categoria "Applicativi" con Rubrica e Webmail **
 
 `LDAP_HOST` è obbligatorio. Solo in sviluppo si può usare `LDAP_HOST=mock`, che accetta qualsiasi credenziale come amministratore: mai in produzione.
 
+## Backup e ripristino
+
+Da `/admin/backup`:
+
+- backup automatici ogni `BACKUP_INTERVAL_HOURS` ore (default 24, `0` = disattivati), conservati a scalare: tutti gli ultimi 7 giorni, poi uno a settimana fino a 35 giorni, uno al mese fino a un anno;
+- backup manuali con "Crea backup ora" (restano finché non li elimini);
+- download di ogni backup (`.tar.gz` con database e file caricati);
+- ripristino da un backup in elenco o da un file caricato, con conferma `RIPRISTINA`: prima viene salvato lo stato attuale come backup "pre-ripristino", poi il servizio si riavvia con i dati ripristinati.
+
+Le copie stanno nel volume `/data`, cioè sullo stesso server: scaricane una periodicamente e conservala altrove.
+
 ## Sviluppo
 
 ```bash
