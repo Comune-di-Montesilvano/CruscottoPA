@@ -153,3 +153,19 @@ func TestBackupWarning(t *testing.T) {
 		}
 	}
 }
+
+// Un doppio click su "Ripristina" restituiva "operazione già in corso" al posto
+// della pagina d'attesa, che quindi non si ricaricava più: i pulsanti delle
+// azioni lunghe vanno disabilitati durante la richiesta.
+func TestBackupActionsDisableDuringRequest(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	c := login(t, s)
+	s.backup.Create(backup.KindManual)
+	page := do(t, s, "GET", "/admin/backup", nil, c, nil).Body.String()
+	if n := strings.Count(page, `hx-disabled-elt="find button"`); n < 1 {
+		t.Fatalf("il form di ripristino deve disabilitare il pulsante (trovati %d)\n%s", n, page)
+	}
+	if !strings.Contains(page, `hx-post="/admin/backup" hx-disabled-elt="this"`) {
+		t.Fatal(`"Crea backup ora" deve disabilitarsi durante la richiesta`)
+	}
+}

@@ -22,7 +22,7 @@
 		<h2>Nuovo backup</h2>
 		<p class="hint">{{if .Status.LastSuccess.IsZero}}Nessun backup ancora eseguito.{{else}}Ultimo backup riuscito: {{fmtDate .Status.LastSuccess}}.{{end}} Il backup comprende database e file caricati.</p>
 		<div class="actions">
-			<button class="primary" type="button" hx-post="/admin/backup" hx-target="#section" hx-swap="outerHTML">Crea backup ora</button>
+			<button class="primary" type="button" hx-post="/admin/backup" hx-disabled-elt="this" hx-target="#section" hx-swap="outerHTML">Crea backup ora</button>
 		</div>
 	</div>
 
@@ -36,7 +36,7 @@
 				<td class="muted">{{humanSize .Size}}</td>
 				<td class="actions">
 					<a class="button" href="/admin/backup/{{.Name}}" download>Scarica</a>
-					<form class="inline-confirm" hx-post="/admin/backup/{{.Name}}/ripristina" hx-target="#section" hx-swap="outerHTML">
+					<form class="inline-confirm" hx-post="/admin/backup/{{.Name}}/ripristina" hx-disabled-elt="find button" hx-target="#section" hx-swap="outerHTML">
 						<input name="conferma" placeholder="digita RIPRISTINA" aria-label="Conferma ripristino" autocomplete="off">
 						<button type="submit">Ripristina</button>
 					</form>
