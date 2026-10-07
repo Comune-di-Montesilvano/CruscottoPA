@@ -3,17 +3,24 @@ package web
 import (
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 )
 
 type guideForm struct {
 	ID         int64
 	AppID      int64 // 0 = generale
+	Kind       string
 	Title      string
-	URL        string
+	URL        string // link
+	Body       string // markdown
+	File       string // pdf
+	SourceURL  string // github
 	Enabled    bool
 	Visibility database.ContentAudience
 }
@@ -33,10 +40,10 @@ type guidesSection struct {
 	VisibilityLabels map[int64]string
 }
 
-func newGuideForm() guideForm { return guideForm{Enabled: true} }
+func newGuideForm() guideForm { return guideForm{Kind: database.GuideKindLink, Enabled: true} }
 
 func formFromGuide(g database.Guide) guideForm {
-	f := guideForm{ID: g.ID, Title: g.Title, URL: g.URL, Enabled: g.Enabled}
+	f := guideForm{ID: g.ID, Kind: g.Kind, Title: g.Title, URL: g.URL, Body: g.Body, File: g.File, SourceURL: g.SourceURL, Enabled: g.Enabled}
 	if g.AppID != nil {
 		f.AppID = *g.AppID
 	}
@@ -119,16 +126,39 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	form := guideForm{
-		ID:      id,
-		Title:   strings.TrimSpace(r.FormValue("title")),
-		URL:     strings.TrimSpace(r.FormValue("url")),
-		Enabled: r.FormValue("enabled") == "1",
+		ID:        id,
+		Kind:      r.FormValue("kind"),
+		Title:     strings.TrimSpace(r.FormValue("title")),
+		URL:       strings.TrimSpace(r.FormValue("url")),
+		Body:      strings.TrimSpace(strings.ReplaceAll(r.FormValue("body"), "\r\n", "\n")),
+		File:      r.FormValue("file"),
+		SourceURL: strings.TrimSpace(r.FormValue("source_url")),
+		Enabled:   r.FormValue("enabled") == "1",
+	}
+	if form.Kind == "" {
+		form.Kind = database.GuideKindLink // form senza tipo (compatibilità)
 	}
 	form.AppID, _ = strconv.ParseInt(r.FormValue("app_id"), 10, 64)
 
 	errs := formErrors{}
 	checkText(errs, "title", form.Title, 120, true)
-	checkURL(errs, "url", form.URL, true)
+	var src guidesrc.Source
+	switch form.Kind {
+	case database.GuideKindLink:
+		checkURL(errs, "url", form.URL, true)
+	case database.GuideKindMarkdown:
+		checkText(errs, "body", form.Body, 100000, true)
+	case database.GuideKindPDF:
+		if !strings.HasSuffix(form.File, ".pdf") || !guideMediaRe.MatchString(form.File) || !s.mediaExists(form.File) {
+			errs.add("file", "Carica il PDF.")
+		}
+	case database.GuideKindGitHub:
+		if src, err = guidesrc.ParseGitHubURL(form.SourceURL); err != nil {
+			errs.add("source_url", err.Error())
+		}
+	default:
+		errs.add("kind", "Tipo di guida non valido.")
+	}
 	if form.AppID != 0 {
 		if _, err := s.db.GetApp(form.AppID); errors.Is(err, database.ErrNotFound) {
 			errs.add("app", "Applicativo non trovato.")
@@ -142,14 +172,37 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
+	// GitHub per ultimo: si scarica solo se il resto del form è valido.
+	var fetched string
+	if form.Kind == database.GuideKindGitHub && len(errs) == 0 {
+		if fetched, err = s.fetchGuide(r.Context(), src.Raw); err != nil {
+			errs.add("source_url", "Download non riuscito: "+err.Error())
+		}
+	}
 	if len(errs) > 0 {
 		s.renderGuides(w, http.StatusUnprocessableEntity, form, errs)
 		return
 	}
 
-	g := database.Guide{ID: id, Title: form.Title, Kind: database.GuideKindLink, URL: form.URL, Enabled: form.Enabled}
+	g := database.Guide{ID: id, Title: form.Title, Kind: form.Kind, Enabled: form.Enabled}
+	switch form.Kind { // solo i campi del tipo scelto
+	case database.GuideKindLink:
+		g.URL = form.URL
+	case database.GuideKindMarkdown:
+		g.Body = form.Body
+	case database.GuideKindPDF:
+		g.File = form.File
+	case database.GuideKindGitHub:
+		g.SourceURL, g.Body = form.SourceURL, fetched
+	}
 	if form.AppID != 0 {
 		g.AppID = &form.AppID
+	}
+	var oldFile string
+	if id != 0 {
+		if cur, err := s.db.GetGuide(id); err == nil {
+			oldFile = cur.File
+		}
 	}
 	if id == 0 {
 		id, err = s.db.CreateGuideWithAudience(g, form.Visibility)
@@ -162,8 +215,59 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.serverError(w, err)
 	default:
+		if g.Kind == database.GuideKindGitHub {
+			if err := s.db.SetGuideFetched(id, fetched, s.now()); err != nil {
+				s.serverError(w, err)
+				return
+			}
+		}
+		if oldFile != "" && oldFile != g.File {
+			s.removeUpload(uploadGuide, oldFile)
+		}
+		s.cleanMedia()
 		s.renderGuides(w, http.StatusOK, newGuideForm(), nil)
 	}
+}
+
+// mediaExists: il file caricato c'è davvero (nome già validato da guideMediaRe).
+func (s *Server) mediaExists(name string) bool {
+	_, err := os.Stat(filepath.Join(s.uploadDir(uploadGuide), name))
+	return err == nil
+}
+
+// handleGuideRefresh: "Aggiorna ora" di una guida GitHub. L'esito (anche
+// l'errore) è salvato sulla guida e si vede nell'elenco.
+func (s *Server) handleGuideRefresh(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	g, err := s.db.GetGuide(id)
+	if errors.Is(err, database.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	if g.Kind == database.GuideKindGitHub {
+		s.refreshGuide(r.Context(), g) // l'errore resta sulla guida
+	}
+	s.renderGuides(w, http.StatusOK, newGuideForm(), nil)
+}
+
+// guideKindLabel: tipo mostrato nell'elenco dell'admin.
+func guideKindLabel(k string) string {
+	switch k {
+	case database.GuideKindMarkdown:
+		return "Testo"
+	case database.GuideKindPDF:
+		return "PDF"
+	case database.GuideKindGitHub:
+		return "GitHub"
+	}
+	return "Link"
 }
 
 func (s *Server) handleGuideDelete(w http.ResponseWriter, r *http.Request) {
@@ -172,13 +276,19 @@ func (s *Server) handleGuideDelete(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if err := s.db.DeleteGuide(id); errors.Is(err, database.ErrNotFound) {
+	g, err := s.db.GetGuide(id)
+	if err == nil {
+		err = s.db.DeleteGuide(id)
+	}
+	if errors.Is(err, database.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
 		s.serverError(w, err)
 		return
 	}
+	s.removeUpload(uploadGuide, g.File)
+	s.cleanMedia()
 	s.renderGuides(w, http.StatusOK, newGuideForm(), nil)
 }
 

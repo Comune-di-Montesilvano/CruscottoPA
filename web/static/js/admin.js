@@ -114,6 +114,57 @@
 	document.addEventListener("htmx:afterSwap", (e) => syncVisibility(e.target));
 	syncVisibility(document);
 
+	// Guide: mostra solo i campi del tipo scelto.
+	function syncGuideKind(root) {
+		const checked = root.querySelector("[data-guide-kind]:checked");
+		if (!checked) return;
+		root.querySelectorAll("[data-kind-field]").forEach((el) => { el.hidden = el.dataset.kindField !== checked.value; });
+	}
+	document.addEventListener("change", (e) => {
+		if (e.target.matches("[data-guide-kind]")) syncGuideKind(e.target.form);
+	});
+	document.addEventListener("htmx:afterSwap", (e) => syncGuideKind(e.target));
+	syncGuideKind(document);
+
+	// Upload a pezzi (immagini dell'editor e PDF delle guide): il proxy taglia
+	// le richieste oltre 1 MB. Il server risponde sempre 200 + JSON; un corpo
+	// che non è JSON (pagina del proxy) diventa un messaggio generico.
+	class UploadError extends Error {}
+	async function post(url, body, type) {
+		const res = await fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": type }, body });
+		let r;
+		try { r = await res.json(); } catch (_) { throw new UploadError("Caricamento non riuscito."); }
+		if (!r.ok) throw new UploadError(r.error || "Caricamento non riuscito.");
+		return r;
+	}
+	async function uploadMedia(file, tipo) {
+		const start = await post("/admin/media", "tipo=" + tipo, "application/x-www-form-urlencoded");
+		for (let n = 0, off = 0; off < file.size; n++, off += start.chunk) {
+			await post(`/admin/media/${start.id}/pezzo?n=${n}`, file.slice(off, off + start.chunk), "application/octet-stream");
+		}
+		return post(`/admin/media/${start.id}/fine`, "", "application/x-www-form-urlencoded");
+	}
+	function uploadMessage(err) {
+		return err instanceof UploadError ? err.message : "Caricamento non riuscito.";
+	}
+	window.cruscottoUpload = { media: uploadMedia, message: uploadMessage }; // usato dall'editor
+
+	document.addEventListener("change", async (e) => {
+		if (!e.target.matches("[data-pdf-upload]")) return;
+		const form = e.target.form;
+		const status = form.querySelector("[data-pdf-status]");
+		const file = e.target.files[0];
+		if (!file) return;
+		status.textContent = "Caricamento…";
+		try {
+			const r = await uploadMedia(file, "pdf");
+			form.querySelector("[data-pdf-name]").value = r.name;
+			status.textContent = "PDF caricato: " + file.name;
+		} catch (err) {
+			status.textContent = uploadMessage(err);
+		}
+	});
+
 	// Errori delle azioni HTMX: messaggio generico a schermo. Non si usa il corpo
 	// della risposta: in produzione il reverse proxy lo sostituisce con una
 	// pagina di cortesia.

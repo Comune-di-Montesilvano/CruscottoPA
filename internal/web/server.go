@@ -20,6 +20,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
 )
@@ -39,6 +40,8 @@ type Options struct {
 	Version      string
 	WebDir       string
 	Now          func() time.Time
+	// GuideFetch scarica un file raw da GitHub (nil = guidesrc.NewFetcher().Fetch).
+	GuideFetch func(ctx context.Context, rawURL string) (string, error)
 }
 
 type Server struct {
@@ -58,6 +61,7 @@ type Server struct {
 	version      string
 	webDir       string
 	now          func() time.Time
+	fetchGuide   func(ctx context.Context, rawURL string) (string, error)
 	mux          *http.ServeMux
 	hub          *notify.Hub   // plance collegate a /eventi
 	pusher       notify.Pusher // nil = Web Push spento
@@ -71,6 +75,9 @@ func New(o Options) (*Server, error) {
 	}
 	if o.Now == nil {
 		o.Now = time.Now
+	}
+	if o.GuideFetch == nil {
+		o.GuideFetch = guidesrc.NewFetcher().Fetch
 	}
 	if o.RestoreDelay == 0 {
 		o.RestoreDelay = 500 * time.Millisecond
@@ -90,6 +97,7 @@ func New(o Options) (*Server, error) {
 		version:      strings.TrimPrefix(o.Version, "v"), // tag "v0.3.0": la "v" la aggiungono i template
 		webDir:       o.WebDir,
 		now:          o.Now,
+		fetchGuide:   o.GuideFetch,
 		mux:          http.NewServeMux(),
 	}
 	b, err := o.DB.GetBranding()
@@ -211,6 +219,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/guide/{id}", s.requireAdmin(s.handleGuideSave))
 	s.mux.HandleFunc("POST /admin/guide/{id}/elimina", s.requireAdmin(s.handleGuideDelete))
 	s.mux.HandleFunc("POST /admin/guide/{id}/sposta", s.requireAdmin(s.handleGuideMove))
+	s.mux.HandleFunc("POST /admin/guide/{id}/aggiorna", s.requireAdmin(s.handleGuideRefresh))
 	s.mux.HandleFunc("GET /admin/avvisi", s.requireAdmin(s.handleAlertsPage))
 	s.mux.HandleFunc("GET /admin/avvisi/{id}/modifica", s.requireAdmin(s.handleAlertEdit))
 	s.mux.HandleFunc("POST /admin/avvisi", s.requireAdmin(s.handleAlertSave))

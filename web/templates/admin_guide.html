@@ -19,8 +19,33 @@
 		</div>
 		{{with .Errors.title}}<p class="field-error">{{.}}</p>{{end}}
 		{{with .Errors.app}}<p class="field-error">{{.}}</p>{{end}}
-		<label>Indirizzo (URL)<input name="url" value="{{.Form.URL}}" placeholder="https://…" required></label>
-		{{with .Errors.url}}<p class="field-error">{{.}}</p>{{end}}
+		<fieldset class="kind-choice">
+			<legend>Tipo</legend>
+			<label class="inline"><input type="radio" name="kind" value="link" data-guide-kind{{if eq .Form.Kind "link"}} checked{{end}}>Link</label>
+			<label class="inline"><input type="radio" name="kind" value="markdown" data-guide-kind{{if eq .Form.Kind "markdown"}} checked{{end}}>Testo</label>
+			<label class="inline"><input type="radio" name="kind" value="pdf" data-guide-kind{{if eq .Form.Kind "pdf"}} checked{{end}}>PDF</label>
+			<label class="inline"><input type="radio" name="kind" value="github" data-guide-kind{{if eq .Form.Kind "github"}} checked{{end}}>Da GitHub</label>
+		</fieldset>
+		{{with .Errors.kind}}<p class="field-error">{{.}}</p>{{end}}
+		<div data-kind-field="link">
+			<label>Indirizzo (URL)<input name="url" value="{{.Form.URL}}" placeholder="https://…"></label>
+			{{with .Errors.url}}<p class="field-error">{{.}}</p>{{end}}
+		</div>
+		<div data-kind-field="markdown">
+			<label>Testo<textarea name="body" rows="14" data-editor>{{.Form.Body}}</textarea></label>
+			{{with .Errors.body}}<p class="field-error">{{.}}</p>{{end}}
+		</div>
+		<div data-kind-field="pdf">
+			<input type="hidden" name="file" value="{{.Form.File}}" data-pdf-name>
+			<label>File PDF (massimo 20 MB)<input type="file" accept="application/pdf" data-pdf-upload></label>
+			<p class="hint" data-pdf-status>{{if .Form.File}}PDF caricato.{{if .Form.ID}} <a href="/guide/{{.Form.ID}}/pdf" target="_blank" rel="noopener">Apri</a>{{end}}{{end}}</p>
+			{{with .Errors.file}}<p class="field-error">{{.}}</p>{{end}}
+		</div>
+		<div data-kind-field="github">
+			<label>Link al file su GitHub<input name="source_url" value="{{.Form.SourceURL}}" placeholder="https://github.com/org/repo/blob/main/docs/guida.md"></label>
+			<p class="hint">Solo repository pubblici. Il file viene scaricato subito e poi aggiornato periodicamente.</p>
+			{{with .Errors.source_url}}<p class="field-error">{{.}}</p>{{end}}
+		</div>
 		<label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Form.Enabled}} checked{{end}}>Visibile in plancia</label>
 		{{template "visibility_fieldset" .VisibilityField}}
 		{{with .Errors.visibilita}}<p class="field-error">{{.}}</p>{{end}}
@@ -35,11 +60,14 @@
 		<tbody>
 			{{range .Guides}}
 			<tr>
-				<td><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if not .Enabled}} <span class="tag">nascosta</span>{{end}}<br><small class="muted">{{template "visibility_label" (index $.VisibilityLabels .ID)}}</small></td>
+				<td>{{if eq .Kind "link"}}<a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{else}}<a href="/guide/{{.ID}}{{if eq .Kind "pdf"}}/pdf{{end}}" target="_blank" rel="noopener">{{.Title}}</a>{{end}} <span class="tag">{{guideKind .Kind}}</span>{{if not .Enabled}} <span class="tag">nascosta</span>{{end}}
+					{{if eq .Kind "github"}}<br><small class="muted">{{with .FetchedAt}}aggiornata il {{fmtDatePtr .}}{{else}}mai scaricata{{end}}</small>{{with .FetchError}}<br><small class="field-error">Ultimo aggiornamento fallito: {{.}}</small>{{end}}{{end}}
+					<br><small class="muted">{{template "visibility_label" (index $.VisibilityLabels .ID)}}</small></td>
 				<td class="muted">{{if .AppTitle}}{{.AppTitle}}{{else}}Generale{{end}}</td>
 				<td class="actions">
 					<button class="icon" type="button" title="Su" hx-post="/admin/guide/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>
 					<button class="icon" type="button" title="Giù" hx-post="/admin/guide/{{.ID}}/sposta" hx-vals='{"dir":"down"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_downward</span></button>
+					{{if eq .Kind "github"}}<button type="button" hx-post="/admin/guide/{{.ID}}/aggiorna" hx-target="#section" hx-swap="outerHTML">Aggiorna ora</button>{{end}}
 					<button type="button" hx-get="/admin/guide/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
 					<button class="danger" type="button" hx-post="/admin/guide/{{.ID}}/elimina" hx-confirm="Eliminare la guida «{{.Title}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
 				</td>

@@ -1,10 +1,16 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 )
 
 func TestGuidesCRUD(t *testing.T) {
@@ -71,5 +77,90 @@ func TestGuideValidation(t *testing.T) {
 	rec = do(t, s, "POST", "/admin/guide", url.Values{"title": {"x"}, "url": {""}, "app_id": {"0"}}, c, hx)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatal("per le guide l'URL è obbligatorio")
+	}
+}
+
+func fakeFetch(body string, err error) func(*Options) {
+	return func(o *Options) {
+		o.GuideFetch = func(context.Context, string) (string, error) { return body, err }
+	}
+}
+
+func TestGuideKindsSave(t *testing.T) {
+	s, db := newTestServerWith(t, nil, fakeFetch("# Da GitHub", nil))
+	c := login(t, s)
+	pdf := uploadMedia(t, s, c, "pdf", pdfBytes)["name"].(string)
+	for _, form := range []url.Values{
+		{"kind": {"markdown"}, "title": {"Interna"}, "body": {"**ciao**"}, "url": {"https://ignorato"}, "app_id": {"0"}, "enabled": {"1"}},
+		{"kind": {"pdf"}, "title": {"Manuale"}, "file": {pdf}, "app_id": {"0"}, "enabled": {"1"}},
+		{"kind": {"github"}, "title": {"Da repo"}, "source_url": {"https://github.com/o/r/blob/main/a.md"}, "app_id": {"0"}, "enabled": {"1"}},
+	} {
+		if rec := do(t, s, "POST", "/admin/guide", form, c, hx); rec.Code != 200 {
+			t.Fatalf("%s: %d\n%s", form.Get("kind"), rec.Code, rec.Body)
+		}
+	}
+	gs, _ := db.ListGuides()
+	if len(gs) != 3 || gs[0].Body != "**ciao**" || gs[0].URL != "" || gs[1].File != pdf || gs[2].Body != "# Da GitHub" || gs[2].FetchedAt == nil {
+		t.Fatalf("DB: %+v", gs)
+	}
+	rec := do(t, s, "GET", "/admin/guide/"+itoa(gs[2].ID)+"/modifica", nil, c, hx)
+	if !strings.Contains(rec.Body.String(), `value="https://github.com/o/r/blob/main/a.md"`) || !strings.Contains(rec.Body.String(), `value="github" data-guide-kind checked`) {
+		t.Fatalf("modifica github non precompilata:\n%s", rec.Body)
+	}
+}
+
+func TestGuideKindValidation(t *testing.T) {
+	s, _ := newTestServerWith(t, nil, fakeFetch("", guidesrc.ErrNotFound))
+	c := login(t, s)
+	for name, form := range map[string]url.Values{
+		"markdown vuota": {"kind": {"markdown"}, "title": {"X"}, "body": {" "}},
+		"pdf assente":    {"kind": {"pdf"}, "title": {"X"}, "file": {"0123456789abcdef0123456789abcdef.pdf"}},
+		"pdf percorso":   {"kind": {"pdf"}, "title": {"X"}, "file": {"../test.db"}},
+		"github url":     {"kind": {"github"}, "title": {"X"}, "source_url": {"https://gitlab.com/o/r/blob/main/a.md"}},
+		"github 404":     {"kind": {"github"}, "title": {"X"}, "source_url": {"https://github.com/o/r/blob/main/a.md"}},
+		"tipo":           {"kind": {"html"}, "title": {"X"}},
+	} {
+		if rec := do(t, s, "POST", "/admin/guide", form, c, hx); rec.Code != 422 {
+			t.Errorf("%s: atteso 422, %d", name, rec.Code)
+		}
+	}
+}
+
+func TestGuideRefreshNow(t *testing.T) {
+	body, ferr := "# v1", error(nil)
+	s, db := newTestServerWith(t, nil, func(o *Options) {
+		o.GuideFetch = func(context.Context, string) (string, error) { return body, ferr }
+	})
+	c := login(t, s)
+	do(t, s, "POST", "/admin/guide", url.Values{"kind": {"github"}, "title": {"G"}, "source_url": {"https://github.com/o/r/blob/main/a.md"}, "enabled": {"1"}}, c, hx)
+	gs, _ := db.ListGuides()
+	id := itoa(gs[0].ID)
+	body = "# v2"
+	do(t, s, "POST", "/admin/guide/"+id+"/aggiorna", nil, c, hx)
+	if g, _ := db.GetGuide(gs[0].ID); g.Body != "# v2" {
+		t.Fatalf("aggiorna: %q", g.Body)
+	}
+	ferr = errors.New("rete giù")
+	rec := do(t, s, "POST", "/admin/guide/"+id+"/aggiorna", nil, c, hx)
+	g, _ := db.GetGuide(gs[0].ID)
+	if rec.Code != 200 || g.Body != "# v2" || g.FetchError == "" || !strings.Contains(rec.Body.String(), "Ultimo aggiornamento fallito") {
+		t.Fatalf("errore: %d %+v\n%s", rec.Code, g, rec.Body)
+	}
+}
+
+func TestGuidePDFReplacedRemovesOldFile(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	a := uploadMedia(t, s, c, "pdf", pdfBytes)["name"].(string)
+	b := uploadMedia(t, s, c, "pdf", pdfBytes)["name"].(string)
+	do(t, s, "POST", "/admin/guide", url.Values{"kind": {"pdf"}, "title": {"M"}, "file": {a}, "enabled": {"1"}}, c, hx)
+	gs, _ := db.ListGuides()
+	do(t, s, "POST", "/admin/guide/"+itoa(gs[0].ID), url.Values{"kind": {"pdf"}, "title": {"M"}, "file": {b}, "enabled": {"1"}}, c, hx)
+	if _, err := os.Stat(filepath.Join(s.uploadDir(uploadGuide), a)); !os.IsNotExist(err) {
+		t.Error("PDF vecchio non cancellato")
+	}
+	do(t, s, "POST", "/admin/guide/"+itoa(gs[0].ID)+"/elimina", nil, c, hx)
+	if _, err := os.Stat(filepath.Join(s.uploadDir(uploadGuide), b)); !os.IsNotExist(err) {
+		t.Error("PDF non cancellato con la guida")
 	}
 }

@@ -38,6 +38,7 @@ func (s *Server) funcs() template.FuncMap {
 		"shortDay":     shortDay,
 		"occRange":     occRange,
 		"kindLabel":    kindLabel,
+		"guideKind":    guideKindLabel,
 		"fmtDate":      func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
 		"fmtDatePtr": func(t *time.Time) string {
 			if t == nil {
