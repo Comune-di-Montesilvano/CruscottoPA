@@ -223,6 +223,18 @@
 			.catch(() => { /* resta anonimo */ });
 	}
 
+	// "Mostra tutto": preferenza in un cookie letto dal server, poi ricarica.
+	const audienceToggle = document.querySelector("[data-mostra-tutto]");
+	if (audienceToggle) {
+		audienceToggle.hidden = false;
+		audienceToggle.addEventListener("click", () => {
+			document.cookie = audienceToggle.dataset.mostraTutto === "1"
+				? "cruscotto_tutto=1; Path=/; Max-Age=31536000; SameSite=Lax"
+				: "cruscotto_tutto=; Path=/; Max-Age=0; SameSite=Lax";
+			location.reload();
+		});
+	}
+
 	initCarousel();
 	showUrgents();
 })();

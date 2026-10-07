@@ -19,6 +19,9 @@ body.plancia {
 .hello-name { font-weight: 300; }
 .hero-date { margin: .2rem 0 0; opacity: .85; font-size: .92rem; }
 .hero-compact { padding-bottom: 1.6rem; }
+.audience-toggle { margin: .7rem var(--p-gutter) 0; text-align: right; }
+.audience-toggle button { border: 0; background: none; color: var(--p-blue-2); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; padding: .2rem 0; }
+.audience-toggle button:hover { text-decoration: underline; }
 .hero-bar .brand { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; min-width: 0; }
 .ente-logo { height: 40px; width: auto; max-width: 220px; object-fit: contain; }
 .brand-mark { height: 22px; width: auto; }
