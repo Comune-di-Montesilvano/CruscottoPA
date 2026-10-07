@@ -1,10 +1,13 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
@@ -73,7 +76,7 @@ func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 // handlePushTest invia una notifica di prova alle iscrizioni dell'admin.
 func (s *Server) handlePushTest(w http.ResponseWriter, r *http.Request) {
 	msg := ""
-	switch subs, err := s.db.ListPushSubscriptionsFor(s.currentAdmin(r)); {
+	switch subs, err := s.db.ListPushSubscriptionsFor(plainUsername(s.currentAdmin(r))); {
 	case s.pusher == nil:
 		msg = "Web Push spento: imposta VAPID_SUBJECT."
 	case err != nil:
@@ -85,7 +88,9 @@ func (s *Server) handlePushTest(w http.ResponseWriter, r *http.Request) {
 		payload := notify.Payload(database.Alert{ID: 0, Title: "Notifica di prova", Body: "Le notifiche di CruscottoPA funzionano."})
 		sent, failed := 0, 0
 		for _, sub := range subs {
-			gone, err := s.pusher.Send(r.Context(), sub, payload, false)
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			gone, err := s.pusher.Send(ctx, sub, payload, false)
+			cancel()
 			switch {
 			case gone:
 				s.db.DeletePushSubscription(sub.Endpoint)
@@ -99,6 +104,13 @@ func (s *Server) handlePushTest(w http.ResponseWriter, r *http.Request) {
 		msg = fmt.Sprintf("Iscrizioni: %d · inviate: %d · non riuscite: %d.", len(subs), sent, failed)
 	}
 	s.render(w, http.StatusOK, "push_test_result", msg)
+}
+
+// plainUsername: "mrossi@dominio" → "mrossi", come il nome che NTLM dà alla
+// plancia (le iscrizioni sono salvate con quello).
+func plainUsername(u string) string {
+	name, _, _ := strings.Cut(u, "@")
+	return name
 }
 
 func (s *Server) handleServiceWorker(w http.ResponseWriter, r *http.Request) {

@@ -111,3 +111,28 @@ func TestAlertVisibleToADDown(t *testing.T) {
 		t.Fatal("anonimo: risposta certa anche con AD giù")
 	}
 }
+
+// Oltre il limite di connessioni: 200 con "retry" (un 503 lo riscriverebbe il
+// proxy ed EventSource smetterebbe di riprovare).
+func TestEventsTooManyAsksRetry(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	s.hub = notify.NewHub(0)
+	rec := do(t, s, "GET", "/eventi", nil, nil, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "retry: 60000") {
+		t.Fatalf("troppe connessioni: %d %q", rec.Code, rec.Body)
+	}
+}
+
+// Close aspetta il dispatcher: dopo, nessuna query sul DB che si sta chiudendo.
+func TestCloseWaitsForDispatcher(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	s.StartNotifications(ctx)
+	cancel()
+	s.Close()
+	select {
+	case <-s.notifyDone:
+	default:
+		t.Fatal("Close è tornato con il dispatcher ancora attivo")
+	}
+}

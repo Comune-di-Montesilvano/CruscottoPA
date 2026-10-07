@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -60,6 +61,7 @@ type Server struct {
 	hub          *notify.Hub   // plance collegate a /eventi
 	pusher       notify.Pusher // nil = Web Push spento
 	vapidPublic  string
+	notifyDone   chan struct{} // chiuso quando il dispatcher è terminato
 }
 
 func New(o Options) (*Server, error) {
@@ -117,11 +119,27 @@ func New(o Options) (*Server, error) {
 // StartNotifications avvia il dispatcher delle notifiche (ogni 30 s).
 func (s *Server) StartNotifications(ctx context.Context) {
 	d := &notify.Dispatcher{Store: s.db, Hub: s.hub, Pusher: s.pusher, Visible: s.alertVisibleTo, Now: s.now}
-	go d.Run(ctx, 30*time.Second)
+	s.notifyDone = make(chan struct{})
+	go func() {
+		defer close(s.notifyDone)
+		d.Run(ctx, 30*time.Second)
+	}()
 }
 
-// Close chiude i flussi SSE aperti: senza, lo shutdown attenderebbe ogni client.
-func (s *Server) Close() { s.hub.Close() }
+// Close chiude i flussi SSE aperti (senza, lo shutdown attenderebbe ogni
+// client) e aspetta che il dispatcher, fermato dal ctx di StartNotifications,
+// finisca il ciclo in corso: dopo si può chiudere il database.
+func (s *Server) Close() {
+	s.hub.Close()
+	if s.notifyDone == nil {
+		return
+	}
+	select {
+	case <-s.notifyDone:
+	case <-time.After(5 * time.Second):
+		slog.Warn("notifiche: dispatcher ancora attivo allo spegnimento")
+	}
+}
 
 func (s *Server) loc() *time.Location { return s.cfg.Location }
 

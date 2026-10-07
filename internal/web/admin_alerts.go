@@ -18,6 +18,8 @@ type alertForm struct {
 	StartsAt string // formato inputTimeLayout, fuso s.loc()
 	EndsAt   string // "" = senza scadenza
 	Notify   bool   // "Invia notifica"
+	// NotifiedAt: notifica già partita (modificare l'avviso non la ripete).
+	NotifiedAt *time.Time
 
 	Visibility database.ContentAudience
 }
@@ -48,7 +50,7 @@ func (s *Server) newAlertForm() alertForm {
 }
 
 func (s *Server) formFromAlert(a database.Alert) alertForm {
-	f := alertForm{ID: a.ID, Title: a.Title, Body: a.Body, Level: a.Level, Source: a.Source, Notify: a.Notify,
+	f := alertForm{ID: a.ID, Title: a.Title, Body: a.Body, Level: a.Level, Source: a.Source, Notify: a.Notify, NotifiedAt: a.NotifiedAt,
 		StartsAt: a.StartsAt.In(s.loc()).Format(inputTimeLayout)}
 	if a.EndsAt != nil {
 		f.EndsAt = a.EndsAt.In(s.loc()).Format(inputTimeLayout)

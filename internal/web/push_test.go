@@ -1,9 +1,12 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -133,5 +136,38 @@ func TestDashboardNotifyMarkup(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("plancia: manca %q", want)
 		}
+	}
+}
+
+type okPusher struct{ n int }
+
+func (p *okPusher) Send(context.Context, database.PushSubscription, []byte, bool) (bool, error) {
+	p.n++
+	return false, nil
+}
+
+// L'admin che entra con l'UPN (mrossi@dominio) è lo stesso utente che la
+// plancia riconosce via NTLM come mrossi.
+func TestPushTestFindsAdminByUPN(t *testing.T) {
+	s, db := newTestServerWith(t, nil, func(o *Options) { o.Config.VAPIDSubject = "mailto:supporto@example.it" })
+	p := &okPusher{}
+	s.pusher = p
+	db.SavePushSubscription(database.PushSubscription{Endpoint: "https://fcm.googleapis.com/fcm/send/a", P256dh: "k", Auth: "a", Username: "mrossi", CreatedAt: fixedNow}, 10)
+	rec := do(t, s, "POST", "/admin/login", url.Values{"username": {"MRossi@comune.local"}, "password": {"pw"}}, nil, nil)
+	c := sessionCookie(rec)
+	if body := do(t, s, "POST", "/admin/notifiche/prova", nil, c, hx).Body.String(); !strings.Contains(body, "Iscrizioni: 1 · inviate: 1") || p.n != 1 {
+		t.Fatalf("prova con UPN: %s", body)
+	}
+}
+
+// Modificare un avviso già notificato non rinvia la notifica: il form lo dice.
+func TestAlertFormSaysAlreadyNotified(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	id, _ := db.CreateAlert(database.Alert{Title: "Sciopero", Level: database.LevelUrgent, Notify: true, StartsAt: fixedNow})
+	db.MarkNotified(id, fixedNow)
+	page := do(t, s, "GET", fmt.Sprintf("/admin/avvisi/%d/modifica", id), nil, c, hx).Body.String()
+	if !strings.Contains(page, "Notifica già inviata il 06/10/2026 10:00") {
+		t.Fatal("manca l'avviso di notifica già inviata")
 	}
 }

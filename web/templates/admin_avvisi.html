@@ -37,6 +37,7 @@
 		<label>Fonte (facoltativa)<input name="source" value="{{.Form.Source}}" maxlength="60" placeholder="Servizio informatico"></label>
 		{{with .Errors.source}}<p class="field-error">{{.}}</p>{{end}}
 		<label class="inline"><input type="checkbox" name="notify" value="1" data-notify{{if .Form.Notify}} checked{{end}}>Invia notifica (quando l'avviso diventa attivo, a chi può vederlo)</label>
+		{{with .Form.NotifiedAt}}<p class="hint">Notifica già inviata il {{fmtDatePtr .}}: le modifiche, anche alle date, non la ripetono.</p>{{end}}
 		<label>Testo<textarea name="body" maxlength="2000" rows="5">{{.Form.Body}}</textarea></label>
 		{{with .Errors.body}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">Testo semplice: gli a capo vengono mantenuti, gli indirizzi https://… diventano link.</p>{{end}}
 		<div class="row">

@@ -24,8 +24,11 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.hub.Subscribe(username)
 	if err != nil {
-		w.Header().Set("Retry-After", "60")
-		http.Error(w, "troppe connessioni", http.StatusServiceUnavailable)
+		// 200 e "retry": un 503 lo riscriverebbe il proxy e il browser
+		// smetterebbe di riprovare. Così si ricollega fra un minuto.
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		fmt.Fprint(w, "retry: 60000\n\n")
 		return
 	}
 	defer s.hub.Unsubscribe(c)
