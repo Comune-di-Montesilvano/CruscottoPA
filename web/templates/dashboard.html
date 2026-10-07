@@ -54,6 +54,6 @@
 		</aside>
 	</main>
 
-	<footer class="foot"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</footer>
+	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}</footer>
 </body>
 </html>{{end}}

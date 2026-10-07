@@ -20,6 +20,9 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
+// repoURL: repository del progetto, linkato dal footer della plancia.
+const repoURL = "https://github.com/Comune-di-Montesilvano/CruscottoPA"
+
 type Options struct {
 	DB     *database.DB
 	Config config.Config

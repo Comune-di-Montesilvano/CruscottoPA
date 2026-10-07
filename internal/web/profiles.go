@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
@@ -56,22 +57,29 @@ func (c *profileCache) get(username string, load func() (audience.Profile, error
 	return e.p, e.ok
 }
 
-// viewerGroups: gruppi della plancia di chi guarda. known=false → solo pubblici.
-func (s *Server) viewerGroups(r *http.Request) (map[int64]bool, bool) {
+// viewerProfile: chi guarda e il suo profilo AD (dalla cache). ok=false se
+// anonimo, senza cookie, senza directory o con AD non disponibile.
+func (s *Server) viewerProfile(r *http.Request) (identity.User, audience.Profile, bool) {
 	u, ok := s.viewer(r)
 	if !ok || u.Anonymous || u.Username == "" || s.directory == nil {
-		return nil, false
+		return u, audience.Profile{}, false
 	}
 	attrs, err := s.db.ListAudienceAttributes()
 	if err != nil {
 		slog.Warn("attributi dei gruppi", "err", err)
-		return nil, false
+		return u, audience.Profile{}, false
 	}
 	names := make([]string, len(attrs))
 	for i, a := range attrs {
 		names[i] = a.Name
 	}
 	p, ok := s.profiles.get(u.Username, func() (audience.Profile, error) { return s.directory.Profile(u.Username, names) })
+	return u, p, ok
+}
+
+// viewerGroups: gruppi della plancia di chi guarda. known=false → solo pubblici.
+func (s *Server) viewerGroups(r *http.Request) (map[int64]bool, bool) {
+	_, p, ok := s.viewerProfile(r)
 	if !ok {
 		return nil, false
 	}
@@ -87,6 +95,31 @@ func (s *Server) viewerGroups(r *http.Request) (map[int64]bool, bool) {
 		}
 	}
 	return in, true
+}
+
+// viewerIsAdmin decide se mostrare in plancia il link al pannello admin: utente
+// in ADMIN_USERS o nel gruppo LDAP_ADMIN_GROUP (anche annidato). È solo una
+// comodità: l'identità è dichiarata e /admin resta dietro il login LDAP.
+func (s *Server) viewerIsAdmin(r *http.Request) bool {
+	u, p, ok := s.viewerProfile(r)
+	if u.Anonymous || u.Username == "" {
+		return false
+	}
+	if auth.IsAdminUser(s.cfg.LDAP.AdminUsers, u.Username) {
+		return true
+	}
+	if s.cfg.LDAP.Host == "mock" && len(s.cfg.LDAP.AdminUsers) == 0 {
+		return true // stessa regola del login admin in mock
+	}
+	if !ok || s.cfg.LDAP.AdminGroup == "" {
+		return false
+	}
+	for _, dn := range p.Groups {
+		if cn, _, _ := strings.Cut(dn, ","); strings.EqualFold(strings.TrimPrefix(strings.TrimPrefix(cn, "CN="), "cn="), s.cfg.LDAP.AdminGroup) {
+			return true
+		}
+	}
+	return false
 }
 func (c *profileCache) reset() {
 	c.mu.Lock()

@@ -25,6 +25,7 @@ func (s *Server) funcs() template.FuncMap {
 	return template.FuncMap{
 		"monogram":     monogram,
 		"ente":         s.ente,
+		"repoURL":      func() string { return repoURL },
 		"levelLabel":   levelLabel,
 		"paragraphs":   paragraphs,
 		"humanSize":    humanSize,
