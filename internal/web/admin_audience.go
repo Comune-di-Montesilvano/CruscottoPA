@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
@@ -29,6 +30,7 @@ type groupEdit struct {
 	Attributes []database.AudienceAttribute
 	Preview    *previewView
 	Errors     formErrors
+	Form       database.AudienceRule // valori da riproporre dopo un errore
 }
 
 type ruleView struct {
@@ -76,7 +78,7 @@ func ruleText(r database.AudienceRule, attrs []database.AudienceAttribute) strin
 }
 
 // audienceData carica la pagina; con editID != 0 anche il gruppo in modifica.
-func (s *Server) audienceData(editID int64, errs, editErrs formErrors) (audienceSection, error) {
+func (s *Server) audienceData(editID int64, errs, editErrs formErrors, ruleForm database.AudienceRule) (audienceSection, error) {
 	sec := audienceSection{Errors: errs}
 	var err error
 	if sec.Attributes, err = s.db.ListAudienceAttributes(); err != nil {
@@ -96,7 +98,7 @@ func (s *Server) audienceData(editID int64, errs, editErrs formErrors) (audience
 	if err != nil {
 		return sec, err
 	}
-	e := &groupEdit{Group: g, Attributes: sec.Attributes, Errors: editErrs}
+	e := &groupEdit{Group: g, Attributes: sec.Attributes, Errors: editErrs, Form: ruleForm}
 	for _, r := range rules {
 		e.Rules = append(e.Rules, ruleView{AudienceRule: r, Text: ruleText(r, sec.Attributes)})
 	}
@@ -105,7 +107,13 @@ func (s *Server) audienceData(editID int64, errs, editErrs formErrors) (audience
 }
 
 func (s *Server) renderAudience(w http.ResponseWriter, status int, editID int64, errs, editErrs formErrors) {
-	sec, err := s.audienceData(editID, errs, editErrs)
+	s.renderAudienceForm(w, status, editID, errs, editErrs, database.AudienceRule{})
+}
+
+// renderAudienceForm: come renderAudience, ma ripropone i valori della regola
+// appena inviata (dopo un errore di validazione).
+func (s *Server) renderAudienceForm(w http.ResponseWriter, status int, editID int64, errs, editErrs formErrors, ruleForm database.AudienceRule) {
+	sec, err := s.audienceData(editID, errs, editErrs, ruleForm)
 	if errors.Is(err, database.ErrNotFound) {
 		http.Error(w, "Gruppo non trovato", http.StatusNotFound)
 		return
@@ -125,7 +133,7 @@ func statusFor(errs formErrors) int {
 }
 
 func (s *Server) handleAudiencePage(w http.ResponseWriter, r *http.Request) {
-	sec, err := s.audienceData(0, nil, nil)
+	sec, err := s.audienceData(0, nil, nil, database.AudienceRule{})
 	if err != nil {
 		s.serverError(w, err)
 		return
@@ -332,7 +340,11 @@ func (s *Server) handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.renderAudience(w, statusFor(errs), id, nil, errs)
+	if len(errs) > 0 {
+		s.renderAudienceForm(w, http.StatusUnprocessableEntity, id, nil, errs, rule)
+		return
+	}
+	s.renderAudience(w, http.StatusOK, id, nil, nil)
 }
 
 func (s *Server) handleRuleDelete(w http.ResponseWriter, r *http.Request) {
@@ -362,6 +374,13 @@ func (s *Server) handleAudiencePreview(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if _, err := s.db.GetAudienceGroup(id); errors.Is(err, database.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.serverError(w, err)
+		return
+	}
 	all, err := s.db.AllAudienceRules()
 	if err != nil {
 		s.serverError(w, err)
@@ -378,10 +397,14 @@ func (s *Server) handleAudiencePreview(w http.ResponseWriter, r *http.Request) {
 
 // ── Suggerimenti da AD ─────────────────────────────────────────────────
 
+// clipQuery limita la ricerca a 64 byte senza spezzare un carattere UTF-8.
 func clipQuery(q string) string {
 	q = strings.TrimSpace(q)
 	if len(q) > 64 {
 		q = q[:64]
+		for !utf8.ValidString(q) {
+			q = q[:len(q)-1]
+		}
 	}
 	return q
 }
@@ -389,6 +412,21 @@ func clipQuery(q string) string {
 func (s *Server) suggestValues(attr, q string) suggestionsView {
 	if s.directory == nil {
 		return suggestionsView{Err: adUnavailable}
+	}
+	// Solo attributi configurati: i suggerimenti non devono elencare valori di
+	// attributi qualsiasi (es. matricole o telefoni).
+	attrs, err := s.db.ListAudienceAttributes()
+	if err != nil {
+		return suggestionsView{Err: "Elenco attributi non disponibile."}
+	}
+	configured := false
+	for _, a := range attrs {
+		if strings.EqualFold(a.Name, attr) {
+			configured, attr = true, a.Name
+		}
+	}
+	if !configured {
+		return suggestionsView{Err: "Attributo non configurato."}
 	}
 	vals, err := s.directory.AttributeValues(attr)
 	if err != nil {

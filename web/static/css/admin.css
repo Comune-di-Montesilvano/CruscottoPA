@@ -108,3 +108,4 @@ progress { width: 100%; }
 .suggestion:hover { border-color: var(--accent); }
 ul.preview { columns: 2; padding-left: 1.1rem; }
 .offices-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .25rem .9rem; margin: .3rem 0; }
+.toast { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 1000; max-width: min(420px, calc(100vw - 2.5rem)); background: var(--red); color: #fff; padding: .8rem 1rem; border-radius: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); font-size: .9rem; }

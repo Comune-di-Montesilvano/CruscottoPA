@@ -112,4 +112,32 @@
 	});
 	document.addEventListener("htmx:afterSwap", (e) => syncVisibility(e.target));
 	syncVisibility(document);
+
+	// Errori delle azioni HTMX: messaggio generico a schermo. Non si usa il corpo
+	// della risposta: in produzione il reverse proxy lo sostituisce con una
+	// pagina di cortesia.
+	function toast(text) {
+		let box = document.getElementById("toast");
+		if (!box) {
+			box = document.createElement("div");
+			box.id = "toast";
+			box.className = "toast";
+			box.setAttribute("role", "alert");
+			document.body.appendChild(box);
+		}
+		box.textContent = text;
+		box.hidden = false;
+		clearTimeout(box.timer);
+		box.timer = setTimeout(() => { box.hidden = true; }, 8000);
+	}
+	document.addEventListener("htmx:responseError", (e) => {
+		const status = e.detail.xhr ? e.detail.xhr.status : 0;
+		const what = status === 404 ? "elemento non trovato (forse già eliminato)"
+			: status === 403 ? "richiesta rifiutata"
+			: "errore " + status;
+		toast("Operazione non riuscita: " + what + ". Ricarica la pagina e riprova.");
+	});
+	document.addEventListener("htmx:sendError", () => {
+		toast("Server non raggiungibile. Controlla la connessione e riprova.");
+	});
 })();
