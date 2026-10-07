@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func ptr(v int64) *int64 { return &v }
@@ -61,5 +62,92 @@ func TestDeleteAppMakesGuidesGeneral(t *testing.T) {
 	g, _ := db.GetGuide(id)
 	if g.AppID != nil {
 		t.Fatalf("ON DELETE SET NULL: attesa guida generale, app_id=%v", *g.AppID)
+	}
+}
+
+func TestMigrationV7GuideColumns(t *testing.T) {
+	db := newTestDB(t)
+	at := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
+	id, err := db.CreateGuide(Guide{Title: "Manuale", Kind: GuideKindGitHub, SourceURL: "https://github.com/o/r/blob/main/a.md", Body: "# A", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetGuideFetched(id, "https://github.com/o/r/blob/main/a.md", "# B", at); err != nil {
+		t.Fatal(err)
+	}
+	g, _ := db.GetGuide(id)
+	if g.Body != "# B" || g.FetchedAt == nil || !g.FetchedAt.Equal(at) || g.FetchError != "" || g.SourceURL == "" {
+		t.Fatalf("dopo fetch: %+v", g)
+	}
+	if err := db.SetGuideFetchError(id, "https://github.com/o/r/blob/main/a.md", "404"); err != nil {
+		t.Fatal(err)
+	}
+	g, _ = db.GetGuide(id)
+	if g.Body != "# B" || g.FetchError != "404" {
+		t.Fatalf("errore deve lasciare il body: %+v", g)
+	}
+	todo, _ := db.GuidesToRefresh(at.Add(time.Hour))
+	if len(todo) != 1 || todo[0].ID != id {
+		t.Fatalf("da aggiornare: %+v", todo)
+	}
+	if todo, _ = db.GuidesToRefresh(at); len(todo) != 0 {
+		t.Fatalf("appena aggiornata: %+v", todo)
+	}
+	g.File, g.Title = "x.pdf", "Manuale 2"
+	if err := db.UpdateGuide(g); err != nil {
+		t.Fatal(err)
+	}
+	if g2, _ := db.GetGuide(id); g2.File != "x.pdf" || g2.FetchedAt == nil {
+		t.Fatalf("update: %+v", g2)
+	}
+}
+
+func TestGetPlanciaGuide(t *testing.T) {
+	db := newTestDB(t)
+	apps, _ := db.ListApps() // seed: Rubrica e Webmail senza URL → non visibili
+	hidden := apps[0].ID
+	gen, _ := db.CreateGuide(Guide{Title: "G", Kind: GuideKindMarkdown, Body: "x", Enabled: true})
+	off, _ := db.CreateGuide(Guide{Title: "Off", Kind: GuideKindMarkdown, Body: "x"})
+	ofHidden, _ := db.CreateGuide(Guide{AppID: &hidden, Title: "H", Kind: GuideKindMarkdown, Body: "x", Enabled: true})
+	if _, err := db.GetPlanciaGuide(gen); err != nil {
+		t.Fatalf("generale abilitata: %v", err)
+	}
+	for _, id := range []int64{off, ofHidden, 9999} {
+		if _, err := db.GetPlanciaGuide(id); !errors.Is(err, ErrNotFound) {
+			t.Errorf("guida %d: atteso ErrNotFound, %v", id, err)
+		}
+	}
+}
+
+func TestValidGuideKind(t *testing.T) {
+	for _, k := range []string{"link", "markdown", "pdf", "github"} {
+		if !ValidGuideKind(k) {
+			t.Error(k)
+		}
+	}
+	if ValidGuideKind("html") || ValidGuideKind("") {
+		t.Error("tipo non valido accettato")
+	}
+}
+
+// Review M2: un download partito prima di una modifica dell'admin (tipo o URL
+// cambiati) non deve sovrascrivere la guida.
+func TestSetGuideFetchedOnlyForSameSource(t *testing.T) {
+	db := newTestDB(t)
+	a := "https://github.com/o/r/blob/main/a.md"
+	id, _ := db.CreateGuide(Guide{Title: "G", Kind: GuideKindGitHub, SourceURL: a, Body: "# vecchio", Enabled: true})
+	g, _ := db.GetGuide(id)
+	g.Kind, g.SourceURL, g.Body = GuideKindMarkdown, "", "testo dell'admin"
+	if err := db.UpdateGuide(g); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetGuideFetched(id, a, "# da GitHub", time.Now()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("atteso ErrNotFound, %v", err)
+	}
+	if err := db.SetGuideFetchError(id, a, "timeout"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("errore: atteso ErrNotFound, %v", err)
+	}
+	if g, _ := db.GetGuide(id); g.Body != "testo dell'admin" || g.FetchError != "" {
+		t.Fatalf("guida sovrascritta: %+v", g)
 	}
 }

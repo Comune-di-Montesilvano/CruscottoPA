@@ -1,3 +1,11 @@
+# ── Stage 0: Editor dell'admin (Node solo qui) ───────────────────────────────
+FROM node:24-alpine AS editor
+WORKDIR /w
+COPY web/editor/package.json web/editor/pnpm-lock.yaml web/editor/pnpm-workspace.yaml ./
+RUN corepack enable && CI=true pnpm install --frozen-lockfile
+COPY web/editor/ ./
+RUN OUT_DIR=/out pnpm build
+
 # ── Stage 1: Builder ────────────────────────────────────────────────────────
 FROM golang:1.27-alpine AS builder
 
@@ -45,6 +53,7 @@ ENV DB_PATH=/data/cruscotto.db \
 
 COPY --from=builder /build/cruscottopa .
 COPY web/ ./web/
+COPY --from=editor /out/ ./web/static/vendor/
 
 # /data va montato come volume NOMINATO (non bind mount, vedi docker-compose.yml)
 VOLUME ["/data"]

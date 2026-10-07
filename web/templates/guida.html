@@ -1,0 +1,34 @@
+{{define "guida.html"}}<!doctype html>
+<html lang="it">
+<head>
+	{{template "plancia_head"}}
+	<title>{{with .Guide}}{{.Title}}{{else}}Guida{{end}} · CruscottoPA{{template "title_ente"}}</title>
+</head>
+<body class="plancia">
+	<header class="hero hero-compact">
+		<div class="hero-bar"><a class="brand" href="/">← CruscottoPA{{with (ente).EnteName}} · {{.}}{{end}}</a></div>
+		<h1 class="hello">{{with .Guide}}{{.Title}}{{else}}Guida{{end}}</h1>
+	</header>
+	<main class="guida">
+		{{if .Guide}}<article class="guida-body md">{{.HTML}}</article>
+		{{with .Source}}<p class="guida-fonte">Fonte: <a href="{{.}}" target="_blank" rel="noopener">{{.}}</a>{{with $.Guide.FetchedAt}} · aggiornata il {{fmtDatePtr .}}{{end}}</p>{{end}}
+		{{else}}<p class="empty">Guida non disponibile: non esiste più o non è destinata a te.</p>{{end}}
+	</main>
+	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}</footer>
+	<dialog class="notify-ask" aria-labelledby="notify-ask-title">
+		<h2 id="notify-ask-title">Ricevi le notifiche degli avvisi?</h2>
+		<p>Ti avvisiamo subito di comunicazioni urgenti e manutenzioni, anche quando la plancia non è aperta.</p>
+		<div class="notify-ask-actions">
+			<button type="button" data-notify-no>Non ora</button>
+			<button type="button" class="primary" data-notify-yes autofocus>Attiva le notifiche</button>
+		</div>
+	</dialog>
+	<dialog class="notify-ask notify-blocked" aria-labelledby="notify-blocked-title">
+		<h2 id="notify-blocked-title">Le notifiche sono bloccate</h2>
+		<p>Così non ti arrivano gli avvisi urgenti e le manutenzioni. Per riattivarle: clic sull'icona del lucchetto a sinistra dell'indirizzo → <strong>Notifiche</strong> → <strong>Consenti</strong>, poi ricarica la pagina.</p>
+		<div class="notify-ask-actions">
+			<button type="button" class="primary" data-notify-no autofocus>Ho capito</button>
+		</div>
+	</dialog>
+</body>
+</html>{{end}}

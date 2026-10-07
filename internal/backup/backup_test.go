@@ -270,3 +270,15 @@ func TestCleanupRecoversOldUploads(t *testing.T) {
 		t.Fatalf("gli uploads precedenti vanno rimessi al loro posto: %v", err)
 	}
 }
+
+func TestListFilesSkipsHiddenDirs(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, ".tmp"), 0o750)
+	os.MkdirAll(filepath.Join(root, "guide"), 0o750)
+	os.WriteFile(filepath.Join(root, ".tmp", "in-corso"), []byte("x"), 0o640)
+	os.WriteFile(filepath.Join(root, "guide", "a.png"), []byte("x"), 0o640)
+	got, err := listFiles(root)
+	if err != nil || len(got) != 1 || got[0] != "guide/a.png" {
+		t.Fatalf("%v %v", got, err)
+	}
+}

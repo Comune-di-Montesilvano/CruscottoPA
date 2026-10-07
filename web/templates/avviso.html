@@ -1,0 +1,32 @@
+{{define "avviso.html"}}<!doctype html>
+<html lang="it">
+<head>
+	{{template "plancia_head"}}
+	<title>{{with .Alert}}{{.Title}}{{else}}Avviso{{end}} · CruscottoPA{{template "title_ente"}}</title>
+</head>
+<body class="plancia">
+	<header class="hero hero-compact">
+		<div class="hero-bar"><a class="brand" href="/avvisi">← Tutti gli avvisi</a></div>
+		<h1 class="hello">Avviso</h1>
+	</header>
+	<main class="avvisi-list">
+		{{with .Alert}}{{template "alert_full" .}}{{else}}<p class="empty">Avviso non disponibile: è scaduto o non è destinato a te.</p>{{end}}
+	</main>
+	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}</footer>
+	<dialog class="notify-ask" aria-labelledby="notify-ask-title">
+		<h2 id="notify-ask-title">Ricevi le notifiche degli avvisi?</h2>
+		<p>Ti avvisiamo subito di comunicazioni urgenti e manutenzioni, anche quando la plancia non è aperta.</p>
+		<div class="notify-ask-actions">
+			<button type="button" data-notify-no>Non ora</button>
+			<button type="button" class="primary" data-notify-yes autofocus>Attiva le notifiche</button>
+		</div>
+	</dialog>
+	<dialog class="notify-ask notify-blocked" aria-labelledby="notify-blocked-title">
+		<h2 id="notify-blocked-title">Le notifiche sono bloccate</h2>
+		<p>Così non ti arrivano gli avvisi urgenti e le manutenzioni. Per riattivarle: clic sull'icona del lucchetto a sinistra dell'indirizzo → <strong>Notifiche</strong> → <strong>Consenti</strong>, poi ricarica la pagina.</p>
+		<div class="notify-ask-actions">
+			<button type="button" class="primary" data-notify-no autofocus>Ho capito</button>
+		</div>
+	</dialog>
+</body>
+</html>{{end}}

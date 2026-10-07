@@ -20,6 +20,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
 )
@@ -39,6 +40,8 @@ type Options struct {
 	Version      string
 	WebDir       string
 	Now          func() time.Time
+	// GuideFetch scarica un file raw da GitHub (nil = guidesrc.NewFetcher().Fetch).
+	GuideFetch func(ctx context.Context, rawURL string) (string, error)
 }
 
 type Server struct {
@@ -49,6 +52,7 @@ type Server struct {
 	cookies      *identity.CookieCodec
 	profiles     *profileCache
 	limiter      *auth.RateLimiter
+	media        mediaUploads // caricamenti a pezzi in corso (immagini e PDF)
 	backup       *backup.Service
 	restoreDelay time.Duration
 	branding     atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
@@ -57,6 +61,7 @@ type Server struct {
 	version      string
 	webDir       string
 	now          func() time.Time
+	fetchGuide   func(ctx context.Context, rawURL string) (string, error)
 	mux          *http.ServeMux
 	hub          *notify.Hub   // plance collegate a /eventi
 	pusher       notify.Pusher // nil = Web Push spento
@@ -71,6 +76,9 @@ func New(o Options) (*Server, error) {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
+	if o.GuideFetch == nil {
+		o.GuideFetch = guidesrc.NewFetcher().Fetch
+	}
 	if o.RestoreDelay == 0 {
 		o.RestoreDelay = 500 * time.Millisecond
 	}
@@ -83,11 +91,13 @@ func New(o Options) (*Server, error) {
 		auth:         o.Auth,
 		directory:    o.Directory,
 		limiter:      auth.NewRateLimiter(5, 15*time.Minute),
+		media:        mediaUploads{byID: map[string]*mediaUpload{}},
 		backup:       o.Backup,
 		restoreDelay: o.RestoreDelay,
 		version:      strings.TrimPrefix(o.Version, "v"), // tag "v0.3.0": la "v" la aggiungono i template
 		webDir:       o.WebDir,
 		now:          o.Now,
+		fetchGuide:   o.GuideFetch,
 		mux:          http.NewServeMux(),
 	}
 	b, err := o.DB.GetBranding()
@@ -169,6 +179,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
 	s.mux.HandleFunc("GET /avvisi", s.handleAvvisi)
+	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
+	s.mux.HandleFunc("GET /guide/{id}", s.handleGuidePage)
+	s.mux.HandleFunc("GET /guide/{id}/pdf", s.handleGuidePDF)
 	s.mux.HandleFunc("GET /admin/login", s.handleLoginForm)
 	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)
@@ -194,6 +207,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/ente", s.requireAdmin(s.handleBrandingSave))
 	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleUploadFile(uploadIcons))
 	s.mux.HandleFunc("GET /uploads/branding/{file}", s.handleUploadFile(uploadBranding))
+	s.mux.HandleFunc("GET /uploads/guide/{file}", s.handleGuideImage)
 	s.mux.HandleFunc("GET /admin/icone", s.requireAdmin(s.handleIconSearch))
 	s.mux.HandleFunc("GET /admin/app", s.requireAdmin(s.handleAppsPage))
 	s.mux.HandleFunc("GET /admin/app/{id}/modifica", s.requireAdmin(s.handleAppEdit))
@@ -207,6 +221,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/guide/{id}", s.requireAdmin(s.handleGuideSave))
 	s.mux.HandleFunc("POST /admin/guide/{id}/elimina", s.requireAdmin(s.handleGuideDelete))
 	s.mux.HandleFunc("POST /admin/guide/{id}/sposta", s.requireAdmin(s.handleGuideMove))
+	s.mux.HandleFunc("POST /admin/guide/{id}/aggiorna", s.requireAdmin(s.handleGuideRefresh))
 	s.mux.HandleFunc("GET /admin/avvisi", s.requireAdmin(s.handleAlertsPage))
 	s.mux.HandleFunc("GET /admin/avvisi/{id}/modifica", s.requireAdmin(s.handleAlertEdit))
 	s.mux.HandleFunc("POST /admin/avvisi", s.requireAdmin(s.handleAlertSave))
@@ -229,6 +244,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /admin/backup/{name}", s.requireAdmin(s.handleBackupDownload))
 	s.mux.HandleFunc("POST /admin/backup/{name}/elimina", s.requireAdmin(s.handleBackupDelete))
 	s.mux.HandleFunc("POST /admin/backup/{name}/ripristina", s.requireAdmin(s.handleBackupRestore))
+	s.mux.HandleFunc("POST /admin/anteprima", s.requireAdmin(s.handlePreview))
+	s.mux.HandleFunc("POST /admin/media", s.requireAdmin(s.handleMediaStart))
+	s.mux.HandleFunc("POST /admin/media/{id}/pezzo", s.requireAdmin(s.handleMediaChunk))
+	s.mux.HandleFunc("POST /admin/media/{id}/fine", s.requireAdmin(s.handleMediaFinish))
 	s.mux.HandleFunc("POST /admin/backup/upload", s.requireAdmin(s.handleBackupUploadStart))
 	s.mux.HandleFunc("POST /admin/backup/upload/{id}/chunk", s.requireAdmin(s.handleBackupUploadChunk))
 	s.mux.HandleFunc("POST /admin/backup/upload/{id}/fine", s.requireAdmin(s.handleBackupUploadFinish))

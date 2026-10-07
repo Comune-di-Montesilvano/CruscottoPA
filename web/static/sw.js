@@ -20,10 +20,14 @@ self.addEventListener("notificationclick", (e) => {
 	const url = (e.notification.data && e.notification.data.url) || "/";
 	e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
 		for (const c of list) {
-			if (new URL(c.url).origin === self.location.origin) {
-				// La plancia aperta si aggiorna da sola (SSE): basta portarla in primo piano.
-				return c.focus();
-			}
+			const u = new URL(c.url);
+			// Solo schede della plancia: una scheda "/admin" può avere lavoro non salvato.
+			if (u.origin !== self.location.origin || u.pathname.startsWith("/admin")) continue;
+			// navigate() fallisce sulle schede che questo service worker non
+			// controlla (es. ricaricate forzando): allora si apre una finestra.
+			return (url === "/" ? Promise.resolve(c) : c.navigate(url))
+				.then((w) => (w || c).focus())
+				.catch(() => self.clients.openWindow(url));
 		}
 		return self.clients.openWindow(url);
 	}));

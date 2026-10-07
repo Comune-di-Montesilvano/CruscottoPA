@@ -83,7 +83,7 @@ func TestPayload(t *testing.T) {
 	if err := json.Unmarshal(Payload(a), &m); err != nil {
 		t.Fatal(err)
 	}
-	if m["title"] != "Sciopero" || m["url"] != "/" || m["tag"] != "avviso-7" || len([]rune(m["body"])) > 160 {
+	if m["title"] != "Sciopero" || m["url"] != "/avvisi/7" || m["tag"] != "avviso-7" || len([]rune(m["body"])) > 120 {
 		t.Fatalf("payload: %+v", m)
 	}
 }
@@ -122,5 +122,13 @@ func TestAllowedEndpoint(t *testing.T) {
 		if got := AllowedEndpoint(u); got != want {
 			t.Errorf("AllowedEndpoint(%q) = %v, atteso %v", u, got, want)
 		}
+	}
+}
+
+func TestPayloadPlainText(t *testing.T) {
+	var p map[string]string
+	json.Unmarshal(Payload(database.Alert{ID: 7, Title: "T", Body: "**Grassetto** e [link](https://x.org)"}), &p)
+	if p["body"] != "Grassetto e link" {
+		t.Fatalf("payload: %v", p)
 	}
 }

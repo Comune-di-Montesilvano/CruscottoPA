@@ -10,7 +10,7 @@ var allVars = []string{
 	"PORT", "DB_PATH", "UPLOAD_DIR", "SESSION_SECRET", "SECURE_COOKIES", "LOG_LEVEL", "TZ",
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
-	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT",
+	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT", "GUIDE_REFRESH_HOURS",
 }
 
 func clearEnv(t *testing.T) {
@@ -154,5 +154,21 @@ func TestVAPIDSubject(t *testing.T) {
 	cfg, _ = Load()
 	if w := strings.Join(cfg.Warnings(), " "); !strings.Contains(w, "VAPID_SUBJECT") {
 		t.Fatalf("atteso avviso su VAPID_SUBJECT senza mailto:/https:, ottenuto %q", w)
+	}
+}
+
+func TestLoadGuideRefresh(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	if cfg, err := Load(); err != nil || cfg.GuideRefreshHours != 6 {
+		t.Fatalf("default: atteso 6, ottenuto %d (%v)", cfg.GuideRefreshHours, err)
+	}
+	t.Setenv("GUIDE_REFRESH_HOURS", "0")
+	if cfg, err := Load(); err != nil || cfg.GuideRefreshHours != 0 {
+		t.Fatalf("0 = solo manuale: %d %v", cfg.GuideRefreshHours, err)
+	}
+	t.Setenv("GUIDE_REFRESH_HOURS", "-1")
+	if _, err := Load(); err == nil {
+		t.Error("GUIDE_REFRESH_HOURS=-1: atteso errore")
 	}
 }

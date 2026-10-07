@@ -98,7 +98,7 @@
 			htmx.ajax("GET", "/partials/alerts", { target: "#alerts", swap: "innerHTML" });
 		}
 		if (leader && supported && active() && document.visibilityState !== "visible") {
-			const opts = { body: "", icon: "/static/img/icon-192.png", tag: "avviso-" + a.id, data: { url: "/" } };
+			const opts = { body: "", icon: "/static/img/icon-192.png", tag: "avviso-" + a.id, data: { url: "/avvisi/" + a.id } };
 			navigator.serviceWorker.getRegistration().then((reg) => {
 				if (reg) reg.showNotification(a.title, opts); else new Notification(a.title, opts);
 			});

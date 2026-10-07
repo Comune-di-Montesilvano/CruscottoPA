@@ -88,7 +88,11 @@ func (s *Server) saveUpload(kind string, r io.Reader) (string, error) {
 
 // removeUpload cancella un file caricato; ignora nomi non generati da saveUpload.
 func (s *Server) removeUpload(kind, name string) {
-	if !uploadFileRe.MatchString(name) {
+	re := uploadFileRe
+	if kind == uploadGuide {
+		re = guideMediaRe
+	}
+	if !re.MatchString(name) {
 		return
 	}
 	if err := os.Remove(filepath.Join(s.uploadDir(kind), name)); err != nil && !os.IsNotExist(err) {

@@ -84,6 +84,17 @@ func (f *contentFilter) dashboard(d *database.Dashboard) {
 	d.GeneralGuides = gen
 }
 
+// guideVisible: la guida e, se agganciata, la sua app sono destinate a chi guarda.
+func (f *contentFilter) guideVisible(g database.Guide) bool {
+	if f.ShowAll {
+		return true
+	}
+	if g.AppID != nil && !f.visible(f.apps[*g.AppID]) {
+		return false
+	}
+	return f.visible(f.guides[g.ID])
+}
+
 // alertList: con "Mostra tutto" gli avvisi non destinati restano, marcati,
 // così non aprono il popup degli urgenti.
 func (f *contentFilter) alertList(list []database.Alert) []database.Alert {

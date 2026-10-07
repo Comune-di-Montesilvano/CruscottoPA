@@ -25,9 +25,9 @@ Puntare lo stack a questo repository, file `docker-compose.yml`, e impostare le 
 
 `/admin` richiede il login con le credenziali di dominio (LDAP/Active Directory). Sono amministratori gli utenti del gruppo `LDAP_ADMIN_GROUP` o elencati in `ADMIN_USERS`. Da lì si gestiscono:
 
-- **Avvisi**: urgente, manutenzione o novità, con periodo di visibilità;
+- **Avvisi**: urgente, manutenzione o novità, con periodo di visibilità; il testo si scrive con un editor visuale (grassetto, elenchi, link, tabelle, immagini incollate) e in plancia compare un estratto con "Leggi tutto";
 - **Applicativi**: titolo, indirizzo, categoria e icona (catalogo Material Icons, file caricato o URL);
-- **Guide**: link a guide e FAQ, generali oppure agganciate a un applicativo (pulsante "?" sulla sua card);
+- **Guide**: generali oppure agganciate a un applicativo; di quattro tipi: link a una pagina esterna, testo scritto con l'editor, PDF caricato, file Markdown di un repository GitHub pubblico (riscaricato ogni `GUIDE_REFRESH_HOURS` ore, default 6, o con "Aggiorna ora");
 - **Categorie**: raggruppamento delle card in plancia.
 - **Calendario**: chiusure dell'ente (anche ricorrenti, come il patrono) ed eventi/scadenze; le festività nazionali sono già incluse.
 
@@ -55,6 +55,8 @@ go vet ./...
 ```
 
 Non serve un compilatore C: il driver SQLite è pure-Go.
+
+L'editor visuale dell'admin (TipTap) si costruisce con Node **in container**: `sh scripts/editor.sh` (da Git Bash anteporre `MSYS_NO_PATHCONV=1`) scrive `web/static/vendor/`. Senza, l'admin usa una semplice casella di testo. L'immagine Docker lo costruisce da sola (stage `editor`).
 
 ## Versioni e release
 

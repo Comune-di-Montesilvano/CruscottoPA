@@ -21,3 +21,14 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+
+  - package-ecosystem: npm
+    directory: "/web/editor"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      tiptap:
+        patterns: ["@tiptap/*"]

@@ -19,6 +19,11 @@ cruscottopa
 /restore-tmp/
 /data/
 
+# Editor dell'admin: generato da scripts/editor.sh o dal Dockerfile
+/web/static/vendor/
+/web/editor/node_modules/
+/web/editor/dist/
+
 # Go
 /vendor/
 go.work

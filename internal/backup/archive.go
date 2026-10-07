@@ -10,7 +10,8 @@ import (
 	"path/filepath"
 )
 
-// listFiles restituisce i file regolari sotto root, relativi e con '/'. root assente = nessun file.
+// listFiles restituisce i file regolari sotto root, relativi e con '/', saltando le
+// cartelle nascoste. root assente = nessun file.
 func listFiles(root string) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -19,6 +20,9 @@ func listFiles(root string) ([]string, error) {
 				return filepath.SkipDir
 			}
 			return err
+		}
+		if d.IsDir() && p != root && d.Name()[0] == '.' {
+			return filepath.SkipDir // es. .tmp: caricamenti a pezzi in corso
 		}
 		if d.Type().IsRegular() {
 			rel, err := filepath.Rel(root, p)

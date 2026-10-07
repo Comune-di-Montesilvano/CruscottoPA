@@ -1,0 +1,3 @@
+# Pacchetti autorizzati a eseguire script di installazione (pnpm li blocca di default).
+allowBuilds:
+  esbuild: true

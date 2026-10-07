@@ -43,7 +43,7 @@ func TestDashboardTilesGuidesAlerts(t *testing.T) {
 	db.UpdateApp(webmail)
 	db.CreateGuide(database.Guide{AppID: id64(rubrica.ID), Title: "Cercare un interno", Kind: "link", URL: "https://wiki/interno", Enabled: true})
 	db.CreateGuide(database.Guide{Title: "VPN da casa", Kind: "link", URL: "https://wiki/vpn", Enabled: true})
-	alert := database.Alert{Title: "Phishing via PEC", Body: "Dettagli su https://cert.local", Level: "urgent", Source: "CED",
+	alert := database.Alert{Title: "Phishing via PEC", Body: "Dettagli su https://cert.local **importante**", Level: "urgent", Source: "CED",
 		StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow}
 	alertID, _ := db.CreateAlert(alert)
 	alert.ID = alertID
@@ -55,7 +55,8 @@ func TestDashboardTilesGuidesAlerts(t *testing.T) {
 		`data-flyout-toggle`, "1 guida", "Cercare un interno",
 		`class="widget guides"`, "VPN da casa",
 		"data-carousel", `class="news news-urgent"`, "CED",
-		`<a href="https://cert.local" target="_blank" rel="noopener">`,
+		`<a href="https://cert.local" target="_blank" rel="noopener noreferrer">`, // popup urgente in Markdown
+		"<strong>importante</strong>",
 		`data-urgent="` + itoa(alertID) + `" data-version="` + alertVersion(alert) + `"`,
 		`<span class="material-icons" aria-hidden="true">contacts</span>`,
 	} {

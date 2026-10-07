@@ -114,6 +114,7 @@ func main() {
 		os.Exit(1)
 	}
 	srv.StartNotifications(ctx)
+	srv.StartGuideRefresh(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              ":" + cfg.Port,
