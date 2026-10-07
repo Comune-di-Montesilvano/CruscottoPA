@@ -10,7 +10,6 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
-
 func TestAudienceAttributesAdmin(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	c := login(t, s)
