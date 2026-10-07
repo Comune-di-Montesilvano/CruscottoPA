@@ -109,8 +109,10 @@ func (db *DB) GetAlert(id int64) (Alert, error) {
 	return a, err
 }
 
-func (db *DB) CreateAlert(a Alert) (int64, error) {
-	res, err := db.Exec(`
+func (db *DB) CreateAlert(a Alert) (int64, error) { return createAlert(db, a) }
+
+func createAlert(q execer, a Alert) (int64, error) {
+	res, err := q.Exec(`
 INSERT INTO alerts (title, body, level, source, starts_at, ends_at, notify, created_at, created_by)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		a.Title, a.Body, a.Level, a.Source, formatTime(a.StartsAt), nullableTime(a.EndsAt), a.Notify, formatTime(a.CreatedAt), a.CreatedBy)
@@ -120,8 +122,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	return res.LastInsertId()
 }
 
-func (db *DB) UpdateAlert(a Alert) error {
-	return checkAffected(db.Exec(`
+func (db *DB) UpdateAlert(a Alert) error { return updateAlert(db, a) }
+
+func updateAlert(q execer, a Alert) error {
+	return checkAffected(q.Exec(`
 UPDATE alerts SET title = ?, body = ?, level = ?, source = ?, starts_at = ?, ends_at = ?, notify = ?
 WHERE id = ?`,
 		a.Title, a.Body, a.Level, a.Source, formatTime(a.StartsAt), nullableTime(a.EndsAt), a.Notify, a.ID))

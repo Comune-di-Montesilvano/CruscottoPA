@@ -325,6 +325,8 @@ func (s *Server) handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	if len(errs) == 0 {
 		if _, err := s.db.AddAudienceRule(rule); errors.Is(err, database.ErrDuplicate) {
 			errs.add("rule", "Regola già presente.")
+		} else if errors.Is(err, database.ErrInvalidDN) {
+			errs.add("rule", "DN non valido: sceglilo dai suggerimenti (es. CN=Gruppo,OU=…,DC=…).")
 		} else if err != nil {
 			s.serverError(w, err)
 			return

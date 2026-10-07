@@ -83,7 +83,7 @@ func TestMembersFilter(t *testing.T) {
 
 func TestMockDirectoryProfile(t *testing.T) {
 	p, err := MockDirectory{}.Profile("MRossi", []string{"physicalDeliveryOfficeName"})
-	if err != nil || p.Username != "mrossi" || p.Attrs["physicaldeliveryofficename"] == "" || len(p.Groups) == 0 {
+	if err != nil || p.Username != "mrossi" || len(p.Attrs["physicaldeliveryofficename"]) == 0 || len(p.Groups) == 0 {
 		t.Fatalf("Profile: %+v %v", p, err)
 	}
 }

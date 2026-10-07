@@ -184,12 +184,12 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 	if id == 0 {
 		a.CreatedAt = s.now()
 		a.CreatedBy = s.currentAdmin(r)
-		id, err = s.db.CreateAlert(a)
+		id, err = s.db.CreateAlertWithAudience(a, form.Visibility)
 	} else {
 		var old database.Alert
 		if old, err = s.db.GetAlert(id); err == nil {
 			a.Notify = old.Notify // gestito dal sotto-progetto 3
-			err = s.db.UpdateAlert(a)
+			err = s.db.UpdateAlertWithAudience(a, form.Visibility)
 		}
 	}
 	switch {
@@ -198,10 +198,6 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.serverError(w, err)
 	default:
-		if err := s.db.SetContentAudience(database.ContentAlert, id, form.Visibility); err != nil {
-			s.serverError(w, err)
-			return
-		}
 		s.renderAlerts(w, http.StatusOK, s.newAlertForm(), nil)
 	}
 }

@@ -71,8 +71,10 @@ func (db *DB) GetApp(id int64) (App, error) {
 	return a, err
 }
 
-func (db *DB) CreateApp(a App) (int64, error) {
-	res, err := db.Exec(`
+func (db *DB) CreateApp(a App) (int64, error) { return createApp(db, a) }
+
+func createApp(q execer, a App) (int64, error) {
+	res, err := q.Exec(`
 INSERT INTO apps (category_id, title, description, url, icon_kind, icon_value, icon_color, enabled, sort_order)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?,
 	(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM apps WHERE category_id = ?))`,
@@ -85,8 +87,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?,
 
 // UpdateApp aggiorna tutti i campi tranne sort_order; se cambia categoria
 // l'app finisce in coda alla nuova (in UPDATE le espressioni vedono i valori vecchi).
-func (db *DB) UpdateApp(a App) error {
-	return checkAffected(db.Exec(`
+func (db *DB) UpdateApp(a App) error { return updateApp(db, a) }
+
+func updateApp(q execer, a App) error {
+	return checkAffected(q.Exec(`
 UPDATE apps SET
 	sort_order  = CASE WHEN category_id = ? THEN sort_order
 	                   ELSE (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM apps WHERE category_id = ?) END,

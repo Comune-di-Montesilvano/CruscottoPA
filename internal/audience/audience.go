@@ -3,7 +3,12 @@
 // una protezione: l'identità dell'utente è dichiarata (NTLM non verificato).
 package audience
 
-import "strings"
+import (
+	"errors"
+	"strings"
+
+	"github.com/go-ldap/ldap/v3"
+)
 
 const (
 	KindAttr    = "attr"    // valore di un attributo AD
@@ -22,9 +27,9 @@ func ValidKind(k string) bool {
 
 // Profile è ciò che serve sapere di un utente per i gruppi della plancia.
 type Profile struct {
-	Username string            // minuscolo
-	Attrs    map[string]string // nome attributo minuscolo → valore
-	Groups   []string          // DN dei gruppi AD, annidati compresi
+	Username string              // minuscolo
+	Attrs    map[string][]string // nome attributo minuscolo → valori
+	Groups   []string            // DN dei gruppi AD, annidati compresi
 }
 
 type Rule struct{ Kind, Attr, Value string }
@@ -44,18 +49,40 @@ func Member(p Profile, rules []Rule) bool {
 		case KindUser:
 			in = in || norm(r.Value) == user
 		case KindAttr:
-			v, ok := p.Attrs[norm(r.Attr)]
-			in = in || (ok && norm(v) == norm(r.Value))
+			for _, v := range p.Attrs[norm(r.Attr)] {
+				in = in || norm(v) == norm(r.Value)
+			}
 		case KindADGroup:
 			for _, g := range p.Groups {
-				if norm(g) == norm(r.Value) {
-					in = true
-				}
+				in = in || sameDN(g, r.Value)
 			}
 		}
 	}
 	return in
 }
+
+// sameDN confronta due DN come fa AD (maiuscole e spazi non contano); se uno
+// dei due non è un DN valido ripiega sul confronto del testo.
+func sameDN(a, b string) bool {
+	da, errA := ldap.ParseDN(a)
+	db, errB := ldap.ParseDN(b)
+	if errA != nil || errB != nil {
+		return norm(a) == norm(b)
+	}
+	return da.EqualFold(db)
+}
+
+// NormalizeDN: forma canonica minuscola di un DN, per salvarlo e confrontarlo.
+func NormalizeDN(s string) (string, error) {
+	d, err := ldap.ParseDN(strings.TrimSpace(s))
+	if err != nil || len(d.RDNs) == 0 {
+		return "", ErrInvalidDN
+	}
+	return strings.ToLower(d.String()), nil
+}
+
+// ErrInvalidDN: testo che non è un DN LDAP.
+var ErrInvalidDN = errors.New("audience: DN non valido")
 
 type Mode string
 

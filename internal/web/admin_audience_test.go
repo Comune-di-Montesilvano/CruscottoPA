@@ -89,3 +89,13 @@ func TestADUnavailableInAdmin(t *testing.T) {
 		t.Fatalf("AD giù:\n%s", body)
 	}
 }
+
+func TestADGroupRuleInvalidDN(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	g, _ := db.CreateAudienceGroup("G")
+	rec := do(t, s, "POST", "/admin/gruppi/"+itoa(g)+"/regole", url.Values{"kind": {"adgroup"}, "value": {"non un DN"}}, c, hx)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "DN non valido") {
+		t.Fatalf("DN non valido: atteso 422 con messaggio, ottenuto %d", rec.Code)
+	}
+}

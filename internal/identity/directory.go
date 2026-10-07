@@ -209,10 +209,12 @@ func (d *LDAPDirectory) Profile(username string, attrs []string) (audience.Profi
 		return audience.Profile{}, ErrUnknownUser
 	}
 	e := entries[0]
-	p := audience.Profile{Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")), Attrs: map[string]string{}, Groups: []string{}}
+	p := audience.Profile{Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")), Attrs: map[string][]string{}, Groups: []string{}}
 	for _, a := range want[1:] {
-		if v := strings.TrimSpace(e.GetAttributeValue(a)); v != "" {
-			p.Attrs[strings.ToLower(a)] = v
+		for _, v := range e.GetAttributeValues(a) {
+			if v = strings.TrimSpace(v); v != "" {
+				p.Attrs[strings.ToLower(a)] = append(p.Attrs[strings.ToLower(a)], v)
+			}
 		}
 	}
 	groups, err := d.search(conn, "(&(objectClass=group)(member:1.2.840.113556.1.4.1941:="+ldap.EscapeFilter(e.DN)+"))", []string{"dn"}, 0)
@@ -357,10 +359,10 @@ func (MockDirectory) Profile(username string, attrs []string) (audience.Profile,
 	if !usernameRe.MatchString(username) {
 		return audience.Profile{}, ErrUnknownUser
 	}
-	p := audience.Profile{Username: strings.ToLower(username), Attrs: map[string]string{}, Groups: []string{mockGroups[1].DN}}
+	p := audience.Profile{Username: strings.ToLower(username), Attrs: map[string][]string{}, Groups: []string{mockGroups[1].DN}}
 	for _, a := range attrs {
 		if strings.EqualFold(a, "physicalDeliveryOfficeName") {
-			p.Attrs["physicaldeliveryofficename"] = "INFORMATIZZAZIONE"
+			p.Attrs["physicaldeliveryofficename"] = []string{"INFORMATIZZAZIONE"}
 		}
 	}
 	return p, nil

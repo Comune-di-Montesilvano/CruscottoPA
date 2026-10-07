@@ -66,8 +66,10 @@ func (db *DB) GetGuide(id int64) (Guide, error) {
 }
 
 // "app_id IS ?" confronta correttamente anche NULL (guide generali).
-func (db *DB) CreateGuide(g Guide) (int64, error) {
-	res, err := db.Exec(`
+func (db *DB) CreateGuide(g Guide) (int64, error) { return createGuide(db, g) }
+
+func createGuide(q execer, g Guide) (int64, error) {
+	res, err := q.Exec(`
 INSERT INTO guides (app_id, title, kind, url, body, enabled, sort_order)
 VALUES (?, ?, ?, ?, ?, ?,
 	(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM guides WHERE app_id IS ?))`,
@@ -79,8 +81,10 @@ VALUES (?, ?, ?, ?, ?, ?,
 }
 
 // UpdateGuide: se cambia app, la guida finisce in coda alla nuova.
-func (db *DB) UpdateGuide(g Guide) error {
-	return checkAffected(db.Exec(`
+func (db *DB) UpdateGuide(g Guide) error { return updateGuide(db, g) }
+
+func updateGuide(q execer, g Guide) error {
+	return checkAffected(q.Exec(`
 UPDATE guides SET
 	sort_order = CASE WHEN app_id IS ? THEN sort_order
 	                  ELSE (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM guides WHERE app_id IS ?) END,

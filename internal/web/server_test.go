@@ -76,8 +76,8 @@ var testDirectory = fakeDirectory{
 		"senzanome": {Username: "senzanome"},
 	},
 	profiles: map[string]audience.Profile{
-		"mrossi":    {Username: "mrossi", Attrs: map[string]string{"physicaldeliveryofficename": "TRIBUTI"}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
-		"senzanome": {Username: "senzanome", Attrs: map[string]string{}},
+		"mrossi":    {Username: "mrossi", Attrs: map[string][]string{"physicaldeliveryofficename": {"TRIBUTI"}}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
+		"senzanome": {Username: "senzanome", Attrs: map[string][]string{}},
 	},
 	groups:  []identity.ADGroup{{DN: "CN=SHARE_TRIBUTI_RW,DC=test", Name: "SHARE_TRIBUTI_RW"}},
 	values:  map[string][]string{"physicalDeliveryOfficeName": {"LLPP", "TRIBUTI"}},
