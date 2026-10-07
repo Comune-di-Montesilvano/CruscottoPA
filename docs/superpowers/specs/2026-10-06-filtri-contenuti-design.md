@@ -1,6 +1,6 @@
 # Filtri sui contenuti per gruppi della plancia
 
-Data: 2026-10-06 · Stato: in revisione · Sotto-progetto 4, seconda parte (segue `2026-10-06-riconoscimento-utente-design.md`, §9)
+Data: 2026-10-06 · Stato: implementata · Sotto-progetto 4, seconda parte (segue `2026-10-06-riconoscimento-utente-design.md`, §9)
 
 ## Contesto e obiettivo
 
