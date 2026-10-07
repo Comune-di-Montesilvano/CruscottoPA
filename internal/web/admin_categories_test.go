@@ -85,7 +85,7 @@ func TestDeleteCategoryWithAppsShowsMessage(t *testing.T) {
 
 func TestCategoriesRequireLogin(t *testing.T) {
 	s, _ := newTestServer(t, nil)
-	if rec := do(t, s, "POST", "/admin/categorie", url.Values{"name": {"x"}}, nil, hx); rec.Code != http.StatusUnauthorized {
+	if rec := do(t, s, "POST", "/admin/categorie", url.Values{"name": {"x"}}, nil, hx); rec.Code != http.StatusOK || rec.Header().Get("HX-Redirect") != "/admin/login" {
 		t.Fatalf("POST senza sessione: %d", rec.Code)
 	}
 }

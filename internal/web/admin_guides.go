@@ -152,9 +152,9 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 		g.AppID = &form.AppID
 	}
 	if id == 0 {
-		id, err = s.db.CreateGuide(g)
+		id, err = s.db.CreateGuideWithAudience(g, form.Visibility)
 	} else {
-		err = s.db.UpdateGuide(g)
+		err = s.db.UpdateGuideWithAudience(g, form.Visibility)
 	}
 	switch {
 	case errors.Is(err, database.ErrNotFound):
@@ -162,10 +162,6 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.serverError(w, err)
 	default:
-		if err := s.db.SetContentAudience(database.ContentGuide, id, form.Visibility); err != nil {
-			s.serverError(w, err)
-			return
-		}
 		s.renderGuides(w, http.StatusOK, newGuideForm(), nil)
 	}
 }

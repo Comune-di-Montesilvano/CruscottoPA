@@ -43,3 +43,19 @@ func TestProfileCache(t *testing.T) {
 		t.Fatal("dopo 1 minuto si riprova")
 	}
 }
+
+// Un profilo caricato mentre gli attributi cambiano (reset) non va tenuto:
+// conterrebbe la vecchia lista di attributi per 15 minuti.
+func TestProfileCacheResetDuringLoad(t *testing.T) {
+	c := newProfileCache(time.Now)
+	calls := 0
+	c.get("mrossi", func() (audience.Profile, error) {
+		calls++
+		c.reset() // gli attributi cambiano durante il caricamento
+		return audience.Profile{Username: "mrossi"}, nil
+	})
+	c.get("mrossi", func() (audience.Profile, error) { calls++; return audience.Profile{Username: "mrossi"}, nil })
+	if calls != 2 {
+		t.Fatalf("il profilo caricato durante il reset è stato tenuto in cache (%d caricamenti)", calls)
+	}
+}

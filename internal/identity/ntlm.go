@@ -56,7 +56,7 @@ func Challenge() []byte {
 	binary.LittleEndian.PutUint32(msg[16:], header)
 	// UNICODE | REQUEST_TARGET | NTLM | ALWAYS_SIGN | TARGET_TYPE_DOMAIN | EXTENDED_SESSIONSECURITY | TARGET_INFO
 	binary.LittleEndian.PutUint32(msg[20:], 0x00000001|0x00000004|0x00000200|0x00008000|0x00010000|0x00080000|0x00800000)
-	rand.Read(msg[24:32])
+	rand.Read(msg[24:32])                                       // da Go 1.24 crypto/rand.Read non restituisce mai errore
 	binary.LittleEndian.PutUint16(msg[40:], uint16(info.Len())) // TargetInfo
 	binary.LittleEndian.PutUint16(msg[42:], uint16(info.Len()))
 	binary.LittleEndian.PutUint32(msg[44:], uint32(header+len(name)))

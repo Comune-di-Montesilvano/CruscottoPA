@@ -120,3 +120,24 @@ func TestNTLMDomain(t *testing.T) {
 		t.Fatalf("NTLMDomain = %q (%v)", cfg.NTLMDomain, err)
 	}
 }
+
+func TestWarnings(t *testing.T) {
+	t.Setenv("LDAP_HOST", "ldap://dc.local")
+	t.Setenv("SESSION_SECRET", strings.Repeat("s", 32))
+	t.Setenv("LDAP_BIND_DN", "svc@local")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := cfg.Warnings()
+	if len(w) == 0 || !strings.Contains(strings.Join(w, " "), "LDAP_BASE_DN") {
+		t.Fatalf("atteso un avviso su LDAP_BASE_DN vuoto, ottenuto %v", w)
+	}
+	t.Setenv("LDAP_BASE_DN", "dc=local")
+	cfg, _ = Load()
+	for _, s := range cfg.Warnings() {
+		if strings.Contains(s, "LDAP_BASE_DN") {
+			t.Fatalf("avviso inatteso: %v", s)
+		}
+	}
+}

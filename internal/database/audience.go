@@ -13,6 +13,9 @@ import (
 // attributo usato da regole).
 var ErrInUse = errors.New("database: elemento in uso")
 
+// ErrInvalidDN: regola "gruppo AD" con un valore che non è un DN.
+var ErrInvalidDN = audience.ErrInvalidDN
+
 type AudienceAttribute struct {
 	ID          int64
 	Name, Label string
@@ -192,6 +195,13 @@ func (db *DB) AddAudienceRule(r AudienceRule) (int64, error) {
 	if r.Kind != audience.KindAttr {
 		r.Attr = ""
 	}
+	if r.Kind == audience.KindADGroup {
+		dn, err := audience.NormalizeDN(r.Value)
+		if err != nil {
+			return 0, err
+		}
+		r.Value = dn
+	}
 	res, err := db.Exec(`INSERT INTO audience_rules (group_id, kind, attr, value, label) VALUES (?, ?, ?, ?, ?)`,
 		r.GroupID, r.Kind, strings.TrimSpace(r.Attr), r.Value, strings.TrimSpace(r.Label))
 	if isUniqueViolation(err) {
@@ -260,26 +270,102 @@ func (db *DB) contentAudience(where string, args ...any) (map[int64]ContentAudie
 
 // SetContentAudience sostituisce la visibilità; Mode pubblico = nessuna riga.
 func (db *DB) SetContentAudience(k ContentKind, id int64, ca ContentAudience) error {
+	return db.inTx(func(tx *sql.Tx) error { return setContentAudience(tx, k, id, ca) })
+}
+
+func setContentAudience(q execer, k ContentKind, id int64, ca ContentAudience) error {
 	if !audience.ValidMode(string(ca.Mode)) {
 		return fmt.Errorf("modalità non valida: %q", ca.Mode)
 	}
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err := tx.Exec(`DELETE FROM content_audience WHERE kind = ? AND content_id = ?`, string(k), id); err != nil {
+	if _, err := q.Exec(`DELETE FROM content_audience WHERE kind = ? AND content_id = ?`, string(k), id); err != nil {
 		return err
 	}
 	if ca.Mode != audience.ModePublic {
 		for _, g := range ca.Groups {
-			if _, err := tx.Exec(`INSERT OR IGNORE INTO content_audience (kind, content_id, mode, group_id) VALUES (?, ?, ?, ?)`,
+			if _, err := q.Exec(`INSERT OR IGNORE INTO content_audience (kind, content_id, mode, group_id) VALUES (?, ?, ?, ?)`,
 				string(k), id, string(ca.Mode), g); err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
+
+// execer: *DB e *sql.Tx, per usare le stesse query dentro e fuori da una transazione.
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+func (db *DB) inTx(fn func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := fn(tx); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+// Varianti "con visibilità": contenuto e visibilità nella stessa transazione,
+// così un errore sulla visibilità non lascia un contenuto pubblico a metà.
+
+func (db *DB) CreateAppWithAudience(a App, ca ContentAudience) (id int64, err error) {
+	err = db.inTx(func(tx *sql.Tx) error {
+		if id, err = createApp(tx, a); err != nil {
+			return err
+		}
+		return setContentAudience(tx, ContentApp, id, ca)
+	})
+	return id, err
+}
+
+func (db *DB) UpdateAppWithAudience(a App, ca ContentAudience) error {
+	return db.inTx(func(tx *sql.Tx) error {
+		if err := updateApp(tx, a); err != nil {
+			return err
+		}
+		return setContentAudience(tx, ContentApp, a.ID, ca)
+	})
+}
+
+func (db *DB) CreateGuideWithAudience(g Guide, ca ContentAudience) (id int64, err error) {
+	err = db.inTx(func(tx *sql.Tx) error {
+		if id, err = createGuide(tx, g); err != nil {
+			return err
+		}
+		return setContentAudience(tx, ContentGuide, id, ca)
+	})
+	return id, err
+}
+
+func (db *DB) UpdateGuideWithAudience(g Guide, ca ContentAudience) error {
+	return db.inTx(func(tx *sql.Tx) error {
+		if err := updateGuide(tx, g); err != nil {
+			return err
+		}
+		return setContentAudience(tx, ContentGuide, g.ID, ca)
+	})
+}
+
+func (db *DB) CreateAlertWithAudience(a Alert, ca ContentAudience) (id int64, err error) {
+	err = db.inTx(func(tx *sql.Tx) error {
+		if id, err = createAlert(tx, a); err != nil {
+			return err
+		}
+		return setContentAudience(tx, ContentAlert, id, ca)
+	})
+	return id, err
+}
+
+func (db *DB) UpdateAlertWithAudience(a Alert, ca ContentAudience) error {
+	return db.inTx(func(tx *sql.Tx) error {
+		if err := updateAlert(tx, a); err != nil {
+			return err
+		}
+		return setContentAudience(tx, ContentAlert, a.ID, ca)
+	})
 }
 
 // GroupUses: titoli dei contenuti che usano il gruppo (per il messaggio di errore).
@@ -313,6 +399,18 @@ func (db *DB) deleteContent(k ContentKind, table string, id int64) error {
 		return err
 	}
 	defer tx.Rollback()
+	if k == ContentApp {
+		// Le guide dell'app diventano generali (ON DELETE SET NULL): quelle
+		// pubbliche prendono la visibilità dell'app, per non diventare di tutti.
+		if _, err := tx.Exec(`
+INSERT INTO content_audience (kind, content_id, mode, group_id)
+SELECT 'guide', g.id, c.mode, c.group_id
+FROM guides g JOIN content_audience c ON c.kind = 'app' AND c.content_id = g.app_id
+WHERE g.app_id = ? AND NOT EXISTS (
+	SELECT 1 FROM content_audience x WHERE x.kind = 'guide' AND x.content_id = g.id)`, id); err != nil {
+			return err
+		}
+	}
 	if _, err := tx.Exec(`DELETE FROM content_audience WHERE kind = ? AND content_id = ?`, string(k), id); err != nil {
 		return err
 	}

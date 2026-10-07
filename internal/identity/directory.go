@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
@@ -122,17 +121,11 @@ func sortPeople(p []Person) {
 type LDAPDirectory struct {
 	cfg config.LDAP
 
-	mu     sync.Mutex
-	values map[string]cachedValues // per attributo, chiave minuscola
-}
-
-type cachedValues struct {
-	list []string
-	at   time.Time
+	values *valuesCache
 }
 
 func NewLDAPDirectory(cfg config.LDAP) *LDAPDirectory {
-	return &LDAPDirectory{cfg: cfg, values: map[string]cachedValues{}}
+	return &LDAPDirectory{cfg: cfg, values: newValuesCache(time.Now)}
 }
 
 func (d *LDAPDirectory) conn() (*ldap.Conn, error) {
@@ -209,10 +202,12 @@ func (d *LDAPDirectory) Profile(username string, attrs []string) (audience.Profi
 		return audience.Profile{}, ErrUnknownUser
 	}
 	e := entries[0]
-	p := audience.Profile{Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")), Attrs: map[string]string{}, Groups: []string{}}
+	p := audience.Profile{Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")), Attrs: map[string][]string{}, Groups: []string{}}
 	for _, a := range want[1:] {
-		if v := strings.TrimSpace(e.GetAttributeValue(a)); v != "" {
-			p.Attrs[strings.ToLower(a)] = v
+		for _, v := range e.GetAttributeValues(a) {
+			if v = strings.TrimSpace(v); v != "" {
+				p.Attrs[strings.ToLower(a)] = append(p.Attrs[strings.ToLower(a)], v)
+			}
 		}
 	}
 	groups, err := d.search(conn, "(&(objectClass=group)(member:1.2.840.113556.1.4.1941:="+ldap.EscapeFilter(e.DN)+"))", []string{"dn"}, 0)
@@ -267,27 +262,12 @@ func (d *LDAPDirectory) SearchUsers(q string) ([]Person, error) {
 	return out, nil
 }
 
-// AttributeValues: valori distinti tra gli utenti attivi; cache di 6 ore, e in
-// caso di errore l'ultimo elenco valido se c'è.
+// AttributeValues: valori distinti tra gli utenti attivi (cache, vedi valuesCache).
 func (d *LDAPDirectory) AttributeValues(attr string) ([]string, error) {
 	if !ValidAttrName(attr) {
 		return nil, fmt.Errorf("nome di attributo non valido: %q", attr)
 	}
-	key := strings.ToLower(attr)
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if c, ok := d.values[key]; ok && time.Since(c.at) < valuesTTL {
-		return c.list, nil
-	}
-	list, err := d.loadValues(attr)
-	if err != nil {
-		if c, ok := d.values[key]; ok {
-			return c.list, nil
-		}
-		return nil, err
-	}
-	d.values[key] = cachedValues{list: list, at: time.Now()}
-	return list, nil
+	return d.values.get(attr, func() ([]string, error) { return d.loadValues(attr) })
 }
 
 func (d *LDAPDirectory) loadValues(attr string) ([]string, error) {
@@ -357,10 +337,10 @@ func (MockDirectory) Profile(username string, attrs []string) (audience.Profile,
 	if !usernameRe.MatchString(username) {
 		return audience.Profile{}, ErrUnknownUser
 	}
-	p := audience.Profile{Username: strings.ToLower(username), Attrs: map[string]string{}, Groups: []string{mockGroups[1].DN}}
+	p := audience.Profile{Username: strings.ToLower(username), Attrs: map[string][]string{}, Groups: []string{mockGroups[1].DN}}
 	for _, a := range attrs {
 		if strings.EqualFold(a, "physicalDeliveryOfficeName") {
-			p.Attrs["physicaldeliveryofficename"] = "INFORMATIZZAZIONE"
+			p.Attrs["physicaldeliveryofficename"] = []string{"INFORMATIZZAZIONE"}
 		}
 	}
 	return p, nil

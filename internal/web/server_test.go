@@ -76,8 +76,8 @@ var testDirectory = fakeDirectory{
 		"senzanome": {Username: "senzanome"},
 	},
 	profiles: map[string]audience.Profile{
-		"mrossi":    {Username: "mrossi", Attrs: map[string]string{"physicaldeliveryofficename": "TRIBUTI"}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
-		"senzanome": {Username: "senzanome", Attrs: map[string]string{}},
+		"mrossi":    {Username: "mrossi", Attrs: map[string][]string{"physicaldeliveryofficename": {"TRIBUTI"}}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
+		"senzanome": {Username: "senzanome", Attrs: map[string][]string{}},
 	},
 	groups:  []identity.ADGroup{{DN: "CN=SHARE_TRIBUTI_RW,DC=test", Name: "SHARE_TRIBUTI_RW"}},
 	values:  map[string][]string{"physicalDeliveryOfficeName": {"LLPP", "TRIBUTI"}},
@@ -211,5 +211,18 @@ func TestStaticRevalidated(t *testing.T) {
 	rec := do(t, s, "GET", "/static/js/dashboard.js", nil, nil, nil)
 	if rec.Code != 200 || rec.Header().Get("Cache-Control") != "no-cache" {
 		t.Fatalf("statici: %d Cache-Control=%q", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+}
+
+// /static/ non deve elencare il contenuto delle cartelle.
+func TestStaticNoDirectoryListing(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	for _, p := range []string{"/static/", "/static/js/", "/static/img/"} {
+		if rec := do(t, s, "GET", p, nil, nil, nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: atteso 404, ottenuto %d", p, rec.Code)
+		}
+	}
+	if rec := do(t, s, "GET", "/static/js/dashboard.js", nil, nil, nil); rec.Code != 200 {
+		t.Fatalf("file statico: %d", rec.Code)
 	}
 }

@@ -64,14 +64,14 @@
 	</ul>
 	<form class="form rule-form" hx-post="/admin/gruppi/{{.Group.ID}}/regole" hx-target="#section" hx-swap="outerHTML">
 		<label>Tipo<select name="kind" data-rule-kind>
-			<option value="attr">Attributo</option><option value="adgroup">Gruppo AD</option>
-			<option value="user">Utente</option><option value="exclude">Escludi utente</option>
+			<option value="attr"{{if eq .Form.Kind "attr"}} selected{{end}}>Attributo</option><option value="adgroup"{{if eq .Form.Kind "adgroup"}} selected{{end}}>Gruppo AD</option>
+			<option value="user"{{if eq .Form.Kind "user"}} selected{{end}}>Utente</option><option value="exclude"{{if eq .Form.Kind "exclude"}} selected{{end}}>Escludi utente</option>
 		</select></label>
-		<label data-for-kind="attr">Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}">{{.Label}}</option>{{end}}</select></label>
-		<label>Valore<input name="value" autocomplete="off" required
+		{{$attr := .Form.Attr}}<label data-for-kind="attr"{{if and .Form.Kind (ne .Form.Kind "attr")}} hidden{{end}}>Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}"{{if eq .Name $attr}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+		<label>Valore<input name="value" value="{{.Form.Value}}" autocomplete="off" required
 			hx-get="/admin/ad/suggerimenti" hx-trigger="input changed delay:300ms" hx-include="closest form" hx-target="next .suggestions" hx-swap="innerHTML"></label>
 		<div class="suggestions"></div>
-		<input type="hidden" name="label">
+		<input type="hidden" name="label" value="{{.Form.Label}}">
 		<button class="primary" type="submit">Aggiungi regola</button>
 	</form>
 	{{with .Errors.rule}}<p class="field-error">{{.}}</p>{{end}}

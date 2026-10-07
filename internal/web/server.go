@@ -113,7 +113,7 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) routes() {
 	static := http.FileServer(http.Dir(filepath.Join(s.webDir, "static")))
-	s.mux.Handle("GET /static/", revalidate(http.StripPrefix("/static/", static)))
+	s.mux.Handle("GET /static/", revalidate(noListing(http.StripPrefix("/static/", static))))
 	s.mux.Handle("GET /favicon.ico", revalidate(http.HandlerFunc(s.handleFavicon)))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /io", s.handleIo)
@@ -207,4 +207,15 @@ func revalidate(next http.Handler) http.Handler {
 func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/x-icon")
 	http.ServeFile(w, r, filepath.Join(s.webDir, "static", "img", "favicon.ico"))
+}
+
+// noListing: niente elenco del contenuto delle cartelle di /static/.
+func noListing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

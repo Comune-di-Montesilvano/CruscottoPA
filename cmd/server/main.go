@@ -55,6 +55,9 @@ func main() {
 	if cfg.LDAP.Host == "mock" {
 		slog.Warn("LDAP_HOST=mock: qualsiasi credenziale accede a /admin. Solo per sviluppo, MAI in produzione.")
 	}
+	for _, w := range cfg.Warnings() {
+		slog.Warn(w)
+	}
 
 	db, err := database.Open(cfg.DBPath)
 	if err != nil {

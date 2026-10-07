@@ -29,7 +29,7 @@ func TestEnteRequiresAdmin(t *testing.T) {
 	if rec := do(t, s, "GET", "/admin/ente", nil, nil, nil); rec.Code != http.StatusSeeOther {
 		t.Fatalf("GET senza sessione: atteso 303, ottenuto %d", rec.Code)
 	}
-	if rec := postEnte(t, s, map[string]string{"ente_name": "X"}, nil, nil); rec.Code != http.StatusUnauthorized {
+	if rec := postEnte(t, s, map[string]string{"ente_name": "X"}, nil, nil); rec.Code != http.StatusOK || rec.Header().Get("HX-Redirect") != "/admin/login" {
 		t.Fatalf("POST HTMX senza sessione: atteso 401, ottenuto %d", rec.Code)
 	}
 	if s.ente().EnteName != "" {

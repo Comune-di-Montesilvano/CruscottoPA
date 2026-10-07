@@ -73,3 +73,13 @@ func TestDialTimesOut(t *testing.T) {
 		t.Fatalf("Dial ha impiegato %v: serve un timeout di connessione breve", elapsed)
 	}
 }
+
+// ADMIN_USERS: "mrossi" e "mrossi@dominio" sono lo stesso utente.
+func TestIsAdminUserIgnoresDomain(t *testing.T) {
+	if !IsAdminUser([]string{"mrossi"}, "MRossi@intranet.local") || !IsAdminUser([]string{"mrossi@intranet.local"}, "mrossi") {
+		t.Fatal("username con e senza dominio devono coincidere")
+	}
+	if IsAdminUser([]string{"mrossi"}, "mrossini") {
+		t.Fatal("confronto per prefisso non ammesso")
+	}
+}

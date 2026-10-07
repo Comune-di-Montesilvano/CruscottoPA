@@ -4,7 +4,7 @@ import "testing"
 
 var mario = Profile{
 	Username: "mario.rossi",
-	Attrs:    map[string]string{"physicaldeliveryofficename": "INFORMATIZZAZIONE"},
+	Attrs:    map[string][]string{"physicaldeliveryofficename": {"INFORMATIZZAZIONE"}},
 	Groups:   []string{"CN=SHARE_PNRR_RW,OU=Gruppi,DC=intranet,DC=local"},
 }
 
@@ -61,5 +61,21 @@ func TestValidKindAndMode(t *testing.T) {
 	}
 	if !ValidMode("") || !ValidMode("only") || !ValidMode("hide") || ValidMode("x") {
 		t.Fatal("ValidMode")
+	}
+}
+
+// Anteprima (LDAP) e plancia devono dare lo stesso esito: DN confrontati come
+// DN, attributi a più valori confrontati su ogni valore.
+func TestMemberDNAndMultiValued(t *testing.T) {
+	p := Profile{
+		Username: "anna",
+		Attrs:    map[string][]string{"physicaldeliveryofficename": {"AMMINISTRATIVO", "TRIBUTI"}},
+		Groups:   []string{"CN=Uff Tributi,OU=Gruppi,DC=intranet,DC=local"},
+	}
+	if !Member(p, []Rule{{Kind: KindADGroup, Value: "cn=uff tributi, ou=gruppi, dc=intranet, dc=local"}}) {
+		t.Error("DN con spazi e maiuscole diverse non riconosciuto")
+	}
+	if !Member(p, []Rule{{Kind: KindAttr, Attr: "physicalDeliveryOfficeName", Value: "tributi"}}) {
+		t.Error("attributo a più valori: deve bastare uno dei valori")
 	}
 }

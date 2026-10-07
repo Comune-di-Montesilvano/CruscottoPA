@@ -105,3 +105,73 @@ func TestContentAudience(t *testing.T) {
 		t.Fatalf("ritorno a pubblico: %+v", ca)
 	}
 }
+
+// Eliminando un'app le sue guide diventano generali: quelle pubbliche prendono
+// la visibilità dell'app, così una guida di un'app riservata non diventa di tutti.
+func TestDeleteAppKeepsGuidesRestricted(t *testing.T) {
+	db := newTestDB(t)
+	ced, _ := db.CreateAudienceGroup("CED")
+	altri, _ := db.CreateAudienceGroup("Altri")
+	apps, _ := db.ListApps()
+	app := apps[0].ID
+	db.SetContentAudience(ContentApp, app, ContentAudience{Mode: audience.ModeOnly, Groups: []int64{ced}})
+	pub, _ := db.CreateGuide(Guide{AppID: &app, Title: "pubblica", Kind: GuideKindLink, URL: "https://x", Enabled: true})
+	own, _ := db.CreateGuide(Guide{AppID: &app, Title: "propria", Kind: GuideKindLink, URL: "https://y", Enabled: true})
+	ownCA := ContentAudience{Mode: audience.ModeHide, Groups: []int64{altri}}
+	db.SetContentAudience(ContentGuide, own, ownCA)
+
+	if err := db.DeleteApp(app); err != nil {
+		t.Fatal(err)
+	}
+	if ca, _ := db.GetContentAudience(ContentGuide, pub); ca.Mode != audience.ModeOnly || !reflect.DeepEqual(ca.Groups, []int64{ced}) {
+		t.Fatalf("guida pubblica: atteso Riservato a CED, ottenuto %+v", ca)
+	}
+	if ca, _ := db.GetContentAudience(ContentGuide, own); !reflect.DeepEqual(ca, ownCA) {
+		t.Fatalf("guida con visibilità propria non deve cambiare: %+v", ca)
+	}
+}
+
+// Contenuto e visibilità si salvano insieme: se la visibilità non si può
+// salvare (gruppo inesistente) non resta un contenuto pubblico a metà.
+func TestSaveWithAudienceIsAtomic(t *testing.T) {
+	db := newTestDB(t)
+	bad := ContentAudience{Mode: audience.ModeOnly, Groups: []int64{999}}
+	before, _ := db.ListApps()
+	cats, _ := db.ListCategories()
+	if _, err := db.CreateAppWithAudience(App{CategoryID: cats[0].ID, Title: "Nuova", IconKind: IconMonogram, IconColor: "#000000"}, bad); err == nil {
+		t.Fatal("gruppo inesistente accettato")
+	}
+	if after, _ := db.ListApps(); len(after) != len(before) {
+		t.Fatal("app creata nonostante l'errore sulla visibilità")
+	}
+
+	id, _ := db.CreateAlert(Alert{Title: "Prima", Level: LevelNews, StartsAt: time.Now()})
+	a, _ := db.GetAlert(id)
+	a.Title = "Dopo"
+	if err := db.UpdateAlertWithAudience(a, bad); err == nil {
+		t.Fatal("gruppo inesistente accettato in aggiornamento")
+	}
+	if got, _ := db.GetAlert(id); got.Title != "Prima" {
+		t.Fatalf("avviso modificato nonostante l'errore: %q", got.Title)
+	}
+
+	ced, _ := db.CreateAudienceGroup("CED")
+	gid, err := db.CreateGuideWithAudience(Guide{Title: "G", Kind: GuideKindLink, URL: "https://g", Enabled: true}, ContentAudience{Mode: audience.ModeHide, Groups: []int64{ced}})
+	if ca, _ := db.GetContentAudience(ContentGuide, gid); err != nil || ca.Mode != audience.ModeHide {
+		t.Fatalf("guida con visibilità: %v %+v", err, ca)
+	}
+}
+
+func TestADGroupRuleNormalized(t *testing.T) {
+	db := newTestDB(t)
+	g, _ := db.CreateAudienceGroup("G")
+	if _, err := db.AddAudienceRule(AudienceRule{GroupID: g, Kind: audience.KindADGroup, Value: "CN=X,OU=Y,DC=z"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.AddAudienceRule(AudienceRule{GroupID: g, Kind: audience.KindADGroup, Value: "cn=x, ou=y, dc=Z"}); !errors.Is(err, ErrDuplicate) {
+		t.Fatalf("stesso DN scritto diversamente: atteso ErrDuplicate, ottenuto %v", err)
+	}
+	if _, err := db.AddAudienceRule(AudienceRule{GroupID: g, Kind: audience.KindADGroup, Value: "non un DN"}); !errors.Is(err, ErrInvalidDN) {
+		t.Fatalf("DN non valido: atteso ErrInvalidDN, ottenuto %v", err)
+	}
+}

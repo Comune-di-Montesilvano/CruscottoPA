@@ -199,7 +199,8 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 		}
 	case database.IconURL:
 		form.IconValue = strings.TrimSpace(r.FormValue("icon_value_url"))
-		if !validURL(form.IconValue) {
+		// Solo https: un'icona http sarebbe bloccata dalla CSP (img-src https:).
+		if !validURL(form.IconValue) || !strings.HasPrefix(strings.ToLower(form.IconValue), "https://") {
 			errs.add("icon", "Indirizzo dell'icona non valido (https://…).")
 		}
 	case database.IconUpload:
@@ -250,9 +251,9 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 	a := database.App{ID: id, CategoryID: form.CategoryID, Title: form.Title, Description: form.Description,
 		URL: form.URL, IconKind: form.IconKind, IconValue: form.IconValue, IconColor: form.IconColor, Enabled: form.Enabled}
 	if id == 0 {
-		id, err = s.db.CreateApp(a)
+		id, err = s.db.CreateAppWithAudience(a, form.Visibility)
 	} else {
-		err = s.db.UpdateApp(a)
+		err = s.db.UpdateAppWithAudience(a, form.Visibility)
 	}
 	if err != nil {
 		s.removeUpload(uploadIcons, uploaded)
@@ -261,10 +262,6 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if current.IconKind == database.IconUpload && current.IconValue != a.IconValue {
 		s.removeUpload(uploadIcons, current.IconValue)
-	}
-	if err := s.db.SetContentAudience(database.ContentApp, id, form.Visibility); err != nil {
-		s.serverError(w, err)
-		return
 	}
 	s.renderApps(w, http.StatusOK, newAppForm(), nil)
 }

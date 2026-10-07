@@ -41,7 +41,7 @@ func TestAdminRequiresLogin(t *testing.T) {
 	}
 
 	rec = do(t, s, "GET", "/admin", nil, nil, map[string]string{"HX-Request": "true"})
-	if rec.Code != http.StatusUnauthorized || rec.Header().Get("HX-Redirect") != "/admin/login" {
+	if rec.Code != http.StatusOK || rec.Header().Get("HX-Redirect") != "/admin/login" { // 200: il proxy riscrive i 4xx e toglie gli header
 		t.Fatalf("HTMX senza sessione: atteso 401 + HX-Redirect, ottenuto %d %v", rec.Code, rec.Header())
 	}
 }
@@ -80,7 +80,7 @@ func TestSecureCookieBehindHTTPSProxy(t *testing.T) {
 func TestLoginNonAdminForbidden(t *testing.T) {
 	s, _ := newTestServer(t, fakeAuth{ok: true, admin: false})
 	rec := do(t, s, "POST", "/admin/login", url.Values{"username": {"gbianchi"}, "password": {"pw"}}, nil, nil)
-	if rec.Code != http.StatusForbidden || sessionCookie(rec) != nil {
+	if rec.Code != http.StatusOK || sessionCookie(rec) != nil {
 		t.Fatalf("non admin: atteso 403 senza cookie, ottenuto %d", rec.Code)
 	}
 	if !strings.Contains(rec.Body.String(), "non è amministratore") {
@@ -92,13 +92,13 @@ func TestLoginRateLimited(t *testing.T) {
 	s, _ := newTestServer(t, fakeAuth{ok: false})
 	form := url.Values{"username": {"mrossi"}, "password": {"sbagliata"}}
 	for i := 0; i < 5; i++ {
-		if rec := do(t, s, "POST", "/admin/login", form, nil, nil); rec.Code != http.StatusUnauthorized {
-			t.Fatalf("tentativo %d: atteso 401, ottenuto %d", i+1, rec.Code)
+		if rec := do(t, s, "POST", "/admin/login", form, nil, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Credenziali non valide") {
+			t.Fatalf("tentativo %d: atteso 200 con l'errore in pagina, ottenuto %d", i+1, rec.Code)
 		}
 	}
 	rec := do(t, s, "POST", "/admin/login", form, nil, nil)
-	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
-		t.Fatalf("6° tentativo: atteso 429 con Retry-After, ottenuto %d", rec.Code)
+	if rec.Code != http.StatusOK || rec.Header().Get("Retry-After") == "" || !strings.Contains(rec.Body.String(), "Troppi tentativi") {
+		t.Fatalf("6° tentativo: atteso 200 con messaggio e Retry-After, ottenuto %d", rec.Code)
 	}
 }
 
@@ -111,7 +111,7 @@ func TestLoginRateLimitIsPerUser(t *testing.T) {
 		do(t, s, "POST", "/admin/login", bad, nil, nil)
 	}
 	other := url.Values{"username": {"bianchi"}, "password": {"sbagliata"}}
-	if rec := do(t, s, "POST", "/admin/login", other, nil, nil); rec.Code != http.StatusUnauthorized {
+	if rec := do(t, s, "POST", "/admin/login", other, nil, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Credenziali non valide") {
 		t.Fatalf("un altro utente non deve essere bloccato: %d", rec.Code)
 	}
 }
@@ -136,7 +136,7 @@ func TestLoginOverPlainHTTPWithSecureCookies(t *testing.T) {
 	form := url.Values{"username": {"mrossi"}, "password": {"pw"}}
 
 	rec := do(t, s, "POST", "/admin/login", form, nil, nil) // Host example.com, niente TLS
-	if rec.Code != http.StatusBadRequest || sessionCookie(rec) != nil || !strings.Contains(rec.Body.String(), "SECURE_COOKIES=false") {
+	if rec.Code != http.StatusOK || sessionCookie(rec) != nil || !strings.Contains(rec.Body.String(), "SECURE_COOKIES=false") {
 		t.Fatalf("HTTP in chiaro con SECURE_COOKIES: atteso 400 con spiegazione, ottenuto %d\n%s", rec.Code, rec.Body)
 	}
 	if rec := do(t, s, "POST", "/admin/login", form, nil, map[string]string{"X-Forwarded-Proto": "https"}); rec.Code != http.StatusSeeOther {

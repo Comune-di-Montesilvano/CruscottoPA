@@ -73,8 +73,10 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.currentAdmin(r) == "" {
 			if r.Header.Get("HX-Request") == "true" {
+				// 200, non 401: il reverse proxy in produzione sostituisce le
+				// risposte 4xx/5xx con una pagina di cortesia e toglie HX-Redirect.
 				w.Header().Set("HX-Redirect", "/admin/login")
-				w.WriteHeader(http.StatusUnauthorized)
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 			http.Redirect(w, r, "/admin/login", http.StatusSeeOther)

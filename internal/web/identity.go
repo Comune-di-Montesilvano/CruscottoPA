@@ -110,5 +110,9 @@ func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg [
 func (s *Server) recognized(w http.ResponseWriter, r *http.Request, u identity.User) {
 	s.setViewer(w, r, u)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"riconosciuto": !u.Anonymous, "nome": u.FirstName()})
+	// Niente nome nella risposta: chiunque in rete potrebbe usare /io per
+	// scoprire i nomi dei colleghi. La ricarica della pagina lo mostra comunque.
+	if err := json.NewEncoder(w).Encode(map[string]bool{"riconosciuto": !u.Anonymous}); err != nil {
+		slog.Debug("risposta /io", "err", err)
+	}
 }
