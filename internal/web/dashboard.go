@@ -33,6 +33,7 @@ type dashboardView struct {
 	Calendar  calendarWidget
 	User      identity.User // identità dichiarata: solo per il saluto
 	Recognize bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
+	Filter    *contentFilter
 }
 
 type avvisiView struct {
@@ -59,6 +60,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
+	f, err := s.contentFilterFor(r)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	f.dashboard(&d)
 	now := s.now().In(s.loc())
 	cw, err := s.calendarWidgetFor(now.Year(), now.Month())
 	if err != nil {
@@ -76,6 +83,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Calendar:  cw,
 		User:      u,
 		Recognize: !known && s.canRecognize(r),
+		Filter:    f,
 	})
 }
 
@@ -85,7 +93,12 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, http.StatusOK, "alerts_carousel", alerts)
+	f, err := s.contentFilterFor(r)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.render(w, http.StatusOK, "alerts_carousel", f.alertList(alerts))
 }
 
 // handleCalendarPartial: mese non valido → mese corrente (mai un errore).
@@ -105,7 +118,12 @@ func (s *Server) handleAvvisi(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, http.StatusOK, "avvisi.html", avvisiView{Alerts: alerts, Version: s.version})
+	f, err := s.contentFilterFor(r)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.render(w, http.StatusOK, "avvisi.html", avvisiView{Alerts: f.alertList(alerts), Version: s.version})
 }
 
 // greeting: stesse soglie di dashboard.js (che lo aggiorna lato client).

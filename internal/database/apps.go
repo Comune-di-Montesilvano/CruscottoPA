@@ -99,7 +99,7 @@ WHERE id = ?`,
 }
 
 func (db *DB) DeleteApp(id int64) error {
-	return checkAffected(db.Exec(`DELETE FROM apps WHERE id = ?`, id))
+	return db.deleteContent(ContentApp, "apps", id)
 }
 
 func (db *DB) MoveApp(id int64, dir int) error {

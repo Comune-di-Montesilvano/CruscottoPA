@@ -22,6 +22,8 @@
 		<label>Indirizzo (URL)<input name="url" value="{{.Form.URL}}" placeholder="https://…" required></label>
 		{{with .Errors.url}}<p class="field-error">{{.}}</p>{{end}}
 		<label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Form.Enabled}} checked{{end}}>Visibile in plancia</label>
+		{{template "visibility_fieldset" .VisibilityField}}
+		{{with .Errors.visibilita}}<p class="field-error">{{.}}</p>{{end}}
 		<div class="actions">
 			<button class="primary" type="submit">Salva</button>
 			{{if .Form.ID}}<a class="button" href="/admin/guide">Annulla</a>{{end}}
@@ -33,7 +35,7 @@
 		<tbody>
 			{{range .Guides}}
 			<tr>
-				<td><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if not .Enabled}} <span class="tag">nascosta</span>{{end}}</td>
+				<td><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if not .Enabled}} <span class="tag">nascosta</span>{{end}}<br><small class="muted">{{template "visibility_label" (index $.VisibilityLabels .ID)}}</small></td>
 				<td class="muted">{{if .AppTitle}}{{.AppTitle}}{{else}}Generale{{end}}</td>
 				<td class="actions">
 					<button class="icon" type="button" title="Su" hx-post="/admin/guide/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>

@@ -80,4 +80,36 @@
 		setTimeout(poll, 2000);
 	}
 	document.addEventListener("htmx:afterSwap", watchRestart);
+
+	// Suggerimenti AD: un click riempie il valore (e l'etichetta del gruppo AD).
+	document.addEventListener("click", (e) => {
+		const b = e.target.closest(".suggestion");
+		if (!b) return;
+		const form = b.closest("form");
+		if (!form) return;
+		form.querySelector('[name="value"]').value = b.dataset.fill || "";
+		const label = form.querySelector('[name="label"]');
+		if (label) label.value = b.dataset.label || "";
+		b.parentElement.innerHTML = "";
+	});
+	// Il campo "Attributo" serve solo con il tipo "Attributo".
+	document.addEventListener("change", (e) => {
+		const sel = e.target.closest("[data-rule-kind]");
+		if (!sel) return;
+		sel.form.querySelectorAll("[data-for-kind]").forEach((el) => { el.hidden = el.dataset.forKind !== sel.value; });
+	});
+
+	// Visibilità dei contenuti: con "Pubblico" le caselle dei gruppi non servono.
+	function syncVisibility(root) {
+		root.querySelectorAll("fieldset.visibility").forEach((fs) => {
+			const checked = fs.querySelector('[name="visibilita"]:checked');
+			const isPublic = !checked || checked.value === "";
+			fs.querySelectorAll('[name="gruppi"]').forEach((cb) => { cb.disabled = isPublic; });
+		});
+	}
+	document.addEventListener("change", (e) => {
+		if (e.target.matches('[name="visibilita"]')) syncVisibility(e.target.closest("form") || document);
+	});
+	document.addEventListener("htmx:afterSwap", (e) => syncVisibility(e.target));
+	syncVisibility(document);
 })();

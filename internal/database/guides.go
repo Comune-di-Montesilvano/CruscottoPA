@@ -91,7 +91,7 @@ WHERE id = ?`,
 }
 
 func (db *DB) DeleteGuide(id int64) error {
-	return checkAffected(db.Exec(`DELETE FROM guides WHERE id = ?`, id))
+	return db.deleteContent(ContentGuide, "guides", id)
 }
 
 func (db *DB) MoveGuide(id int64, dir int) error {

@@ -10,11 +10,12 @@ import (
 )
 
 type guideForm struct {
-	ID      int64
-	AppID   int64 // 0 = generale
-	Title   string
-	URL     string
-	Enabled bool
+	ID         int64
+	AppID      int64 // 0 = generale
+	Title      string
+	URL        string
+	Enabled    bool
+	Visibility database.ContentAudience
 }
 
 type guideRow struct {
@@ -27,6 +28,9 @@ type guidesSection struct {
 	Apps   []database.App
 	Form   guideForm
 	Errors formErrors
+
+	VisibilityField  visibilityField
+	VisibilityLabels map[int64]string
 }
 
 func newGuideForm() guideForm { return guideForm{Enabled: true} }
@@ -60,7 +64,12 @@ func (s *Server) guidesData(form guideForm, errs formErrors) (guidesSection, err
 		}
 		rows = append(rows, row)
 	}
-	return guidesSection{Guides: rows, Apps: apps, Form: form, Errors: errs}, nil
+	sec := guidesSection{Guides: rows, Apps: apps, Form: form, Errors: errs}
+	if sec.VisibilityField, err = s.visibilityField(form.Visibility); err != nil {
+		return sec, err
+	}
+	sec.VisibilityLabels, err = s.visibilityLabels(database.ContentGuide)
+	return sec, err
 }
 
 func (s *Server) renderGuides(w http.ResponseWriter, status int, form guideForm, errs formErrors) {
@@ -95,7 +104,12 @@ func (s *Server) handleGuideEdit(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.renderGuides(w, http.StatusOK, formFromGuide(g), nil)
+	form := formFromGuide(g)
+	if form.Visibility, err = s.db.GetContentAudience(database.ContentGuide, id); err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.renderGuides(w, http.StatusOK, form, nil)
 }
 
 func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +137,11 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	form.Visibility = parseVisibility(r, errs)
+	if err := s.checkGroups(form.Visibility, errs); err != nil {
+		s.serverError(w, err)
+		return
+	}
 	if len(errs) > 0 {
 		s.renderGuides(w, http.StatusUnprocessableEntity, form, errs)
 		return
@@ -133,7 +152,7 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 		g.AppID = &form.AppID
 	}
 	if id == 0 {
-		_, err = s.db.CreateGuide(g)
+		id, err = s.db.CreateGuide(g)
 	} else {
 		err = s.db.UpdateGuide(g)
 	}
@@ -143,6 +162,10 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.serverError(w, err)
 	default:
+		if err := s.db.SetContentAudience(database.ContentGuide, id, form.Visibility); err != nil {
+			s.serverError(w, err)
+			return
+		}
 		s.renderGuides(w, http.StatusOK, newGuideForm(), nil)
 	}
 }

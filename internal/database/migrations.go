@@ -13,6 +13,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV2Seed,
 	migrateV3CalendarAndSource,
 	migrateV4Branding,
+	migrateV5Audience,
 }
 
 func (db *DB) migrate() error {
@@ -137,6 +138,42 @@ CREATE TABLE branding (
 	updated_by TEXT NOT NULL DEFAULT ''
 );
 INSERT INTO branding (id) VALUES (1);
+`)
+	return err
+}
+
+func migrateV5Audience(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE audience_attributes (
+	id       INTEGER PRIMARY KEY AUTOINCREMENT,
+	name     TEXT NOT NULL UNIQUE COLLATE NOCASE, -- nome LDAP, es. physicalDeliveryOfficeName
+	label    TEXT NOT NULL                        -- es. "Ufficio"
+);
+
+CREATE TABLE audience_groups (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	name       TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+	sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE audience_rules (
+	id       INTEGER PRIMARY KEY AUTOINCREMENT,
+	group_id INTEGER NOT NULL REFERENCES audience_groups(id) ON DELETE CASCADE,
+	kind     TEXT    NOT NULL,          -- attr | adgroup | user | exclude (validato in Go)
+	attr     TEXT    NOT NULL DEFAULT '', -- solo per kind=attr: nome LDAP
+	value    TEXT    NOT NULL,          -- valore dell'attributo, DN del gruppo AD o username
+	label    TEXT    NOT NULL DEFAULT '', -- per kind=adgroup: CN da mostrare
+	UNIQUE (group_id, kind, attr, value)
+);
+
+CREATE TABLE content_audience (
+	kind       TEXT    NOT NULL,        -- app | guide | alert
+	content_id INTEGER NOT NULL,
+	mode       TEXT    NOT NULL,        -- only | hide (uguale per tutte le righe del contenuto)
+	group_id   INTEGER NOT NULL REFERENCES audience_groups(id),
+	PRIMARY KEY (kind, content_id, group_id)
+);
+CREATE INDEX idx_content_audience_group ON content_audience(group_id);
 `)
 	return err
 }

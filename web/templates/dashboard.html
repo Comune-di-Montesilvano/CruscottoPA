@@ -28,6 +28,7 @@
 		<input type="search" id="search" placeholder="Cerca un applicativo o una guida…" autocomplete="off" aria-label="Cerca un applicativo o una guida">
 		<kbd>/</kbd>
 	</label>
+	{{with .Filter}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}
 
 	<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
 

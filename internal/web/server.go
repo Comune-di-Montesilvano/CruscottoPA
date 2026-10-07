@@ -40,6 +40,7 @@ type Server struct {
 	auth         auth.Authenticator
 	directory    identity.Directory
 	cookies      *identity.CookieCodec
+	profiles     *profileCache
 	limiter      *auth.RateLimiter
 	backup       *backup.Service
 	restoreDelay time.Duration
@@ -90,6 +91,7 @@ func New(o Options) (*Server, error) {
 	s.tmpl = tmpl
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
+	s.profiles = newProfileCache(o.Now)
 	s.routes()
 	return s, nil
 }
@@ -121,6 +123,21 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)
 	s.mux.HandleFunc("GET /admin", s.requireAdmin(s.handleOverview))
 	s.mux.HandleFunc("GET /admin/ente", s.requireAdmin(s.handleBrandingPage))
+	s.mux.HandleFunc("GET /admin/gruppi", s.requireAdmin(s.handleAudiencePage))
+	s.mux.HandleFunc("POST /admin/gruppi", s.requireAdmin(s.handleAudienceGroupCreate))
+	s.mux.HandleFunc("POST /admin/gruppi/attributi", s.requireAdmin(s.handleAttributeAdd))
+	s.mux.HandleFunc("POST /admin/gruppi/attributi/{id}/elimina", s.requireAdmin(s.handleAttributeDelete))
+	s.mux.HandleFunc("GET /admin/gruppi/{id}/modifica", s.requireAdmin(s.handleAudienceGroupEdit))
+	s.mux.HandleFunc("POST /admin/gruppi/{id}", s.requireAdmin(s.handleAudienceGroupRename))
+	s.mux.HandleFunc("POST /admin/gruppi/{id}/elimina", s.requireAdmin(s.handleAudienceGroupDelete))
+	s.mux.HandleFunc("POST /admin/gruppi/{id}/sposta", s.requireAdmin(s.handleAudienceGroupMove))
+	s.mux.HandleFunc("POST /admin/gruppi/{id}/regole", s.requireAdmin(s.handleRuleAdd))
+	s.mux.HandleFunc("POST /admin/gruppi/{id}/regole/{rid}/elimina", s.requireAdmin(s.handleRuleDelete))
+	s.mux.HandleFunc("POST /admin/gruppi/{id}/anteprima", s.requireAdmin(s.handleAudiencePreview))
+	s.mux.HandleFunc("GET /admin/ad/suggerimenti", s.requireAdmin(s.handleSuggest))
+	s.mux.HandleFunc("GET /admin/ad/valori", s.requireAdmin(s.handleSuggestValues))
+	s.mux.HandleFunc("GET /admin/ad/gruppi", s.requireAdmin(s.handleSuggestGroups))
+	s.mux.HandleFunc("GET /admin/ad/utenti", s.requireAdmin(s.handleSuggestUsers))
 	s.mux.HandleFunc("POST /admin/ente", s.requireAdmin(s.handleBrandingSave))
 	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleUploadFile(uploadIcons))
 	s.mux.HandleFunc("GET /uploads/branding/{file}", s.handleUploadFile(uploadBranding))

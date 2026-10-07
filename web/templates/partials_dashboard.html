@@ -24,7 +24,7 @@
 		<a class="more" href="/avvisi">Tutti gli avvisi →</a>
 	</div>
 </section>
-{{range .}}{{if eq .Level "urgent"}}
+{{range .}}{{if and (eq .Level "urgent") (not .NotForViewer)}}
 <dialog class="urgent" data-urgent="{{.ID}}" data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
 	<div class="urgent-head"><span class="urgent-badge">Urgente</span><span class="urgent-title" id="urgent-{{.ID}}">{{.Title}}</span></div>
 	{{if .Body}}<div class="urgent-body">{{paragraphs .Body}}</div>{{end}}
