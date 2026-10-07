@@ -37,7 +37,9 @@ type Config struct {
 	LogLevel            slog.Level
 	Location            *time.Location
 	BackupIntervalHours int
-	LDAP                LDAP
+	// GuideRefreshHours: ogni quante ore riscaricare le guide da GitHub (0 = solo a mano).
+	GuideRefreshHours int
+	LDAP              LDAP
 	// NTLMDomain: dominio NetBIOS accettato da /io (vuoto = riconoscimento spento).
 	NTLMDomain string
 	// VAPIDSubject: contatto VAPID (mailto: o https:); vuoto = Web Push spento.
@@ -82,6 +84,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("LOG_LEVEL: %w", err)
 	}
 	if cfg.BackupIntervalHours, err = getEnvInt("BACKUP_INTERVAL_HOURS", 24); err != nil {
+		return Config{}, err
+	}
+	if cfg.GuideRefreshHours, err = getEnvInt("GUIDE_REFRESH_HOURS", 6); err != nil {
 		return Config{}, err
 	}
 

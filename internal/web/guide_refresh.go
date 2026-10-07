@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
@@ -23,4 +24,42 @@ func (s *Server) refreshGuide(ctx context.Context, g database.Guide) error {
 		return serr
 	}
 	return err
+}
+
+// RefreshGuides aggiorna le guide GitHub più vecchie dell'intervallo, una
+// alla volta. Una guida in errore si ritenta al giro successivo (10 minuti).
+func (s *Server) RefreshGuides(ctx context.Context) {
+	if s.cfg.GuideRefreshHours <= 0 {
+		return
+	}
+	todo, err := s.db.GuidesToRefresh(s.now().Add(-time.Duration(s.cfg.GuideRefreshHours) * time.Hour))
+	if err != nil {
+		slog.Error("guide GitHub: elenco da aggiornare", "err", err)
+		return
+	}
+	for _, g := range todo {
+		if ctx.Err() != nil {
+			return
+		}
+		s.refreshGuide(ctx, g) // l'errore resta sulla guida
+	}
+}
+
+// StartGuideRefresh avvia l'aggiornamento periodico (niente se GUIDE_REFRESH_HOURS=0).
+func (s *Server) StartGuideRefresh(ctx context.Context) {
+	if s.cfg.GuideRefreshHours <= 0 {
+		return
+	}
+	go func() {
+		t := time.NewTicker(10 * time.Minute)
+		defer t.Stop()
+		for {
+			s.RefreshGuides(ctx)
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+		}
+	}()
 }
