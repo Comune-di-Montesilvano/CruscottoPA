@@ -15,6 +15,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV4Branding,
 	migrateV5Audience,
 	migrateV6Notifications,
+	migrateV7Guides,
 }
 
 func (db *DB) migrate() error {
@@ -204,4 +205,19 @@ CREATE TABLE vapid_keys (
 );
 `)
 	return err
+}
+
+// migrateV7Guides: guide Markdown, PDF e GitHub (sotto-progetto 2).
+func migrateV7Guides(tx *sql.Tx) error {
+	for _, q := range []string{
+		`ALTER TABLE guides ADD COLUMN file TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE guides ADD COLUMN source_url TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE guides ADD COLUMN fetched_at TEXT`,
+		`ALTER TABLE guides ADD COLUMN fetch_error TEXT NOT NULL DEFAULT ''`,
+	} {
+		if _, err := tx.Exec(q); err != nil {
+			return err
+		}
+	}
+	return nil
 }
