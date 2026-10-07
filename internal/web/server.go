@@ -137,6 +137,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/gruppi/{id}/regole", s.requireAdmin(s.handleRuleAdd))
 	s.mux.HandleFunc("POST /admin/gruppi/{id}/regole/{rid}/elimina", s.requireAdmin(s.handleRuleDelete))
 	s.mux.HandleFunc("POST /admin/gruppi/{id}/anteprima", s.requireAdmin(s.handleAudiencePreview))
+	s.mux.HandleFunc("GET /admin/gruppi/{id}/bozza", s.requireAdmin(s.handleDraftPreview))
+	s.mux.HandleFunc("GET /admin/ad/attributi", s.requireAdmin(s.handleSuggestAttributes))
 	s.mux.HandleFunc("GET /admin/ad/suggerimenti", s.requireAdmin(s.handleSuggest))
 	s.mux.HandleFunc("GET /admin/ad/valori", s.requireAdmin(s.handleSuggestValues))
 	s.mux.HandleFunc("GET /admin/ad/gruppi", s.requireAdmin(s.handleSuggestGroups))

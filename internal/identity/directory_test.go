@@ -2,6 +2,7 @@ package identity
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -25,7 +26,7 @@ func TestUserFilter(t *testing.T) {
 func TestMockDirectory(t *testing.T) {
 	var d Directory = MockDirectory{}
 	p, err := d.Lookup("MRossi")
-	if err != nil || p != (Person{Username: "mrossi", Name: "MRossi"}) {
+	if err != nil || !reflect.DeepEqual(p, Person{Username: "mrossi", Name: "MRossi"}) {
 		t.Fatalf("Lookup: %+v %v", p, err)
 	}
 	if _, err := d.Lookup("a b"); !errors.Is(err, ErrUnknownUser) {
@@ -35,7 +36,7 @@ func TestMockDirectory(t *testing.T) {
 
 func TestPersonFromEntry(t *testing.T) {
 	e := ldap.NewEntry("CN=x", map[string][]string{"sAMAccountName": {"MRossi"}, "displayName": {" Mario Rossi "}, "givenName": {" Mario "}})
-	if p := personFromEntry(e); p != (Person{Username: "mrossi", Name: "Mario Rossi", GivenName: "Mario"}) {
+	if p := personFromEntry(e); !reflect.DeepEqual(p, Person{Username: "mrossi", Name: "Mario Rossi", GivenName: "Mario"}) {
 		t.Fatalf("personFromEntry = %+v", p)
 	}
 }

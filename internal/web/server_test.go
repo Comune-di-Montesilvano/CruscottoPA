@@ -55,8 +55,29 @@ func (f fakeDirectory) Profile(u string, _ []string) (audience.Profile, error) {
 func (f fakeDirectory) SearchGroups(string) ([]identity.ADGroup, error) { return f.groups, f.err }
 func (f fakeDirectory) SearchUsers(string) ([]identity.Person, error)   { return f.members, f.err }
 func (f fakeDirectory) AttributeValues(a string) ([]string, error)      { return f.values[a], f.err }
-func (f fakeDirectory) Members([]audience.Rule) (int, []identity.Person, error) {
-	return len(f.members), f.members, f.err
+
+// Members: come AD, un gruppo senza regole positive non ha membri.
+func (f fakeDirectory) Members(rules []audience.Rule, _ []string) (int, []identity.Person, error) {
+	if f.err != nil {
+		return 0, nil, f.err
+	}
+	for _, r := range rules {
+		if r.Kind != audience.KindExclude {
+			return len(f.members), f.members, nil
+		}
+	}
+	return 0, []identity.Person{}, nil
+}
+
+func (f fakeDirectory) AttributeStats(q string) ([]identity.AttrStat, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	all := []identity.AttrStat{{Name: "physicalDeliveryOfficeName", Count: 218, Examples: []string{"POLIZIA LOCALE", "TRIBUTI"}}}
+	if q != "" && !strings.Contains(strings.ToLower(all[0].Name), strings.ToLower(q)) {
+		return []identity.AttrStat{}, nil
+	}
+	return all, nil
 }
 
 func (f fakeDirectory) Lookup(u string) (identity.Person, error) {
@@ -81,7 +102,7 @@ var testDirectory = fakeDirectory{
 	},
 	groups:  []identity.ADGroup{{DN: "CN=SHARE_TRIBUTI_RW,DC=test", Name: "SHARE_TRIBUTI_RW"}},
 	values:  map[string][]string{"physicalDeliveryOfficeName": {"LLPP", "TRIBUTI"}},
-	members: []identity.Person{{Username: "mrossi", Name: "Mario Rossi", GivenName: "Mario"}},
+	members: []identity.Person{{Username: "mrossi", Name: "Mario Rossi", GivenName: "Mario", Attrs: map[string]string{"physicalDeliveryOfficeName": "TRIBUTI"}}},
 }
 
 // serverExits raccoglie le chiamate a exit del servizio backup di ogni server di test.
