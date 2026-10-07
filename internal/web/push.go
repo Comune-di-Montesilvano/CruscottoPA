@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"strings"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
@@ -42,7 +41,7 @@ func readPushBody(r *http.Request) (pushBody, bool) {
 	if err := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 8<<10)).Decode(&b); err != nil {
 		return b, false
 	}
-	return b, strings.HasPrefix(b.Endpoint, "https://") && len(b.Endpoint) <= 1024
+	return b, notify.AllowedEndpoint(b.Endpoint)
 }
 
 func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {

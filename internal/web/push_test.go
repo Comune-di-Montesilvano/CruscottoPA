@@ -36,7 +36,7 @@ func TestPushSubscribeAndRemove(t *testing.T) {
 		t.Fatalf("chiave pubblica: %d %q", rec.Code, rec.Body)
 	}
 	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"})
-	body := `{"endpoint":"https://push.example/x","keys":{"p256dh":"BAAA","auth":"AAAA"}}`
+	body := `{"endpoint":"https://fcm.googleapis.com/fcm/send/x","keys":{"p256dh":"BAAA","auth":"AAAA"}}`
 	rec := postJSON(t, s, "/push/iscrizioni", body, c)
 	var res map[string]bool
 	json.Unmarshal(rec.Body.Bytes(), &res)
@@ -47,10 +47,11 @@ func TestPushSubscribeAndRemove(t *testing.T) {
 		t.Fatalf("iscrizione non associata all'utente: %+v", mine)
 	}
 	for _, bad := range []string{
-		`{"endpoint":"http://push.example/x","keys":{"p256dh":"BAAA","auth":"AAAA"}}`,
-		`{"endpoint":"https://push.example/` + strings.Repeat("a", 1100) + `","keys":{"p256dh":"BAAA","auth":"AAAA"}}`,
-		`{"endpoint":"https://push.example/y","keys":{"p256dh":"","auth":"AAAA"}}`,
+		`{"endpoint":"http://fcm.googleapis.com/fcm/send/x","keys":{"p256dh":"BAAA","auth":"AAAA"}}`,
+		`{"endpoint":"https://fcm.googleapis.com/fcm/send/` + strings.Repeat("a", 1100) + `","keys":{"p256dh":"BAAA","auth":"AAAA"}}`,
+		`{"endpoint":"https://fcm.googleapis.com/fcm/send/y","keys":{"p256dh":"","auth":"AAAA"}}`,
 		`non json`,
+		`{"endpoint":"https://10.0.0.5/x","keys":{"p256dh":"BAAA","auth":"AAAA"}}`,
 	} {
 		rec := postJSON(t, s, "/push/iscrizioni", bad, nil)
 		json.Unmarshal(rec.Body.Bytes(), &res)
@@ -58,7 +59,7 @@ func TestPushSubscribeAndRemove(t *testing.T) {
 			t.Errorf("iscrizione non valida accettata: %s", bad)
 		}
 	}
-	postJSON(t, s, "/push/iscrizioni/rimuovi", `{"endpoint":"https://push.example/x"}`, nil)
+	postJSON(t, s, "/push/iscrizioni/rimuovi", `{"endpoint":"https://fcm.googleapis.com/fcm/send/x"}`, nil)
 	if all, _ := db.ListPushSubscriptions(); len(all) != 0 {
 		t.Fatalf("rimozione: %+v", all)
 	}
