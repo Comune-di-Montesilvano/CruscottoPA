@@ -199,7 +199,8 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 		}
 	case database.IconURL:
 		form.IconValue = strings.TrimSpace(r.FormValue("icon_value_url"))
-		if !validURL(form.IconValue) {
+		// Solo https: un'icona http sarebbe bloccata dalla CSP (img-src https:).
+		if !validURL(form.IconValue) || !strings.HasPrefix(strings.ToLower(form.IconValue), "https://") {
 			errs.add("icon", "Indirizzo dell'icona non valido (https://…).")
 		}
 	case database.IconUpload:

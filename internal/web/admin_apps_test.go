@@ -178,3 +178,14 @@ func TestAppEditMoveAndIconSearch(t *testing.T) {
 		t.Fatalf("ricerca icone: %d\n%s", rec.Code, rec.Body)
 	}
 }
+
+// Un'icona via http:// sarebbe bloccata dalla CSP (img-src https:): rifiutarla nel form.
+func TestAppIconURLMustBeHTTPS(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	apps, _ := db.ListApps()
+	rec := postMultipart(t, s, "/admin/app/"+itoa(apps[0].ID), appFields(db, map[string]string{"icon_kind": "url", "icon_value_url": "http://example.it/logo.png"}), nil, c)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "https://") {
+		t.Fatalf("icona http: atteso 422, ottenuto %d", rec.Code)
+	}
+}

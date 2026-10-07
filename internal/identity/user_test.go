@@ -3,6 +3,7 @@ package identity
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCookieRoundTrip(t *testing.T) {
@@ -39,5 +40,22 @@ func TestFirstName(t *testing.T) {
 func TestFirstNamePrefersGivenName(t *testing.T) {
 	if got := (User{GivenName: "Anna Maria", Name: "Bianchi Anna Maria"}).FirstName(); got != "Anna Maria" {
 		t.Fatalf("FirstName = %q", got)
+	}
+}
+
+// Il cookie anonimo vale 24 ore anche lato server, non solo nel browser.
+func TestAnonymousCookieExpiresServerSide(t *testing.T) {
+	c := NewCookieCodec(strings.Repeat("s", 32))
+	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
+	c.now = func() time.Time { return now }
+	v, _ := c.Encode(User{Anonymous: true})
+	now = now.Add(25 * time.Hour)
+	if _, ok := c.Decode(v); ok {
+		t.Fatal("cookie anonimo accettato dopo 24 ore")
+	}
+	u, _ := c.Encode(User{Username: "mrossi", Name: "Mario"})
+	now = now.Add(29 * 24 * time.Hour)
+	if _, ok := c.Decode(u); !ok {
+		t.Fatal("cookie riconosciuto valido entro 30 giorni")
 	}
 }

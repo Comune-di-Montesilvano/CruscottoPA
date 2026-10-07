@@ -43,7 +43,7 @@ func TestIoHandshake(t *testing.T) {
 
 	rec = do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("comune-ms", "MRossi", "PC-1")))
 	c := cookieNamed(rec, identity.CookieName)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"riconosciuto":true`) || !strings.Contains(rec.Body.String(), `"nome":"Mario"`) || c == nil {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"riconosciuto":true`) || strings.Contains(rec.Body.String(), "Mario") /* /io non espone il nome */ || c == nil {
 		t.Fatalf("tipo 3: %d %s", rec.Code, rec.Body)
 	}
 	if !c.HttpOnly || c.Path != "/" || c.SameSite != http.SameSiteLaxMode || c.MaxAge != int(identity.UserTTL.Seconds()) {

@@ -34,9 +34,12 @@ func NewLDAP(cfg config.LDAP) *LDAP { return &LDAP{cfg: cfg} }
 var usernameRe = regexp.MustCompile(`^[A-Za-z0-9._@-]{1,128}$`)
 
 // IsAdminUser indica se username è nella lista esplicita (case-insensitive).
+// "mrossi" e "mrossi@dominio" sono lo stesso utente: si confronta la parte
+// prima della @.
 func IsAdminUser(list []string, username string) bool {
+	local := func(s string) string { return strings.SplitN(strings.TrimSpace(s), "@", 2)[0] }
 	for _, u := range list {
-		if strings.EqualFold(u, username) {
+		if strings.EqualFold(local(u), local(username)) {
 			return true
 		}
 	}
