@@ -2,6 +2,7 @@ package auth
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 )
@@ -57,5 +58,18 @@ func TestLDAPHostname(t *testing.T) {
 		if got := ldapHostname(in); got != want {
 			t.Errorf("ldapHostname(%q) = %q, atteso %q", in, got, want)
 		}
+	}
+}
+
+// Un domain controller che non risponde (pacchetti persi, non rifiutati) non
+// deve bloccare la plancia per il timeout predefinito di go-ldap (60 s).
+func TestDialTimesOut(t *testing.T) {
+	start := time.Now()
+	_, err := Dial(config.LDAP{Host: "ldap://10.255.255.1:389"}) // indirizzo non instradabile
+	if err == nil {
+		t.Skip("10.255.255.1 raggiungibile in questa rete: test non significativo")
+	}
+	if elapsed := time.Since(start); elapsed > 10*time.Second {
+		t.Fatalf("Dial ha impiegato %v: serve un timeout di connessione breve", elapsed)
 	}
 }

@@ -98,4 +98,18 @@
 		if (!sel) return;
 		sel.form.querySelectorAll("[data-for-kind]").forEach((el) => { el.hidden = el.dataset.forKind !== sel.value; });
 	});
+
+	// Visibilità dei contenuti: con "Pubblico" le caselle dei gruppi non servono.
+	function syncVisibility(root) {
+		root.querySelectorAll("fieldset.visibility").forEach((fs) => {
+			const checked = fs.querySelector('[name="visibilita"]:checked');
+			const isPublic = !checked || checked.value === "";
+			fs.querySelectorAll('[name="gruppi"]').forEach((cb) => { cb.disabled = isPublic; });
+		});
+	}
+	document.addEventListener("change", (e) => {
+		if (e.target.matches('[name="visibilita"]')) syncVisibility(e.target.closest("form") || document);
+	});
+	document.addEventListener("htmx:afterSwap", (e) => syncVisibility(e.target));
+	syncVisibility(document);
 })();

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"regexp"
 	"strings"
@@ -103,7 +104,10 @@ func Dial(cfg config.LDAP) (*ldap.Conn, error) {
 		InsecureSkipVerify: cfg.TLSSkipVerify, //nolint:gosec // opzione esplicita per CA interne
 		ServerName:         ldapHostname(cfg.Host),
 	}
-	conn, err := ldap.DialURL(cfg.Host, ldap.DialWithTLSConfig(tlsCfg))
+	// Timeout di apertura breve: senza, un DC che non risponde blocca la
+	// richiesta (anche la plancia, che legge il profilo) fino a 60 s.
+	conn, err := ldap.DialURL(cfg.Host, ldap.DialWithTLSConfig(tlsCfg),
+		ldap.DialWithDialer(&net.Dialer{Timeout: 3 * time.Second}))
 	if err != nil {
 		return nil, fmt.Errorf("ldap dial: %w", err)
 	}
