@@ -49,6 +49,7 @@ type Server struct {
 	cookies      *identity.CookieCodec
 	profiles     *profileCache
 	limiter      *auth.RateLimiter
+	media        mediaUploads // caricamenti a pezzi in corso (immagini e PDF)
 	backup       *backup.Service
 	restoreDelay time.Duration
 	branding     atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
@@ -83,6 +84,7 @@ func New(o Options) (*Server, error) {
 		auth:         o.Auth,
 		directory:    o.Directory,
 		limiter:      auth.NewRateLimiter(5, 15*time.Minute),
+		media:        mediaUploads{byID: map[string]*mediaUpload{}},
 		backup:       o.Backup,
 		restoreDelay: o.RestoreDelay,
 		version:      strings.TrimPrefix(o.Version, "v"), // tag "v0.3.0": la "v" la aggiungono i template
@@ -194,6 +196,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/ente", s.requireAdmin(s.handleBrandingSave))
 	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleUploadFile(uploadIcons))
 	s.mux.HandleFunc("GET /uploads/branding/{file}", s.handleUploadFile(uploadBranding))
+	s.mux.HandleFunc("GET /uploads/guide/{file}", s.handleGuideImage)
 	s.mux.HandleFunc("GET /admin/icone", s.requireAdmin(s.handleIconSearch))
 	s.mux.HandleFunc("GET /admin/app", s.requireAdmin(s.handleAppsPage))
 	s.mux.HandleFunc("GET /admin/app/{id}/modifica", s.requireAdmin(s.handleAppEdit))
@@ -229,6 +232,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /admin/backup/{name}", s.requireAdmin(s.handleBackupDownload))
 	s.mux.HandleFunc("POST /admin/backup/{name}/elimina", s.requireAdmin(s.handleBackupDelete))
 	s.mux.HandleFunc("POST /admin/backup/{name}/ripristina", s.requireAdmin(s.handleBackupRestore))
+	s.mux.HandleFunc("POST /admin/media", s.requireAdmin(s.handleMediaStart))
+	s.mux.HandleFunc("POST /admin/media/{id}/pezzo", s.requireAdmin(s.handleMediaChunk))
+	s.mux.HandleFunc("POST /admin/media/{id}/fine", s.requireAdmin(s.handleMediaFinish))
 	s.mux.HandleFunc("POST /admin/backup/upload", s.requireAdmin(s.handleBackupUploadStart))
 	s.mux.HandleFunc("POST /admin/backup/upload/{id}/chunk", s.requireAdmin(s.handleBackupUploadChunk))
 	s.mux.HandleFunc("POST /admin/backup/upload/{id}/fine", s.requireAdmin(s.handleBackupUploadFinish))
