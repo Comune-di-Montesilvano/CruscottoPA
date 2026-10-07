@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -173,5 +174,18 @@ func TestAlertFormSaysAlreadyNotified(t *testing.T) {
 	page := do(t, s, "GET", fmt.Sprintf("/admin/avvisi/%d/modifica", id), nil, c, hx).Body.String()
 	if !strings.Contains(page, "Notifica già inviata il 06/10/2026 10:00") {
 		t.Fatal("manca l'avviso di notifica già inviata")
+	}
+}
+
+// Review I3: il clic su una notifica non deve portare via una scheda
+// dell'admin (lavoro non salvato) e, se navigate() fallisce, apre una finestra.
+func TestServiceWorkerClickSparesAdmin(t *testing.T) {
+	sw, err := os.ReadFile("../../web/static/sw.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(sw)
+	if !strings.Contains(src, `"/admin"`) || !strings.Contains(src, ".catch(") {
+		t.Fatal("sw.js: notificationclick deve saltare le schede /admin e ripiegare su openWindow")
 	}
 }
