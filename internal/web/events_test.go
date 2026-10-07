@@ -3,6 +3,7 @@ package web
 import (
 	"bufio"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -81,10 +82,32 @@ func TestAlertVisibleTo(t *testing.T) {
 	pub, _ := db.CreateAlert(database.Alert{Title: "per tutti", Level: database.LevelNews, StartsAt: fixedNow})
 	ris, _ := db.CreateAlert(database.Alert{Title: "solo tributi", Level: database.LevelNews, StartsAt: fixedNow})
 	db.SetContentAudience(database.ContentAlert, ris, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{trib}})
-	if !s.alertVisibleTo("", pub) || s.alertVisibleTo("", ris) {
+	vis := func(u string, id int64) bool { v, _ := s.alertVisibleTo(u, id); return v }
+	if !vis("", pub) || vis("", ris) {
 		t.Fatal("anonimo: solo avvisi pubblici")
 	}
-	if !s.alertVisibleTo("mrossi", ris) || s.alertVisibleTo("senzanome", ris) {
+	if !vis("mrossi", ris) || vis("senzanome", ris) {
 		t.Fatal("riservato: visibile al membro, non agli altri")
+	}
+	if _, unsure := s.alertVisibleTo("senzanome", ris); unsure {
+		t.Fatal("utente sconosciuto ad AD: risposta certa (non è AD giù)")
+	}
+}
+
+func TestAlertVisibleToADDown(t *testing.T) {
+	s, db := newTestServerWith(t, nil, func(o *Options) { o.Directory = fakeDirectory{err: errors.New("giù")} })
+	trib, _ := db.CreateAudienceGroup("Tributi")
+	db.AddAudienceRule(database.AudienceRule{GroupID: trib, Kind: audience.KindUser, Value: "mrossi"})
+	pub, _ := db.CreateAlert(database.Alert{Title: "per tutti", Level: database.LevelNews, StartsAt: fixedNow})
+	ris, _ := db.CreateAlert(database.Alert{Title: "solo tributi", Level: database.LevelNews, StartsAt: fixedNow})
+	db.SetContentAudience(database.ContentAlert, ris, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{trib}})
+	if v, unsure := s.alertVisibleTo("mrossi", pub); !v || unsure {
+		t.Fatal("avviso pubblico: visibile anche con AD giù")
+	}
+	if v, unsure := s.alertVisibleTo("mrossi", ris); v || !unsure {
+		t.Fatalf("avviso riservato con AD giù: atteso incerto, ottenuto %v %v", v, unsure)
+	}
+	if _, unsure := s.alertVisibleTo("", ris); unsure {
+		t.Fatal("anonimo: risposta certa anche con AD giù")
 	}
 }

@@ -41,12 +41,19 @@ func queryPush(db *DB, q string, args ...any) ([]PushSubscription, error) {
 }
 
 // SavePushSubscription inserisce o aggiorna (stesso endpoint = stesso browser).
-func (db *DB) SavePushSubscription(ps PushSubscription) error {
-	_, err := db.Exec(`
-INSERT INTO push_subscriptions (endpoint, p256dh, auth, username, created_at) VALUES (?, ?, ?, ?, ?)
+// Oltre max iscrizioni le nuove sono rifiutate (false); i rinnovi passano sempre.
+func (db *DB) SavePushSubscription(ps PushSubscription, max int) (bool, error) {
+	res, err := db.Exec(`
+INSERT INTO push_subscriptions (endpoint, p256dh, auth, username, created_at)
+SELECT ?, ?, ?, ?, ?
+WHERE (SELECT COUNT(*) FROM push_subscriptions) < ? OR EXISTS (SELECT 1 FROM push_subscriptions WHERE endpoint = ?)
 ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, username = excluded.username`,
-		ps.Endpoint, ps.P256dh, ps.Auth, strings.ToLower(ps.Username), formatTime(ps.CreatedAt))
-	return err
+		ps.Endpoint, ps.P256dh, ps.Auth, strings.ToLower(ps.Username), formatTime(ps.CreatedAt), max, ps.Endpoint)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
 }
 
 func (db *DB) DeletePushSubscription(endpoint string) error {

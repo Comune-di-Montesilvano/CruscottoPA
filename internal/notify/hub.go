@@ -73,6 +73,21 @@ func (h *Hub) Broadcast(e Event, visible func(username string) bool) {
 	}
 }
 
+// Usernames: utenti con una plancia collegata (senza ripetizioni; "" = anonimi).
+func (h *Hub) Usernames() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	seen := map[string]bool{}
+	out := []string{}
+	for c := range h.clients {
+		if !seen[c.Username] {
+			seen[c.Username] = true
+			out = append(out, c.Username)
+		}
+	}
+	return out
+}
+
 // Done si chiude con Close: gli handler SSE terminano (shutdown rapido).
 func (h *Hub) Done() <-chan struct{} { return h.done }
 

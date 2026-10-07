@@ -10,6 +10,9 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
 )
 
+// maxPushSubscriptions: tetto alle iscrizioni (l'endpoint è pubblico).
+var maxPushSubscriptions = 20000
+
 // Il reverse proxy riscrive i 4xx: questi endpoint rispondono sempre 200
 // con {"ok":true|false}.
 func pushReply(w http.ResponseWriter, ok bool) {
@@ -54,8 +57,8 @@ func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
 	if u, ok := s.viewer(r); ok && !u.Anonymous {
 		username = u.Username
 	}
-	err := s.db.SavePushSubscription(database.PushSubscription{Endpoint: b.Endpoint, P256dh: b.Keys.P256dh, Auth: b.Keys.Auth, Username: username, CreatedAt: s.now()})
-	pushReply(w, err == nil)
+	ok, err := s.db.SavePushSubscription(database.PushSubscription{Endpoint: b.Endpoint, P256dh: b.Keys.P256dh, Auth: b.Keys.Auth, Username: username, CreatedAt: s.now()}, maxPushSubscriptions)
+	pushReply(w, ok && err == nil)
 }
 
 func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {

@@ -41,18 +41,21 @@ func TestPushSubscriptions(t *testing.T) {
 	db := newTestDB(t)
 	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
 	ps := PushSubscription{Endpoint: "https://push.example/a", P256dh: "k1", Auth: "a1", Username: "mrossi", CreatedAt: now}
-	if err := db.SavePushSubscription(ps); err != nil {
-		t.Fatal(err)
+	if ok, err := db.SavePushSubscription(ps, 1); !ok || err != nil {
+		t.Fatal(ok, err)
 	}
 	ps.P256dh, ps.Username = "k2", ""
-	if err := db.SavePushSubscription(ps); err != nil {
-		t.Fatal(err)
+	if ok, err := db.SavePushSubscription(ps, 1); !ok || err != nil {
+		t.Fatal("al tetto il rinnovo dello stesso endpoint va accettato:", ok, err)
+	}
+	if ok, _ := db.SavePushSubscription(PushSubscription{Endpoint: "https://push.example/c", P256dh: "k", Auth: "a", CreatedAt: now}, 1); ok {
+		t.Fatal("oltre il tetto: nuova iscrizione accettata")
 	}
 	all, _ := db.ListPushSubscriptions()
 	if len(all) != 1 || all[0].P256dh != "k2" || all[0].Username != "" {
 		t.Fatalf("upsert per endpoint: %+v", all)
 	}
-	db.SavePushSubscription(PushSubscription{Endpoint: "https://push.example/b", P256dh: "k", Auth: "a", Username: "mrossi", CreatedAt: now})
+	db.SavePushSubscription(PushSubscription{Endpoint: "https://push.example/b", P256dh: "k", Auth: "a", Username: "mrossi", CreatedAt: now}, 10)
 	if mine, _ := db.ListPushSubscriptionsFor("MRossi"); len(mine) != 1 || mine[0].Endpoint != "https://push.example/b" {
 		t.Fatalf("per utente: %+v", mine)
 	}

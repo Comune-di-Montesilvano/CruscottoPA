@@ -59,6 +59,15 @@ func TestPushSubscribeAndRemove(t *testing.T) {
 			t.Errorf("iscrizione non valida accettata: %s", bad)
 		}
 	}
+	maxPushSubscriptions = 1
+	defer func() { maxPushSubscriptions = 20000 }()
+	other := `{"endpoint":"https://fcm.googleapis.com/fcm/send/z","keys":{"p256dh":"BAAA","auth":"AAAA"}}`
+	if json.Unmarshal(postJSON(t, s, "/push/iscrizioni", other, nil).Body.Bytes(), &res); res["ok"] {
+		t.Fatal("oltre il tetto delle iscrizioni: nuova iscrizione accettata")
+	}
+	if json.Unmarshal(postJSON(t, s, "/push/iscrizioni", body, c).Body.Bytes(), &res); !res["ok"] {
+		t.Fatal("al tetto: il rinnovo di un'iscrizione esistente va accettato")
+	}
 	postJSON(t, s, "/push/iscrizioni/rimuovi", `{"endpoint":"https://fcm.googleapis.com/fcm/send/x"}`, nil)
 	if all, _ := db.ListPushSubscriptions(); len(all) != 0 {
 		t.Fatalf("rimozione: %+v", all)
