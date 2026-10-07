@@ -1,6 +1,6 @@
 # Notifiche degli avvisi e plancia installabile (PWA)
 
-Data: 2026-10-07 · Stato: in revisione · Sotto-progetto 3
+Data: 2026-10-07 · Stato: implementata · Sotto-progetto 3
 
 ## Contesto e obiettivo
 
