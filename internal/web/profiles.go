@@ -10,6 +10,7 @@ import (
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
@@ -61,29 +62,27 @@ func (c *profileCache) get(username string, load func() (audience.Profile, error
 	return e.p, e.ok
 }
 
-// viewerProfile: chi guarda e il suo profilo AD (dalla cache). ok=false se
-// anonimo, senza cookie, senza directory o con AD non disponibile.
-func (s *Server) viewerProfile(r *http.Request) (identity.User, audience.Profile, bool) {
-	u, ok := s.viewer(r)
-	if !ok || u.Anonymous || u.Username == "" || s.directory == nil {
-		return u, audience.Profile{}, false
+// profileFor: profilo AD di username (dalla cache). ok=false se username vuoto,
+// directory assente o AD non disponibile.
+func (s *Server) profileFor(username string) (audience.Profile, bool) {
+	if username == "" || s.directory == nil {
+		return audience.Profile{}, false
 	}
 	attrs, err := s.db.ListAudienceAttributes()
 	if err != nil {
 		slog.Warn("attributi dei gruppi", "err", err)
-		return u, audience.Profile{}, false
+		return audience.Profile{}, false
 	}
 	names := make([]string, len(attrs))
 	for i, a := range attrs {
 		names[i] = a.Name
 	}
-	p, ok := s.profiles.get(u.Username, func() (audience.Profile, error) { return s.directory.Profile(u.Username, names) })
-	return u, p, ok
+	return s.profiles.get(username, func() (audience.Profile, error) { return s.directory.Profile(username, names) })
 }
 
-// viewerGroups: gruppi della plancia di chi guarda. known=false → solo pubblici.
-func (s *Server) viewerGroups(r *http.Request) (map[int64]bool, bool) {
-	_, p, ok := s.viewerProfile(r)
+// groupsFor: gruppi della plancia di username. known=false → solo pubblici.
+func (s *Server) groupsFor(username string) (map[int64]bool, bool) {
+	p, ok := s.profileFor(username)
 	if !ok {
 		return nil, false
 	}
@@ -99,6 +98,36 @@ func (s *Server) viewerGroups(r *http.Request) (map[int64]bool, bool) {
 		}
 	}
 	return in, true
+}
+
+// alertVisibleTo: stessa regola della plancia, per un utente (o "" = anonimo).
+func (s *Server) alertVisibleTo(username string, alertID int64) bool {
+	ca, err := s.db.GetContentAudience(database.ContentAlert, alertID)
+	if err != nil {
+		return false
+	}
+	memberOf, known := s.groupsFor(username)
+	return audience.Visible(ca.Mode, ca.Groups, memberOf, known)
+}
+
+// viewerProfile: chi guarda e il suo profilo AD (dalla cache). ok=false se
+// anonimo, senza cookie, senza directory o con AD non disponibile.
+func (s *Server) viewerProfile(r *http.Request) (identity.User, audience.Profile, bool) {
+	u, ok := s.viewer(r)
+	if !ok || u.Anonymous {
+		return u, audience.Profile{}, false
+	}
+	p, ok := s.profileFor(u.Username)
+	return u, p, ok
+}
+
+// viewerGroups: gruppi della plancia di chi guarda. known=false → solo pubblici.
+func (s *Server) viewerGroups(r *http.Request) (map[int64]bool, bool) {
+	u, ok := s.viewer(r)
+	if !ok || u.Anonymous {
+		return nil, false
+	}
+	return s.groupsFor(u.Username)
 }
 
 // viewerIsAdmin decide se mostrare in plancia il link al pannello admin: utente

@@ -2,6 +2,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -11,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/gorilla/sessions"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
@@ -18,6 +20,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
 )
 
 // repoURL: repository del progetto, linkato dal footer della plancia.
@@ -54,6 +57,9 @@ type Server struct {
 	webDir       string
 	now          func() time.Time
 	mux          *http.ServeMux
+	hub          *notify.Hub   // plance collegate a /eventi
+	pusher       notify.Pusher // nil = Web Push spento
+	vapidPublic  string
 }
 
 func New(o Options) (*Server, error) {
@@ -95,9 +101,27 @@ func New(o Options) (*Server, error) {
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.profiles = newProfileCache(o.Now)
+	s.hub = notify.NewHub(2000)
+	if o.Config.VAPIDSubject != "" {
+		pub, priv, err := o.DB.EnsureVAPIDKeys(webpush.GenerateVAPIDKeys)
+		if err != nil {
+			return nil, fmt.Errorf("chiavi VAPID: %w", err)
+		}
+		s.vapidPublic = pub
+		s.pusher = &notify.WebPusher{Subject: o.Config.VAPIDSubject, PublicKey: pub, PrivateKey: priv}
+	}
 	s.routes()
 	return s, nil
 }
+
+// StartNotifications avvia il dispatcher delle notifiche (ogni 30 s).
+func (s *Server) StartNotifications(ctx context.Context) {
+	d := &notify.Dispatcher{Store: s.db, Hub: s.hub, Pusher: s.pusher, Visible: s.alertVisibleTo, Now: s.now}
+	go d.Run(ctx, 30*time.Second)
+}
+
+// Close chiude i flussi SSE aperti: senza, lo shutdown attenderebbe ogni client.
+func (s *Server) Close() { s.hub.Close() }
 
 func (s *Server) loc() *time.Location { return s.cfg.Location }
 
@@ -117,6 +141,7 @@ func (s *Server) routes() {
 	s.mux.Handle("GET /favicon.ico", revalidate(http.HandlerFunc(s.handleFavicon)))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /io", s.handleIo)
+	s.mux.HandleFunc("GET /eventi", s.handleEvents)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
