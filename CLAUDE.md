@@ -46,6 +46,8 @@ Driver SQLite `modernc.org/sqlite` (pure-Go, nome driver `"sqlite"`): build con 
 
 ## Vincoli di deploy (Portainer git-stack su Podman rootless)
 
+- **Il reverse proxy (nginx `revprx01`) sostituisce le risposte 4xx/5xx** con una pagina di cortesia e **toglie gli header** (`HX-Redirect`, `Set-Cookie`; resta solo `WWW-Authenticate`). Quindi: niente 4xx per flussi che l'utente deve vedere — login admin con errori in pagina e **200**, sessione scaduta HTMX con **200 + `HX-Redirect`**, stato del riconoscimento ricordato nel browser (`localStorage`), errori HTMX mostrati con un messaggio generico (`admin.js`, mai il corpo della risposta). Le validazioni admin usano ancora 422: da verificare che il proxy non lo intercetti.
+
 - **Nome file `docker-compose.yml`**, non `compose.yml`: Portainer git-stack lo richiede.
 - **Nessun `env_file`**: il clone Portainer non ha `.env` → il pull fallirebbe. Ogni variabile va elencata in `environment:` come `${VAR}`. Una nuova env var va aggiunta in tre posti: `docker-compose.yml`, `.env.example`, codice.
 - **`/data` = volume nominato `cruscottopa-data`, mai bind mount**: Portainer clona in un path per-commit che non possiede ("permission denied"); in rootless un bind mount richiederebbe anche `:Z`/`:U` e uid mapping.
@@ -88,7 +90,7 @@ Risultati della sonda in produzione (2026-10-06, spec `2026-10-06-riconoscimento
 
 ## Debito noto (revisione sotto-progetto 1)
 
-- `ADMIN_USERS` confronta lo username intero: `mrossi@dominio` ≠ `mrossi`.
-- Icone da URL `http://` accettate ma bloccate da `img-src https:`; icone `upload` senza ripiego sulle iniziali.
-- Admin HTMX: nessun messaggio a schermo su 500/404/403. Il refresh avvisi ogni 5 min chiude un dialog aperto.
-- `moveRow` senza `_txlock=immediate`: raro `SQLITE_BUSY_SNAPSHOT`. `/static/` elenca le directory.
+- Icone `upload` senza ripiego sulle iniziali.
+- Il refresh avvisi ogni 5 min chiude un dialog aperto e non aggiorna il contatore di "Mostra tutto".
+- `moveRow` senza `_txlock=immediate`: raro `SQLITE_BUSY_SNAPSHOT`.
+- Riconoscimento: accessi con UPN (dominio vuoto, `utente@dominio`) restano anonimi. Salvataggi concorrenti in `/admin/ente` possono disallinearsi.
