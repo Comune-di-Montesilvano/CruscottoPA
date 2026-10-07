@@ -10,7 +10,7 @@ var allVars = []string{
 	"PORT", "DB_PATH", "UPLOAD_DIR", "SESSION_SECRET", "SECURE_COOKIES", "LOG_LEVEL", "TZ",
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
-	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN",
+	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT",
 }
 
 func clearEnv(t *testing.T) {
@@ -139,5 +139,20 @@ func TestWarnings(t *testing.T) {
 		if strings.Contains(s, "LDAP_BASE_DN") {
 			t.Fatalf("avviso inatteso: %v", s)
 		}
+	}
+}
+
+func TestVAPIDSubject(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("VAPID_SUBJECT", " mailto:supporto@example.it ")
+	cfg, err := Load()
+	if err != nil || cfg.VAPIDSubject != "mailto:supporto@example.it" || len(cfg.Warnings()) != 0 {
+		t.Fatalf("VAPIDSubject = %q, warnings %v (%v)", cfg.VAPIDSubject, cfg.Warnings(), err)
+	}
+	t.Setenv("VAPID_SUBJECT", "supporto@example.it")
+	cfg, _ = Load()
+	if w := strings.Join(cfg.Warnings(), " "); !strings.Contains(w, "VAPID_SUBJECT") {
+		t.Fatalf("atteso avviso su VAPID_SUBJECT senza mailto:/https:, ottenuto %q", w)
 	}
 }
