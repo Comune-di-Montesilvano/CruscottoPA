@@ -126,5 +126,5 @@ WHERE id = ?`,
 }
 
 func (db *DB) DeleteAlert(id int64) error {
-	return checkAffected(db.Exec(`DELETE FROM alerts WHERE id = ?`, id))
+	return db.deleteContent(ContentAlert, "alerts", id)
 }
