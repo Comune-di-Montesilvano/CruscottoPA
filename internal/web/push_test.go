@@ -132,10 +132,14 @@ func TestPushTestAndNotifiedLabel(t *testing.T) {
 func TestDashboardNotifyMarkup(t *testing.T) {
 	s, _ := newTestServer(t, nil)
 	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
-	for _, want := range []string{`<script src="/static/js/notifiche.js" defer></script>`, `<dialog class="notify-ask"`, `data-notifiche`, `<meta name="theme-color" content="#1565c0">`} {
+	for _, want := range []string{`<script src="/static/js/notifiche.js" defer></script>`, `<dialog class="notify-ask"`, `<dialog class="notify-ask notify-blocked"`, `<meta name="theme-color" content="#1565c0">`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("plancia: manca %q", want)
 		}
+	}
+	// Nessun interruttore per l'utente: le notifiche si richiedono col popup.
+	if strings.Contains(body, "data-notifiche") {
+		t.Error("il link Notifiche nel footer non deve esserci")
 	}
 }
 

@@ -1,17 +1,17 @@
 // Notifiche degli avvisi: flusso SSE a plancia aperta, iscrizione Web Push e
-// popup di primo accesso. Nessun handler inline (CSP).
+// popup che le richiede finché non sono attive. Nessun handler inline (CSP).
 (() => {
 	"use strict";
 	const supported = "Notification" in window && "serviceWorker" in navigator;
-	const ASK_KEY = "cruscotto-notifiche-non-ora"; // quando è stato scelto "Non ora"
-	const OFF_KEY = "cruscotto-notifiche-off";     // disattivate dal link nel footer
-	const ASK_DAYS = 30;
+	const ASK_KEY = "cruscotto-notifiche-non-ora"; // quando il popup è stato chiuso
+	const ASK_DAYS = 7;
 
 	function load(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
-	function save(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) { /* resta per questa pagina */ } }
+	function save(k, v) { try { localStorage.setItem(k, v); } catch (_) { /* si ripresenterà al prossimo accesso */ } }
+	// Fino alla 0.6.0 il footer permetteva di disattivarle: quella scelta non vale più.
+	try { localStorage.removeItem("cruscotto-notifiche-off"); } catch (_) { /* niente da togliere */ }
 
-	// Attive = permesso concesso e non disattivate dal footer.
-	function active() { return Notification.permission === "granted" && !load(OFF_KEY); }
+	function active() { return Notification.permission === "granted"; }
 
 	function b64ToBytes(s) {
 		const pad = "=".repeat((4 - (s.length % 4)) % 4);
@@ -59,58 +59,35 @@
 		await sub.unsubscribe();
 	}
 
-	async function unsubscribe() {
-		const reg = await navigator.serviceWorker.getRegistration();
-		const sub = reg && await reg.pushManager.getSubscription();
-		if (sub) await forget(sub);
-	}
-
 	function askedRecently() {
 		return Date.now() - (Number(load(ASK_KEY)) || 0) < ASK_DAYS * 864e5;
 	}
 
-	async function enable() {
-		save(OFF_KEY, null);
-		const p = await Notification.requestPermission();
-		if (p === "granted") await subscribe().catch(() => {});
-		updateLink();
-	}
-
-	const link = document.querySelector("[data-notifiche]");
-	function updateLink() {
-		if (!link || !supported) return;
-		link.parentElement.hidden = false;
-		link.textContent = active() ? "Notifiche: disattiva" : "Notifiche: attiva";
-		link.title = Notification.permission === "denied" ? "Bloccate dal browser: riattivale dalle impostazioni del sito (icona del lucchetto)" : "";
-	}
-	if (link) {
-		link.addEventListener("click", async (e) => {
-			e.preventDefault();
-			if (active()) {
-				save(OFF_KEY, "1");
-				await unsubscribe().catch(() => {});
-			} else if (Notification.permission === "granted") {
-				save(OFF_KEY, null);
-				await subscribe().catch(() => {});
-			} else if (Notification.permission === "default") {
-				await enable();
-			}
-			updateLink();
-		});
-	}
-
-	// Popup di primo accesso: la richiesta del browser parte dal clic.
-	const ask = document.querySelector("dialog.notify-ask");
+	// Popup ogni ASK_DAYS giorni finché le notifiche non sono attive: chiede il
+	// permesso (la richiesta del browser parte dal clic) o, se il browser le ha
+	// bloccate, spiega come sbloccarle.
+	const ask = document.querySelector("dialog.notify-ask:not(.notify-blocked)");
+	const blocked = document.querySelector("dialog.notify-blocked");
 	function notNow() { save(ASK_KEY, String(Date.now())); }
 	function maybeAsk() {
-		if (!supported || !ask || Notification.permission !== "default" || askedRecently()) return;
+		if (!supported || active() || askedRecently()) return;
+		const d = Notification.permission === "denied" ? blocked : ask;
+		if (!d) return;
 		if (document.querySelector("dialog[open]")) { setTimeout(maybeAsk, 3000); return; } // prima l'avviso urgente
-		ask.showModal();
+		d.showModal();
 	}
 	if (ask) {
-		ask.querySelector("[data-notify-yes]").addEventListener("click", async () => { ask.close(); await enable(); });
-		ask.querySelector("[data-notify-no]").addEventListener("click", () => { notNow(); ask.close(); });
-		ask.addEventListener("cancel", notNow); // Esc = "Non ora"
+		ask.querySelector("[data-notify-yes]").addEventListener("click", async () => {
+			ask.close();
+			const p = await Notification.requestPermission();
+			if (p === "granted") await subscribe().catch(() => {});
+			else notNow();
+		});
+	}
+	for (const d of [ask, blocked]) {
+		if (!d) continue;
+		d.querySelector("[data-notify-no]").addEventListener("click", () => { notNow(); d.close(); });
+		d.addEventListener("cancel", notNow); // Esc = "Non ora"
 	}
 
 	// Plancia aperta: eventi in tempo reale. Una sola connessione per browser
@@ -147,7 +124,6 @@
 	}
 
 	if (supported) {
-		updateLink();
 		if (active()) subscribe().catch(() => {}); // anche se concesso da policy di dominio
 		setTimeout(maybeAsk, 1500);
 	}
