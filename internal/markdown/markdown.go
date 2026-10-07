@@ -177,11 +177,14 @@ func Plain(src string, n int) string {
 	return strings.TrimRight(cut, " ,.;:") + "…"
 }
 
-// HasRich: il contenuto ha immagini o tabelle (in carosello serve "Leggi tutto").
+// HasRich: il contenuto ha immagini, tabelle o link, che l'estratto in testo
+// semplice perde (in carosello serve "Leggi tutto").
 func HasRich(src string) bool {
 	rich := false
 	_ = ast.Walk(parse([]byte(src)), func(n ast.Node, entering bool) (ast.WalkStatus, error) {
-		if entering && (n.Kind() == ast.KindImage || n.Kind() == extast.KindTable) {
+		switch k := n.Kind(); {
+		case !entering:
+		case k == ast.KindImage, k == extast.KindTable, k == ast.KindLink, k == ast.KindAutoLink:
 			rich = true
 			return ast.WalkStop, nil
 		}

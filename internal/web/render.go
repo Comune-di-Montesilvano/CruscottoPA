@@ -114,9 +114,11 @@ func levelLabel(level string) string {
 // excerptRunes: lunghezza dell'estratto degli avvisi nel carosello.
 const excerptRunes = 200
 
-// needsMore: nel carosello l'estratto non basta (testo troncato, immagini o tabelle).
+// needsMore: nel carosello l'estratto non basta (testo troncato, su più righe,
+// con immagini, tabelle o link: l'estratto è testo semplice su una riga).
 func needsMore(body string) bool {
-	return utf8.RuneCountInString(markdown.Plain(body, 0)) > excerptRunes || markdown.HasRich(body)
+	return utf8.RuneCountInString(markdown.Plain(body, 0)) > excerptRunes ||
+		strings.Contains(strings.TrimSpace(body), "\n") || markdown.HasRich(body)
 }
 
 func humanSize(n int64) string {

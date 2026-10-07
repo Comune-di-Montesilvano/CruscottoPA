@@ -129,6 +129,9 @@ func TestHasRich(t *testing.T) {
 	if !HasRich("![a](b.png)") || !HasRich("| a |\n|---|\n| 1 |") {
 		t.Error("immagini e tabelle sono ricche")
 	}
+	if !HasRich("vedi https://x.org") || !HasRich("[a](https://x.org)") || !HasRich("scrivi a a@b.it") {
+		t.Error("i link (anche nudi) si perdono nell'estratto")
+	}
 }
 
 func FuzzRender(f *testing.F) {

@@ -47,3 +47,22 @@ func TestCarouselExcerpt(t *testing.T) {
 		t.Fatalf("Leggi tutto solo per gli avvisi lunghi o con immagini:\n%s", body)
 	}
 }
+
+// Review I1: nell'estratto i link non sono cliccabili e gli a capo spariscono:
+// serve "Leggi tutto" anche per gli avvisi brevi con link o su più righe.
+func TestCarouselMoreForLinksAndLines(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	link, _ := db.CreateAlert(database.Alert{Title: "Link", Body: "Scaricalo da https://intranet.local/x", Level: "news", StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	md, _ := db.CreateAlert(database.Alert{Title: "Md", Body: "Vedi [il modulo](https://intranet.local/m)", Level: "news", StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	lines, _ := db.CreateAlert(database.Alert{Title: "Righe", Body: "Prima riga\nseconda riga", Level: "news", StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	db.CreateAlert(database.Alert{Title: "Semplice", Body: "Solo testo.", Level: "news", StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	body := do(t, s, "GET", "/partials/alerts", nil, nil, nil).Body.String()
+	for _, id := range []int64{link, md, lines} {
+		if !strings.Contains(body, `href="/avvisi/`+itoa(id)+`"`) {
+			t.Errorf("avviso %d senza Leggi tutto", id)
+		}
+	}
+	if n := strings.Count(body, "Leggi tutto"); n != 3 {
+		t.Errorf("Leggi tutto: %d, attesi 3", n)
+	}
+}
