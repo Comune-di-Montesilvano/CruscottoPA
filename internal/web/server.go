@@ -180,6 +180,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
 	s.mux.HandleFunc("GET /avvisi", s.handleAvvisi)
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
+	s.mux.HandleFunc("GET /guide/{id}", s.handleGuidePage)
+	s.mux.HandleFunc("GET /guide/{id}/pdf", s.handleGuidePDF)
 	s.mux.HandleFunc("GET /admin/login", s.handleLoginForm)
 	s.mux.HandleFunc("POST /admin/login", s.handleLogin)
 	s.mux.HandleFunc("POST /admin/logout", s.handleLogout)

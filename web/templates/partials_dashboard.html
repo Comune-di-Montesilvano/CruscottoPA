@@ -68,7 +68,7 @@
 		{{with .Description}}<p>{{.}}</p>{{end}}
 		{{if .Guides}}
 		<div class="fly-label">Guide</div>
-		<ul>{{range .Guides}}<li><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></li>{{end}}</ul>
+		<ul>{{range .Guides}}<li>{{template "guide_link" .}}</li>{{end}}</ul>
 		{{end}}
 		<a class="fly-open" href="{{.URL}}" target="_blank" rel="noopener">Apri {{.Title}} ↗</a>
 	</div>
@@ -106,9 +106,11 @@
 </section>
 {{end}}
 
+{{define "guide_link"}}<a href="{{guideHref .}}"{{if guideNewTab .}} target="_blank" rel="noopener"{{end}}>{{.Title}}</a>{{end}}
+
 {{define "widget_guide"}}{{if .}}
 <section class="widget guides" aria-label="Guide generali">
 	<h2 class="widget-title">Guide generali</h2>
-	<ul>{{range .}}<li data-search-item data-search="{{.Title}}"><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a></li>{{end}}</ul>
+	<ul>{{range .}}<li data-search-item data-search="{{.Title}}">{{template "guide_link" .}}</li>{{end}}</ul>
 </section>
 {{end}}{{end}}
