@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
@@ -28,8 +29,34 @@ type fakeAuth struct {
 func (f fakeAuth) Authenticate(_, _ string) (bool, bool, error) { return f.ok, f.admin, f.err }
 
 type fakeDirectory struct {
-	people map[string]identity.Person
-	err    error
+	people   map[string]identity.Person
+	profiles map[string]audience.Profile
+	groups   []identity.ADGroup
+	values   map[string][]string
+	members  []identity.Person
+	err      error
+	calls    *int // conta le chiamate a Profile (test della cache)
+}
+
+func (f fakeDirectory) Profile(u string, _ []string) (audience.Profile, error) {
+	if f.calls != nil {
+		*f.calls++
+	}
+	if f.err != nil {
+		return audience.Profile{}, f.err
+	}
+	p, ok := f.profiles[strings.ToLower(u)]
+	if !ok {
+		return audience.Profile{}, identity.ErrUnknownUser
+	}
+	return p, nil
+}
+
+func (f fakeDirectory) SearchGroups(string) ([]identity.ADGroup, error) { return f.groups, f.err }
+func (f fakeDirectory) SearchUsers(string) ([]identity.Person, error)   { return f.members, f.err }
+func (f fakeDirectory) AttributeValues(a string) ([]string, error)      { return f.values[a], f.err }
+func (f fakeDirectory) Members([]audience.Rule) (int, []identity.Person, error) {
+	return len(f.members), f.members, f.err
 }
 
 func (f fakeDirectory) Lookup(u string) (identity.Person, error) {
@@ -43,10 +70,19 @@ func (f fakeDirectory) Lookup(u string) (identity.Person, error) {
 	return p, nil
 }
 
-var testDirectory = fakeDirectory{people: map[string]identity.Person{
-	"mrossi":    {Username: "mrossi", Name: "Mario Rossi"},
-	"senzanome": {Username: "senzanome"},
-}}
+var testDirectory = fakeDirectory{
+	people: map[string]identity.Person{
+		"mrossi":    {Username: "mrossi", Name: "Mario Rossi"},
+		"senzanome": {Username: "senzanome"},
+	},
+	profiles: map[string]audience.Profile{
+		"mrossi":    {Username: "mrossi", Attrs: map[string]string{"physicaldeliveryofficename": "TRIBUTI"}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
+		"senzanome": {Username: "senzanome", Attrs: map[string]string{}},
+	},
+	groups:  []identity.ADGroup{{DN: "CN=SHARE_TRIBUTI_RW,DC=test", Name: "SHARE_TRIBUTI_RW"}},
+	values:  map[string][]string{"physicalDeliveryOfficeName": {"LLPP", "TRIBUTI"}},
+	members: []identity.Person{{Username: "mrossi", Name: "Mario Rossi", GivenName: "Mario"}},
+}
 
 // serverExits raccoglie le chiamate a exit del servizio backup di ogni server di test.
 var serverExits = map[*Server]chan int{}
