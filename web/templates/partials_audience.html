@@ -1,0 +1,14 @@
+{{define "visibility_fieldset"}}
+<fieldset class="visibility">
+	<legend>Visibilità</legend>
+	<label class="inline"><input type="radio" name="visibilita" value=""{{if eq .Mode ""}} checked{{end}}>Pubblico</label>
+	<label class="inline"><input type="radio" name="visibilita" value="only"{{if eq .Mode "only"}} checked{{end}}>Riservato a</label>
+	<label class="inline"><input type="radio" name="visibilita" value="hide"{{if eq .Mode "hide"}} checked{{end}}>Nascosto a</label>
+	<div class="offices-grid">
+		{{$sel := .Selected}}{{range .Groups}}<label class="inline"><input type="checkbox" name="gruppi" value="{{.ID}}"{{if index $sel .ID}} checked{{end}}>{{.Name}}</label>{{else}}<p class="muted">Nessun gruppo: creali in <a href="/admin/gruppi">Gruppi</a>.</p>{{end}}
+	</div>
+	<p class="hint">Filtro di visualizzazione, non una protezione: chi conosce l'indirizzo può comunque aprire l'applicativo e chiunque può scegliere «Mostra tutto». Con «Pubblico» i gruppi sono ignorati.</p>
+</fieldset>
+{{end}}
+
+{{define "visibility_label"}}{{if .}}{{.}}{{else}}Pubblico{{end}}{{end}}

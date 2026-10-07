@@ -22,6 +22,7 @@ type appForm struct {
 	IconValue   string
 	IconColor   string
 	Enabled     bool
+	Visibility  database.ContentAudience
 }
 
 type appRow struct {
@@ -35,6 +36,9 @@ type appsSection struct {
 	Categories []database.Category
 	Form       appForm
 	Errors     formErrors
+
+	VisibilityField  visibilityField
+	VisibilityLabels map[int64]string
 }
 
 func newAppForm() appForm {
@@ -70,7 +74,12 @@ func (s *Server) appsData(form appForm, errs formErrors) (appsSection, error) {
 	if form.CategoryID == 0 && len(cats) > 0 {
 		form.CategoryID = cats[0].ID
 	}
-	return appsSection{Apps: rows, Categories: cats, Form: form, Errors: errs}, nil
+	sec := appsSection{Apps: rows, Categories: cats, Form: form, Errors: errs}
+	if sec.VisibilityField, err = s.visibilityField(form.Visibility); err != nil {
+		return sec, err
+	}
+	sec.VisibilityLabels, err = s.visibilityLabels(database.ContentApp)
+	return sec, err
 }
 
 func (s *Server) renderApps(w http.ResponseWriter, status int, form appForm, errs formErrors) {
@@ -113,7 +122,12 @@ func (s *Server) handleAppEdit(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.renderApps(w, http.StatusOK, formFromApp(a), nil)
+	form := formFromApp(a)
+	if form.Visibility, err = s.db.GetContentAudience(database.ContentApp, id); err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.renderApps(w, http.StatusOK, form, nil)
 }
 
 func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
@@ -223,6 +237,11 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	form.Visibility = parseVisibility(r, errs)
+	if err := s.checkGroups(form.Visibility, errs); err != nil {
+		s.serverError(w, err)
+		return
+	}
 	if len(errs) > 0 {
 		s.renderApps(w, http.StatusUnprocessableEntity, form, errs)
 		return
@@ -231,7 +250,7 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 	a := database.App{ID: id, CategoryID: form.CategoryID, Title: form.Title, Description: form.Description,
 		URL: form.URL, IconKind: form.IconKind, IconValue: form.IconValue, IconColor: form.IconColor, Enabled: form.Enabled}
 	if id == 0 {
-		_, err = s.db.CreateApp(a)
+		id, err = s.db.CreateApp(a)
 	} else {
 		err = s.db.UpdateApp(a)
 	}
@@ -242,6 +261,10 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if current.IconKind == database.IconUpload && current.IconValue != a.IconValue {
 		s.removeUpload(uploadIcons, current.IconValue)
+	}
+	if err := s.db.SetContentAudience(database.ContentApp, id, form.Visibility); err != nil {
+		s.serverError(w, err)
+		return
 	}
 	s.renderApps(w, http.StatusOK, newAppForm(), nil)
 }

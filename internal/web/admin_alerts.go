@@ -17,11 +17,14 @@ type alertForm struct {
 	Source   string
 	StartsAt string // formato inputTimeLayout, fuso s.loc()
 	EndsAt   string // "" = senza scadenza
+
+	Visibility database.ContentAudience
 }
 
 type alertRow struct {
 	database.Alert
-	Status string // Attivo | Programmato | Scaduto
+	Status     string // Attivo | Programmato | Scaduto
+	Visibility string // etichetta: "" = pubblico
 }
 
 type alertsSection struct {
@@ -29,6 +32,8 @@ type alertsSection struct {
 	Expired []alertRow
 	Form    alertForm
 	Errors  formErrors
+
+	VisibilityField visibilityField
 }
 
 var alertLevels = []string{database.LevelUrgent, database.LevelMaintenance, database.LevelNews}
@@ -68,13 +73,18 @@ func (s *Server) alertsData(form alertForm, errs formErrors) (alertsSection, err
 		return alertsSection{}, err
 	}
 	sec := alertsSection{Form: form, Errors: errs}
+	labels, err := s.visibilityLabels(database.ContentAlert)
+	if err != nil {
+		return sec, err
+	}
 	for _, a := range current {
-		sec.Current = append(sec.Current, alertRow{Alert: a, Status: s.alertStatus(a)})
+		sec.Current = append(sec.Current, alertRow{Alert: a, Status: s.alertStatus(a), Visibility: labels[a.ID]})
 	}
 	for _, a := range expired {
-		sec.Expired = append(sec.Expired, alertRow{Alert: a, Status: "Scaduto"})
+		sec.Expired = append(sec.Expired, alertRow{Alert: a, Status: "Scaduto", Visibility: labels[a.ID]})
 	}
-	return sec, nil
+	sec.VisibilityField, err = s.visibilityField(form.Visibility)
+	return sec, err
 }
 
 func (s *Server) renderAlerts(w http.ResponseWriter, status int, form alertForm, errs formErrors) {
@@ -109,7 +119,12 @@ func (s *Server) handleAlertEdit(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.renderAlerts(w, http.StatusOK, s.formFromAlert(a), nil)
+	form := s.formFromAlert(a)
+	if form.Visibility, err = s.db.GetContentAudience(database.ContentAlert, id); err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.renderAlerts(w, http.StatusOK, form, nil)
 }
 
 func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +170,11 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 			ends = &e
 		}
 	}
+	form.Visibility = parseVisibility(r, errs)
+	if err := s.checkGroups(form.Visibility, errs); err != nil {
+		s.serverError(w, err)
+		return
+	}
 	if len(errs) > 0 {
 		s.renderAlerts(w, http.StatusUnprocessableEntity, form, errs)
 		return
@@ -164,7 +184,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 	if id == 0 {
 		a.CreatedAt = s.now()
 		a.CreatedBy = s.currentAdmin(r)
-		_, err = s.db.CreateAlert(a)
+		id, err = s.db.CreateAlert(a)
 	} else {
 		var old database.Alert
 		if old, err = s.db.GetAlert(id); err == nil {
@@ -178,6 +198,10 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.serverError(w, err)
 	default:
+		if err := s.db.SetContentAudience(database.ContentAlert, id, form.Visibility); err != nil {
+			s.serverError(w, err)
+			return
+		}
 		s.renderAlerts(w, http.StatusOK, s.newAlertForm(), nil)
 	}
 }

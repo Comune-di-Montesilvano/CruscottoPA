@@ -58,6 +58,8 @@
 		</fieldset>
 
 		<label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Form.Enabled}} checked{{end}}>Visibile in plancia</label>
+		{{template "visibility_fieldset" .VisibilityField}}
+		{{with .Errors.visibilita}}<p class="field-error">{{.}}</p>{{end}}
 		<div class="actions">
 			<button class="primary" type="submit">Salva</button>
 			{{if .Form.ID}}<a class="button" href="/admin/app">Annulla</a>{{end}}
@@ -71,7 +73,7 @@
 			{{range .Apps}}
 			<tr>
 				<td>{{template "app_icon" .App}}</td>
-				<td>{{.Title}}{{if not .Enabled}} <span class="tag">nascosto</span>{{end}}{{if .GuideCount}} <span class="tag">{{.GuideCount}} guide</span>{{end}}</td>
+				<td>{{.Title}}{{if not .Enabled}} <span class="tag">nascosto</span>{{end}}{{if .GuideCount}} <span class="tag">{{.GuideCount}} guide</span>{{end}}<br><small class="muted">{{template "visibility_label" (index $.VisibilityLabels .ID)}}</small></td>
 				<td class="muted">{{.CategoryName}}</td>
 				<td>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener" class="muted">{{.URL}}</a>{{else}}<span class="tag warn">da completare</span>{{end}}</td>
 				<td class="actions">
