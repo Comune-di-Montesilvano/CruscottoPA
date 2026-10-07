@@ -2,7 +2,7 @@ publiccodeYmlVersion: 0.5.0
 name: CruscottoPA
 url: https://github.com/Comune-di-Montesilvano/CruscottoPA
 landingURL: https://github.com/Comune-di-Montesilvano/CruscottoPA
-softwareVersion: 0.6.1
+softwareVersion: 0.7.0
 releaseDate: 2026-10-07
 platforms:
   - web
