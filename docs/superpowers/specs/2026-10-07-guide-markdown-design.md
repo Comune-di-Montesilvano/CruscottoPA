@@ -1,6 +1,6 @@
 # Guide ricche e avvisi in Markdown con editor visuale
 
-Data: 2026-10-07 · Stato: approvata · Sotto-progetto 2
+Data: 2026-10-07 · Stato: implementata · Sotto-progetto 2
 
 ## Contesto e obiettivo
 
