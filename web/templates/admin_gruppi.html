@@ -16,10 +16,13 @@
 			{{else}}<tr><td class="muted">Nessun attributo: aggiungine uno (es. physicalDeliveryOfficeName → Ufficio).</td></tr>{{end}}
 		</tbody></table>
 		<form class="form inline-form" hx-post="/admin/gruppi/attributi" hx-target="#section" hx-swap="outerHTML">
-			<label>Nome LDAP<input name="name" maxlength="64" placeholder="physicalDeliveryOfficeName" required></label>
+			<label>Nome LDAP<input id="attr-name" name="name" maxlength="64" placeholder="Cerca: uff, depart…" autocomplete="off" required
+				hx-get="/admin/ad/attributi" hx-trigger="input changed delay:300ms, focus once" hx-target="#attr-suggestions" hx-swap="innerHTML"></label>
 			<label>Etichetta<input name="label" maxlength="60" placeholder="Ufficio" required></label>
 			<button class="primary" type="submit">Aggiungi</button>
+			<div class="suggestions wide" id="attr-suggestions"></div>
 		</form>
+		<p class="hint">Mentre scrivi, i suggerimenti mostrano gli attributi compilati sugli utenti di AD, quanti li hanno e qualche valore.</p>
 		{{with .Errors.attr}}<p class="field-error">{{.}}</p>{{end}}
 	</div>
 
@@ -63,15 +66,18 @@
 		{{else}}<li class="muted">Nessuna regola: il gruppo non ha membri.</li>{{end}}
 	</ul>
 	<form class="form rule-form" hx-post="/admin/gruppi/{{.Group.ID}}/regole" hx-target="#section" hx-swap="outerHTML">
+		{{$kind := .Form.Kind}}{{if not $kind}}{{if .Attributes}}{{$kind = "attr"}}{{else}}{{$kind = "adgroup"}}{{end}}{{end}}
 		<label>Tipo<select name="kind" data-rule-kind>
-			<option value="attr"{{if eq .Form.Kind "attr"}} selected{{end}}>Attributo</option><option value="adgroup"{{if eq .Form.Kind "adgroup"}} selected{{end}}>Gruppo AD</option>
-			<option value="user"{{if eq .Form.Kind "user"}} selected{{end}}>Utente</option><option value="exclude"{{if eq .Form.Kind "exclude"}} selected{{end}}>Escludi utente</option>
+			<option value="attr"{{if eq $kind "attr"}} selected{{end}}>Attributo</option><option value="adgroup"{{if eq $kind "adgroup"}} selected{{end}}>Gruppo AD</option>
+			<option value="user"{{if eq $kind "user"}} selected{{end}}>Utente</option><option value="exclude"{{if eq $kind "exclude"}} selected{{end}}>Escludi utente</option>
 		</select></label>
-		{{$attr := .Form.Attr}}<label data-for-kind="attr"{{if and .Form.Kind (ne .Form.Kind "attr")}} hidden{{end}}>Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}"{{if eq .Name $attr}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+		{{$attr := .Form.Attr}}<label data-for-kind="attr"{{if ne $kind "attr"}} hidden{{end}}>Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}"{{if eq .Name $attr}} selected{{end}}>{{.Label}}</option>{{else}}<option value="" disabled selected>Nessun attributo configurato</option>{{end}}</select>
+			{{if not .Attributes}}<span class="hint">Aggiungi un attributo nel riquadro «Attributi AD utilizzabili» in alto (es. l'ufficio).</span>{{end}}</label>
 		<label>Valore<input name="value" value="{{.Form.Value}}" autocomplete="off" required
 			hx-get="/admin/ad/suggerimenti" hx-trigger="input changed delay:300ms" hx-include="closest form" hx-target="next .suggestions" hx-swap="innerHTML"></label>
 		<div class="suggestions"></div>
 		<input type="hidden" name="label" value="{{.Form.Label}}">
+		<div class="draft-preview" aria-live="polite" hx-target="this" hx-get="/admin/gruppi/{{.Group.ID}}/bozza" hx-trigger="input from:closest form delay:400ms, change from:closest form, click from:closest form delay:50ms" hx-include="closest form" hx-swap="innerHTML"></div>
 		<button class="primary" type="submit">Aggiungi regola</button>
 	</form>
 	{{with .Errors.rule}}<p class="field-error">{{.}}</p>{{end}}
@@ -80,6 +86,11 @@
 </div>
 {{end}}
 
-{{define "group_preview"}}{{if .Err}}<p class="flash error">{{.Err}}</p>{{else if eq .Count 0}}<p class="muted">Nessun utente corrisponde.</p>{{else}}<p>{{.Count}} {{if eq .Count 1}}utente{{else}}utenti{{end}}{{if gt .Count (len .People)}} (primi {{len .People}}){{end}}:</p><ul class="preview">{{range .People}}<li>{{if .Name}}{{.Name}}{{else}}{{.Username}}{{end}} <span class="muted">{{.Username}}</span></li>{{end}}</ul>{{end}}{{end}}
+{{define "group_preview"}}{{if .Err}}<p class="flash error">{{.Err}}</p>{{else if eq .Count 0}}<p class="muted">Nessun utente corrisponde.</p>{{else}}<p>{{.Count}} {{if eq .Count 1}}utente{{else}}utenti{{end}}{{if gt .Count (len .People)}} (primi {{len .People}}){{end}}:</p>
+<table class="list preview-table"><thead><tr><th>Nome</th><th>Username</th>{{range .Attrs}}<th>{{.Label}}</th>{{end}}</tr></thead><tbody>
+{{$attrs := .Attrs}}{{range .People}}<tr><td>{{if .Name}}{{.Name}}{{else}}—{{end}}</td><td class="muted">{{.Username}}</td>{{$p := .}}{{range $attrs}}<td>{{index $p.Attrs .Name}}</td>{{end}}</tr>{{end}}
+</tbody></table>{{end}}{{end}}
 
-{{define "ad_suggestions"}}{{if .Err}}<p class="muted">{{.Err}}</p>{{else}}{{range .Items}}<button type="button" class="suggestion" data-fill="{{.Value}}" data-label="{{.Label}}">{{.Text}}</button>{{else}}<p class="muted">Nessun risultato.</p>{{end}}{{end}}{{end}}
+{{define "draft_preview"}}{{if .Err}}<p class="muted">{{.Err}}</p>{{else}}<p><strong>Anteprima:</strong> {{with .Alone}}{{.}} · {{end}}{{.Change}}.</p>{{end}}{{end}}
+
+{{define "ad_suggestions"}}{{if .Err}}<p class="muted">{{.Err}}</p>{{else}}{{range .Items}}<button type="button" class="suggestion" data-fill="{{.Value}}" data-label="{{.Label}}"{{with .Field}} data-field="{{.}}"{{end}}>{{.Text}}</button>{{else}}<p class="muted">Nessun risultato.</p>{{end}}{{end}}{{end}}

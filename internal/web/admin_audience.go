@@ -41,10 +41,19 @@ type ruleView struct {
 type previewView struct {
 	Count  int
 	People []identity.Person
+	Attrs  []database.AudienceAttribute // colonne: attributi usati dalle regole
 	Err    string
 }
 
-type suggestion struct{ Value, Label, Text string }
+// draftView: anteprima di una regola non ancora salvata.
+type draftView struct {
+	Err    string
+	Alone  string // "Questa regola: N utenti" (vuoto per "Escludi")
+	Change string // "Il gruppo passerebbe da X a Y utenti"
+}
+
+// suggestion: Field è il campo del form da riempire ("" = value).
+type suggestion struct{ Value, Label, Text, Field string }
 
 type suggestionsView struct {
 	Err   string
@@ -387,12 +396,151 @@ func (s *Server) handleAudiencePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pv := previewView{}
+	if pv.Attrs, err = s.ruleAttributes(all[id]); err != nil {
+		s.serverError(w, err)
+		return
+	}
+	names := make([]string, len(pv.Attrs))
+	for i, a := range pv.Attrs {
+		names[i] = a.Name
+	}
 	if s.directory == nil {
 		pv.Err = adUnavailable
-	} else if pv.Count, pv.People, err = s.directory.Members(all[id]); err != nil {
+	} else if pv.Count, pv.People, err = s.directory.Members(all[id], names); err != nil {
 		pv.Err = adUnavailable
 	}
 	s.render(w, http.StatusOK, "group_preview", pv)
+}
+
+// ruleAttributes: attributi configurati usati dalle regole, per le colonne
+// della tabella dell'anteprima.
+func (s *Server) ruleAttributes(rules []audience.Rule) ([]database.AudienceAttribute, error) {
+	attrs, err := s.db.ListAudienceAttributes()
+	if err != nil {
+		return nil, err
+	}
+	out := []database.AudienceAttribute{}
+	for _, a := range attrs {
+		for _, r := range rules {
+			if r.Kind == audience.KindAttr && strings.EqualFold(r.Attr, a.Name) {
+				out = append(out, a)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+func peopleCount(n int) string {
+	if n == 1 {
+		return "1 utente"
+	}
+	return strconv.Itoa(n) + " utenti"
+}
+
+// handleDraftPreview mostra, mentre si compone una regola, quanti utenti
+// porterebbe nel gruppo. Non salva nulla.
+func (s *Server) handleDraftPreview(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := s.db.GetAudienceGroup(id); errors.Is(err, database.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	draft := audience.Rule{Kind: r.FormValue("kind"), Attr: strings.TrimSpace(r.FormValue("attr")), Value: strings.TrimSpace(r.FormValue("value"))}
+	v := draftView{}
+	switch {
+	case draft.Value == "":
+		v.Err = "Scrivi un valore per vedere l'anteprima."
+	case !audience.ValidKind(draft.Kind):
+		v.Err = "Tipo di regola non valido."
+	case (draft.Kind == audience.KindUser || draft.Kind == audience.KindExclude) && !ruleUserRe.MatchString(draft.Value):
+		v.Err = "Username non valido."
+	case draft.Kind == audience.KindADGroup:
+		if _, err := audience.NormalizeDN(draft.Value); err != nil {
+			v.Err = "Scegli il gruppo dai suggerimenti (serve il DN completo)."
+		}
+	}
+	if v.Err == "" && draft.Kind == audience.KindAttr {
+		attrs, err := s.db.ListAudienceAttributes()
+		if err != nil {
+			s.serverError(w, err)
+			return
+		}
+		ok := false
+		for _, a := range attrs {
+			ok = ok || strings.EqualFold(a.Name, draft.Attr)
+		}
+		if !ok {
+			v.Err = "Scegli un attributo configurato."
+		}
+	}
+	if v.Err == "" {
+		v = s.draftCounts(id, draft)
+	}
+	s.render(w, http.StatusOK, "draft_preview", v)
+}
+
+func (s *Server) draftCounts(groupID int64, draft audience.Rule) draftView {
+	if s.directory == nil {
+		return draftView{Err: adUnavailable}
+	}
+	all, err := s.db.AllAudienceRules()
+	if err != nil {
+		return draftView{Err: "Regole non disponibili."}
+	}
+	current := all[groupID]
+	v := draftView{}
+	if draft.Kind != audience.KindExclude {
+		n, _, err := s.directory.Members([]audience.Rule{draft}, nil)
+		if err != nil {
+			return draftView{Err: adUnavailable}
+		}
+		v.Alone = "Questa regola: " + peopleCount(n)
+	}
+	before, _, err := s.directory.Members(current, nil)
+	if err != nil {
+		return draftView{Err: adUnavailable}
+	}
+	after, _, err := s.directory.Members(append(append([]audience.Rule{}, current...), draft), nil)
+	if err != nil {
+		return draftView{Err: adUnavailable}
+	}
+	if before == after {
+		v.Change = "Il gruppo resterebbe a " + peopleCount(before)
+	} else {
+		v.Change = "Il gruppo passerebbe da " + strconv.Itoa(before) + " a " + peopleCount(after)
+	}
+	return v
+}
+
+// handleSuggestAttributes: nomi di attributi AD compilati sugli utenti, con
+// quanti li hanno e qualche valore, per configurarli senza conoscere AD.
+func (s *Server) handleSuggestAttributes(w http.ResponseWriter, r *http.Request) {
+	if s.directory == nil {
+		s.render(w, http.StatusOK, "ad_suggestions", suggestionsView{Err: adUnavailable})
+		return
+	}
+	stats, err := s.directory.AttributeStats(clipQuery(r.FormValue("name")))
+	if err != nil {
+		s.render(w, http.StatusOK, "ad_suggestions", suggestionsView{Err: adUnavailable})
+		return
+	}
+	v := suggestionsView{}
+	for _, st := range stats {
+		text := st.Name + " — " + peopleCount(st.Count)
+		if len(st.Examples) > 0 {
+			text += " — es. " + strings.Join(st.Examples, ", ")
+		}
+		v.Items = append(v.Items, suggestion{Value: st.Name, Label: identity.DefaultAttrLabel(st.Name), Text: text, Field: "name"})
+	}
+	s.render(w, http.StatusOK, "ad_suggestions", v)
 }
 
 // ── Suggerimenti da AD ─────────────────────────────────────────────────

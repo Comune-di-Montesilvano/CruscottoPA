@@ -23,6 +23,8 @@ type Person struct {
 	Username  string // sAMAccountName, minuscolo
 	Name      string // displayName, "" se assente
 	GivenName string // givenName, "" se assente
+	// Attrs: valori degli attributi richiesti (es. nella tabella dell'anteprima).
+	Attrs map[string]string
 }
 
 // ADGroup è un gruppo di Active Directory.
@@ -36,8 +38,11 @@ type Directory interface {
 	SearchGroups(q string) ([]ADGroup, error)
 	SearchUsers(q string) ([]Person, error)
 	AttributeValues(attr string) ([]string, error)
-	// Members: utenti che soddisfano le regole (totale e primi 30).
-	Members(rules []audience.Rule) (int, []Person, error)
+	// Members: utenti che soddisfano le regole (totale e primi 30), con i
+	// valori degli attributi attrs.
+	Members(rules []audience.Rule, attrs []string) (int, []Person, error)
+	// AttributeStats: attributi compilati sugli utenti, filtrati per nome.
+	AttributeStats(q string) ([]AttrStat, error)
 }
 
 // Stessa regola dello username del login admin.
@@ -122,10 +127,11 @@ type LDAPDirectory struct {
 	cfg config.LDAP
 
 	values *valuesCache
+	stats  *ttlCache[[]AttrStat]
 }
 
 func NewLDAPDirectory(cfg config.LDAP) *LDAPDirectory {
-	return &LDAPDirectory{cfg: cfg, values: newValuesCache(time.Now)}
+	return &LDAPDirectory{cfg: cfg, values: newValuesCache(time.Now), stats: newTTLCache[[]AttrStat](time.Now)}
 }
 
 func (d *LDAPDirectory) conn() (*ldap.Conn, error) {
@@ -293,7 +299,7 @@ func (d *LDAPDirectory) loadValues(attr string) ([]string, error) {
 	return list, nil
 }
 
-func (d *LDAPDirectory) Members(rules []audience.Rule) (int, []Person, error) {
+func (d *LDAPDirectory) Members(rules []audience.Rule, attrs []string) (int, []Person, error) {
 	filter, ok := membersFilter(rules)
 	if !ok {
 		return 0, []Person{}, nil
@@ -303,19 +309,50 @@ func (d *LDAPDirectory) Members(rules []audience.Rule) (int, []Person, error) {
 		return 0, nil, err
 	}
 	defer conn.Close()
-	entries, err := d.search(conn, filter, personAttrs, 0)
+	want := append([]string{}, personAttrs...)
+	for _, a := range attrs {
+		if ValidAttrName(a) {
+			want = append(want, a)
+		}
+	}
+	entries, err := d.search(conn, filter, want, 0)
 	if err != nil {
 		return 0, nil, err
 	}
 	people := make([]Person, 0, len(entries))
 	for _, e := range entries {
-		people = append(people, personFromEntry(e))
+		p := personFromEntry(e)
+		p.Attrs = map[string]string{}
+		for _, a := range attrs {
+			p.Attrs[a] = strings.Join(e.GetAttributeValues(a), ", ")
+		}
+		people = append(people, p)
 	}
 	sortPeople(people)
 	if len(people) > previewLimit {
 		return len(entries), people[:previewLimit], nil
 	}
 	return len(entries), people, nil
+}
+
+// AttributeStats: attributi compilati sugli utenti attivi (cache di 6 ore).
+func (d *LDAPDirectory) AttributeStats(q string) ([]AttrStat, error) {
+	all, err := d.stats.get("all", func() ([]AttrStat, error) {
+		conn, err := d.conn()
+		if err != nil {
+			return nil, err
+		}
+		defer conn.Close()
+		entries, err := d.search(conn, "(&"+activeUsersFilter+")", []string{"*"}, 0)
+		if err != nil {
+			return nil, err
+		}
+		return computeStats(entries), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return filterStats(all, q), nil
 }
 
 // MockDirectory: per LDAP_HOST=mock (solo sviluppo).
@@ -370,9 +407,22 @@ func (MockDirectory) AttributeValues(attr string) ([]string, error) {
 	return []string{"AMMINISTRATIVO", "INFORMATIZZAZIONE", "TRIBUTI"}, nil
 }
 
-func (MockDirectory) Members(rules []audience.Rule) (int, []Person, error) {
+func (MockDirectory) Members(rules []audience.Rule, attrs []string) (int, []Person, error) {
 	if _, ok := membersFilter(rules); !ok {
 		return 0, []Person{}, nil
 	}
-	return 1, []Person{{Username: "mock", Name: "Utente Mock"}}, nil
+	p := Person{Username: "mock", Name: "Utente Mock", Attrs: map[string]string{}}
+	for _, a := range attrs {
+		if strings.EqualFold(a, "physicalDeliveryOfficeName") {
+			p.Attrs[a] = "INFORMATIZZAZIONE"
+		}
+	}
+	return 1, []Person{p}, nil
+}
+
+func (MockDirectory) AttributeStats(q string) ([]AttrStat, error) {
+	return filterStats([]AttrStat{
+		{Name: "physicalDeliveryOfficeName", Count: 3, Examples: []string{"INFORMATIZZAZIONE", "TRIBUTI"}},
+		{Name: "department", Count: 1, Examples: []string{"Ragioneria"}},
+	}, q), nil
 }

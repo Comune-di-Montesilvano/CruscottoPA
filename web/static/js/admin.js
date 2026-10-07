@@ -87,7 +87,8 @@
 		if (!b) return;
 		const form = b.closest("form");
 		if (!form) return;
-		form.querySelector('[name="value"]').value = b.dataset.fill || "";
+		const field = form.querySelector('[name="' + (b.dataset.field || "value") + '"]');
+		if (field) field.value = b.dataset.fill || "";
 		const label = form.querySelector('[name="label"]');
 		if (label) label.value = b.dataset.label || "";
 		b.parentElement.innerHTML = "";
