@@ -58,7 +58,7 @@ func TestAlertValidation(t *testing.T) {
 		"inizio non data":    {map[string]string{"starts_at": "domani"}, "Data e ora non valide."},
 		"fine prima":         {map[string]string{"ends_at": "2026-10-06T08:00"}, "La fine deve essere successiva all&#39;inizio."},
 		"fine uguale":        {map[string]string{"ends_at": "2026-10-06T09:00"}, "La fine deve essere successiva all&#39;inizio."},
-		"testo troppo lungo": {map[string]string{"body": strings.Repeat("a", 2001)}, "Massimo 2000 caratteri."},
+		"testo troppo lungo": {map[string]string{"body": strings.Repeat("a", 20001)}, "Massimo 20000 caratteri."},
 	} {
 		t.Run(name, func(t *testing.T) {
 			rec := do(t, s, "POST", "/admin/avvisi", alertValues(tc.overrides), c, hx)

@@ -1,12 +1,26 @@
-{{define "alert_card"}}
-<article class="news news-{{.Level}}" data-alert="{{.ID}}">
+{{define "alert_head"}}
 	<div class="news-head">
 		<span class="news-level">{{levelLabel .Level}}</span>
 		<span class="news-source">{{alertSource .Source}}</span>
 		<span class="news-when">dal {{fmtDate .StartsAt}}{{if .EndsAt}} · fino al {{fmtDatePtr .EndsAt}}{{end}}</span>
 	</div>
+{{end}}
+
+{{/* Carosello: estratto in testo semplice, il resto in /avvisi/{id}. */}}
+{{define "alert_card"}}
+<article class="news news-{{.Level}}" data-alert="{{.ID}}">
+	{{template "alert_head" .}}
 	<h3 class="news-title">{{.Title}}</h3>
-	{{if .Body}}<div class="news-body">{{paragraphs .Body}}</div>{{end}}
+	{{if .Body}}<p class="news-body">{{excerpt .Body}}</p>{{end}}
+	{{if needsMore .Body}}<a class="news-more" href="/avvisi/{{.ID}}">Leggi tutto →</a>{{end}}
+</article>
+{{end}}
+
+{{define "alert_full"}}
+<article class="news news-{{.Level}}" id="avviso-{{.ID}}">
+	{{template "alert_head" .}}
+	<h3 class="news-title">{{.Title}}</h3>
+	{{if .Body}}<div class="news-body md">{{md .Body}}</div>{{end}}
 </article>
 {{end}}
 
@@ -27,7 +41,7 @@
 {{range .}}{{if and (eq .Level "urgent") (not .NotForViewer)}}
 <dialog class="urgent" data-urgent="{{.ID}}" data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
 	<div class="urgent-head"><span class="urgent-badge">Urgente</span><span class="urgent-title" id="urgent-{{.ID}}">{{.Title}}</span></div>
-	{{if .Body}}<div class="urgent-body">{{paragraphs .Body}}</div>{{end}}
+	{{if .Body}}<div class="urgent-body md">{{md .Body}}</div>{{end}}
 	<form method="dialog" class="urgent-foot">
 		<span>{{alertSource .Source}} · {{fmtDate .StartsAt}}</span>
 		<button value="letto">Ho letto</button>

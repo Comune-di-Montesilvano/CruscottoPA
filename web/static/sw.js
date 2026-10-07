@@ -21,8 +21,8 @@ self.addEventListener("notificationclick", (e) => {
 	e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
 		for (const c of list) {
 			if (new URL(c.url).origin === self.location.origin) {
-				// La plancia aperta si aggiorna da sola (SSE): basta portarla in primo piano.
-				return c.focus();
+				// Una scheda della plancia è aperta: la si porta sull'avviso.
+				return (url === "/" ? Promise.resolve(c) : c.navigate(url)).then((w) => (w || c).focus());
 			}
 		}
 		return self.clients.openWindow(url);

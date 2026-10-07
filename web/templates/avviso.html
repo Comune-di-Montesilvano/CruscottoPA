@@ -1,16 +1,16 @@
-{{define "avvisi.html"}}<!doctype html>
+{{define "avviso.html"}}<!doctype html>
 <html lang="it">
 <head>
 	{{template "plancia_head"}}
-	<title>Avvisi · CruscottoPA{{template "title_ente"}}</title>
+	<title>{{with .Alert}}{{.Title}}{{else}}Avviso{{end}} · CruscottoPA{{template "title_ente"}}</title>
 </head>
 <body class="plancia">
 	<header class="hero hero-compact">
-		<div class="hero-bar"><a class="brand" href="/">← CruscottoPA{{with (ente).EnteName}} · {{.}}{{end}}</a></div>
-		<h1 class="hello">Avvisi</h1>
+		<div class="hero-bar"><a class="brand" href="/avvisi">← Tutti gli avvisi</a></div>
+		<h1 class="hello">Avviso</h1>
 	</header>
 	<main class="avvisi-list">
-		{{range .Alerts}}{{template "alert_full" .}}{{else}}<p class="empty">Nessun avviso attivo.</p>{{end}}
+		{{with .Alert}}{{template "alert_full" .}}{{else}}<p class="empty">Avviso non disponibile: è scaduto o non è destinato a te.</p>{{end}}
 	</main>
 	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}</footer>
 	<dialog class="notify-ask" aria-labelledby="notify-ask-title">

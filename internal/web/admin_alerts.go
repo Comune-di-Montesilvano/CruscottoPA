@@ -149,7 +149,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 
 	errs := formErrors{}
 	checkText(errs, "title", form.Title, 120, true)
-	checkText(errs, "body", form.Body, 2000, false)
+	checkText(errs, "body", form.Body, 20000, false)
 	checkText(errs, "source", form.Source, 60, false)
 	validLevel := false
 	for _, l := range alertLevels {
@@ -199,6 +199,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.serverError(w, err)
 	default:
+		s.cleanMedia() // immagini tolte dal testo
 		s.renderAlerts(w, http.StatusOK, s.newAlertForm(), nil)
 	}
 }
@@ -216,5 +217,6 @@ func (s *Server) handleAlertDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
+	s.cleanMedia()
 	s.renderAlerts(w, http.StatusOK, s.newAlertForm(), nil)
 }

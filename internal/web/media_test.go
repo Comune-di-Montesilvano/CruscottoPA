@@ -142,3 +142,20 @@ func TestCleanMediaKeepsRecentAndReferenced(t *testing.T) {
 		}
 	}
 }
+
+func TestAlertDeleteCleansMedia(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	dir := s.uploadDir(uploadGuide)
+	os.MkdirAll(dir, 0o750)
+	name := "dddddddddddddddddddddddddddddddd.png"
+	p := filepath.Join(dir, name)
+	os.WriteFile(p, []byte("x"), 0o640)
+	old := fixedNow.Add(-25 * time.Hour)
+	os.Chtimes(p, old, old)
+	id, _ := db.CreateAlert(database.Alert{Title: "A", Body: "![x](/uploads/guide/" + name + ")", Level: "news", StartsAt: fixedNow, CreatedAt: fixedNow})
+	do(t, s, "POST", "/admin/avvisi/"+itoa(id)+"/elimina", nil, c, hx)
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		t.Fatal("immagine dell'avviso eliminato ancora presente")
+	}
+}

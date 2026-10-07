@@ -9,14 +9,15 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/calendar"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/markdown"
 )
 
 const inputTimeLayout = "2006-01-02T15:04" // <input type="datetime-local">
@@ -27,7 +28,9 @@ func (s *Server) funcs() template.FuncMap {
 		"ente":         s.ente,
 		"repoURL":      func() string { return repoURL },
 		"levelLabel":   levelLabel,
-		"paragraphs":   paragraphs,
+		"md":           func(src string) template.HTML { return markdown.Render(src, markdown.Options{}) },
+		"excerpt":      func(src string) string { return markdown.Plain(src, excerptRunes) },
+		"needsMore":    needsMore,
 		"humanSize":    humanSize,
 		"tint":         tint,
 		"alertVersion": alertVersion,
@@ -105,47 +108,12 @@ func levelLabel(level string) string {
 	}
 }
 
-// linkRe trova URL http/https oppure indirizzi email. Gli URL vengono prima
-// nell'alternanza: una @ dentro un URL (https://utente@host) resta parte dell'URL.
-var (
-	linkRe      = regexp.MustCompile(`https?://[^\s<>"']+|[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}`)
-	paragraphRe = regexp.MustCompile(`\n[ \t]*\n\s*`)
-)
+// excerptRunes: lunghezza dell'estratto degli avvisi nel carosello.
+const excerptRunes = 200
 
-// linkify escapa il testo e rende cliccabili solo gli URL http/https e gli
-// indirizzi email. La punteggiatura finale ("vedi https://x.it.") resta fuori dal link.
-func linkify(text string) template.HTML {
-	var b strings.Builder
-	last := 0
-	for _, m := range linkRe.FindAllStringIndex(text, -1) {
-		end := m[1]
-		for end > m[0] && strings.ContainsRune(".,;:!?)", rune(text[end-1])) {
-			end--
-		}
-		b.WriteString(template.HTMLEscapeString(text[last:m[0]]))
-		u := template.HTMLEscapeString(text[m[0]:end])
-		if strings.HasPrefix(u, "http") {
-			fmt.Fprintf(&b, `<a href="%s" target="_blank" rel="noopener">%s</a>`, u, u)
-		} else {
-			fmt.Fprintf(&b, `<a href="mailto:%s">%s</a>`, u, u)
-		}
-		last = end
-	}
-	b.WriteString(template.HTMLEscapeString(text[last:]))
-	return template.HTML(b.String()) //nolint:gosec // testo escapato sopra
-}
-
-// paragraphs divide il testo in <p> sulle righe vuote; dentro un paragrafo gli
-// a capo singoli restano (li mostra il CSS con white-space: pre-line).
-func paragraphs(text string) template.HTML {
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	var b strings.Builder
-	for _, p := range paragraphRe.Split(text, -1) {
-		if p = strings.TrimSpace(p); p != "" {
-			fmt.Fprintf(&b, "<p>%s</p>", linkify(p))
-		}
-	}
-	return template.HTML(b.String()) //nolint:gosec // contenuto escapato da linkify
+// needsMore: nel carosello l'estratto non basta (testo troncato, immagini o tabelle).
+func needsMore(body string) bool {
+	return utf8.RuneCountInString(markdown.Plain(body, 0)) > excerptRunes || markdown.HasRich(body)
 }
 
 func humanSize(n int64) string {

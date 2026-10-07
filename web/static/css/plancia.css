@@ -46,10 +46,12 @@ body.plancia {
 .news-maintenance .news-level { background: var(--p-maint-bg); color: #93370d; }
 .news-source { font-weight: 600; color: var(--p-text-2); }
 .news-title { margin: 0 0 .4rem; font-size: 1.3rem; letter-spacing: -.01em; }
-.news-body { font-size: .98rem; line-height: 1.6; color: var(--p-text-2); white-space: pre-line; }
+.news-body { font-size: .98rem; line-height: 1.6; color: var(--p-text-2); }
 .news-body p, .urgent-body p { margin: 0; }
 .news-body p + p, .urgent-body p + p { margin-top: .7em; }
 .news-body a { color: var(--p-blue-2); }
+.news-more { display: inline-block; margin-top: .5rem; font-size: .9rem; font-weight: 600; color: var(--p-blue-2); text-decoration: none; }
+.news-more:hover { text-decoration: underline; }
 /* Nel carosello i testi molto lunghi si troncano: il testo intero è in /avvisi. */
 .carousel .news-body { display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
 
@@ -80,7 +82,7 @@ dialog.urgent::backdrop { background: rgba(60, 8, 8, .72); }
 .urgent-head { background: #b42318; color: #fff; padding: 1.1rem 1.4rem; display: flex; gap: .8rem; align-items: center; }
 .urgent-badge { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; background: rgba(255, 255, 255, .18); padding: .25rem .55rem; border-radius: 4px; font-weight: 700; }
 .urgent-title { font-size: 1.25rem; font-weight: 700; }
-.urgent-body { padding: 1.1rem 1.4rem 0; font-size: 1rem; line-height: 1.6; white-space: pre-line; }
+.urgent-body { padding: 1.1rem 1.4rem 0; font-size: 1rem; line-height: 1.6; }
 .urgent-body a { color: #b42318; }
 .urgent-foot { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.1rem 1.4rem 1.2rem; font-size: .8rem; color: var(--p-text-3); }
 .urgent-foot button { background: #b42318; color: #fff; border: 0; border-radius: 10px; padding: .7rem 1.4rem; font: inherit; font-size: .95rem; font-weight: 700; cursor: pointer; }

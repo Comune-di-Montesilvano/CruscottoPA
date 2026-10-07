@@ -11,11 +11,11 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/SherClockHolmes/webpush-go"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/markdown"
 )
 
 // pushHosts: servizi push dei browser. Il server invia solo lì: un endpoint
@@ -98,14 +98,10 @@ func (p *WebPusher) Send(ctx context.Context, sub database.PushSubscription, pay
 
 // Payload: contenuto della notifica (letto dal service worker).
 func Payload(a database.Alert) []byte {
-	body := strings.Join(strings.Fields(a.Body), " ")
-	if utf8.RuneCountInString(body) > 160 {
-		body = string([]rune(body)[:157]) + "…"
-	}
 	b, _ := json.Marshal(map[string]string{
 		"title": a.Title,
-		"body":  body,
-		"url":   "/",
+		"body":  markdown.Plain(a.Body, 120),
+		"url":   fmt.Sprintf("/avvisi/%d", a.ID),
 		"tag":   fmt.Sprintf("avviso-%d", a.ID),
 	})
 	return b
