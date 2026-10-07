@@ -34,11 +34,13 @@ type dashboardView struct {
 	User      identity.User // identità dichiarata: solo per il saluto
 	Recognize bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
 	Filter    *contentFilter
+	Admin     bool // link al pannello admin nel footer
 }
 
 type avvisiView struct {
 	Alerts  []database.Alert
 	Version string
+	Admin   bool
 }
 
 func (s *Server) calendarWidgetFor(year int, month time.Month) (calendarWidget, error) {
@@ -84,6 +86,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		User:      u,
 		Recognize: !known && s.canRecognize(r),
 		Filter:    f,
+		Admin:     s.viewerIsAdmin(r),
 	})
 }
 
@@ -123,7 +126,7 @@ func (s *Server) handleAvvisi(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, http.StatusOK, "avvisi.html", avvisiView{Alerts: f.alertList(alerts), Version: s.version})
+	s.render(w, http.StatusOK, "avvisi.html", avvisiView{Alerts: f.alertList(alerts), Version: s.version, Admin: s.viewerIsAdmin(r)})
 }
 
 // greeting: stesse soglie di dashboard.js (che lo aggiorna lato client).
