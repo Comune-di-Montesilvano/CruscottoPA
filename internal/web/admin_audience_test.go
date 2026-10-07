@@ -77,7 +77,7 @@ func TestADSuggestions(t *testing.T) {
 	if body := do(t, s, "GET", "/admin/ad/valori?attr=physicalDeliveryOfficeName&q=tri", nil, c, hx).Body.String(); !strings.Contains(body, "TRIBUTI") || strings.Contains(body, "LLPP") {
 		t.Fatalf("suggerimenti valori (filtrati per q):\n%s", body)
 	}
-	if rec := do(t, s, "GET", "/admin/ad/utenti?q=x", nil, nil, hx); rec.Code != http.StatusUnauthorized {
+	if rec := do(t, s, "GET", "/admin/ad/utenti?q=x", nil, nil, hx); rec.Code != http.StatusOK || rec.Header().Get("HX-Redirect") != "/admin/login" {
 		t.Fatalf("suggerimenti senza sessione: %d", rec.Code)
 	}
 }
