@@ -172,11 +172,26 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	// GitHub per ultimo: si scarica solo se il resto del form è valido.
-	var fetched string
+	// La guida com'è ora: PDF da cancellare se cambia, copia GitHub da tenere.
+	var cur database.Guide
+	if id != 0 {
+		if cur, err = s.db.GetGuide(id); err != nil && !errors.Is(err, database.ErrNotFound) {
+			s.serverError(w, err)
+			return
+		}
+	}
+	// GitHub per ultimo: si scarica solo se il resto del form è valido. Se il
+	// link non cambia e GitHub non risponde, si salva lo stesso con l'ultima
+	// copia (l'errore resta sulla guida): l'admin può sempre cambiare titolo o
+	// visibilità.
+	var fetched, fetchErr string
 	if form.Kind == database.GuideKindGitHub && len(errs) == 0 {
 		if fetched, err = s.fetchGuide(r.Context(), src.Raw); err != nil {
-			errs.add("source_url", "Download non riuscito: "+err.Error())
+			if cur.Kind == database.GuideKindGitHub && cur.SourceURL == form.SourceURL && cur.FetchedAt != nil {
+				fetched, fetchErr = cur.Body, err.Error()
+			} else {
+				errs.add("source_url", "Download non riuscito: "+err.Error())
+			}
 		}
 	}
 	if len(errs) > 0 {
@@ -198,12 +213,6 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 	if form.AppID != 0 {
 		g.AppID = &form.AppID
 	}
-	var oldFile string
-	if id != 0 {
-		if cur, err := s.db.GetGuide(id); err == nil {
-			oldFile = cur.File
-		}
-	}
 	if id == 0 {
 		id, err = s.db.CreateGuideWithAudience(g, form.Visibility)
 	} else {
@@ -216,13 +225,18 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 	default:
 		if g.Kind == database.GuideKindGitHub {
-			if err := s.db.SetGuideFetched(id, g.SourceURL, fetched, s.now()); err != nil {
+			if fetchErr != "" {
+				err = s.db.SetGuideFetchError(id, g.SourceURL, fetchErr)
+			} else {
+				err = s.db.SetGuideFetched(id, g.SourceURL, fetched, s.now())
+			}
+			if err != nil {
 				s.serverError(w, err)
 				return
 			}
 		}
-		if oldFile != "" && oldFile != g.File {
-			s.removeUpload(uploadGuide, oldFile)
+		if cur.File != "" && cur.File != g.File {
+			s.removeUpload(uploadGuide, cur.File)
 		}
 		s.cleanMedia()
 		s.renderGuides(w, http.StatusOK, newGuideForm(), nil)

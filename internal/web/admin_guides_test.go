@@ -164,3 +164,28 @@ func TestGuidePDFReplacedRemovesOldFile(t *testing.T) {
 		t.Error("PDF non cancellato con la guida")
 	}
 }
+
+// Review M3: con GitHub irraggiungibile una guida già scaricata si può ancora
+// modificare (titolo, visibilità…) se il link non cambia; resta l'ultima copia.
+func TestGuideEditWhileGitHubDown(t *testing.T) {
+	var ferr error
+	s, db := newTestServerWith(t, nil, func(o *Options) {
+		o.GuideFetch = func(context.Context, string) (string, error) { return "# copia", ferr }
+	})
+	c := login(t, s)
+	src := "https://github.com/o/r/blob/main/a.md"
+	do(t, s, "POST", "/admin/guide", url.Values{"kind": {"github"}, "title": {"G"}, "source_url": {src}, "enabled": {"1"}}, c, hx)
+	gs, _ := db.ListGuides()
+	id := itoa(gs[0].ID)
+	ferr = errors.New("rete giù")
+	rec := do(t, s, "POST", "/admin/guide/"+id, url.Values{"kind": {"github"}, "title": {"Nuovo titolo"}, "source_url": {src}}, c, hx)
+	g, _ := db.GetGuide(gs[0].ID)
+	if rec.Code != 200 || g.Title != "Nuovo titolo" || g.Body != "# copia" || g.Enabled || g.FetchError == "" {
+		t.Fatalf("modifica con GitHub giù: %d %+v", rec.Code, g)
+	}
+	// Link nuovo: il download serve, quindi l'errore blocca il salvataggio.
+	rec = do(t, s, "POST", "/admin/guide/"+id, url.Values{"kind": {"github"}, "title": {"X"}, "source_url": {"https://github.com/o/r/blob/main/b.md"}}, c, hx)
+	if rec.Code != 422 {
+		t.Fatalf("link nuovo con GitHub giù: atteso 422, %d", rec.Code)
+	}
+}
