@@ -140,3 +140,13 @@ func getEnvInt(key string, fallback int) (int, error) {
 	}
 	return n, nil
 }
+
+// Warnings: combinazioni ammesse ma probabilmente sbagliate, da segnalare
+// all'avvio (il server parte comunque).
+func (c Config) Warnings() []string {
+	var w []string
+	if c.LDAP.Host != "mock" && c.LDAP.BindDN != "" && strings.TrimSpace(c.LDAP.BaseDN) == "" {
+		w = append(w, "LDAP_BIND_DN impostato ma LDAP_BASE_DN vuoto: le ricerche in AD (nome, gruppi, suggerimenti) falliranno")
+	}
+	return w
+}

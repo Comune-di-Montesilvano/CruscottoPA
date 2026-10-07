@@ -28,6 +28,7 @@ type cachedProfile struct {
 type profileCache struct {
 	mu  sync.Mutex
 	m   map[string]cachedProfile
+	gen int // incrementato da reset: un caricamento iniziato prima non va salvato
 	now func() time.Time
 }
 
@@ -39,6 +40,7 @@ func (c *profileCache) get(username string, load func() (audience.Profile, error
 	key := strings.ToLower(username)
 	c.mu.Lock()
 	e, hit := c.m[key]
+	gen := c.gen
 	c.mu.Unlock()
 	if hit && c.now().Before(e.expires) {
 		return e.p, e.ok
@@ -52,7 +54,9 @@ func (c *profileCache) get(username string, load func() (audience.Profile, error
 		}
 	}
 	c.mu.Lock()
-	c.m[key] = e
+	if c.gen == gen {
+		c.m[key] = e
+	}
 	c.mu.Unlock()
 	return e.p, e.ok
 }
@@ -124,5 +128,6 @@ func (s *Server) viewerIsAdmin(r *http.Request) bool {
 func (c *profileCache) reset() {
 	c.mu.Lock()
 	c.m = map[string]cachedProfile{}
+	c.gen++
 	c.mu.Unlock()
 }

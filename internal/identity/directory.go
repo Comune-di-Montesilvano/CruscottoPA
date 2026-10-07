@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
@@ -122,17 +121,11 @@ func sortPeople(p []Person) {
 type LDAPDirectory struct {
 	cfg config.LDAP
 
-	mu     sync.Mutex
-	values map[string]cachedValues // per attributo, chiave minuscola
-}
-
-type cachedValues struct {
-	list []string
-	at   time.Time
+	values *valuesCache
 }
 
 func NewLDAPDirectory(cfg config.LDAP) *LDAPDirectory {
-	return &LDAPDirectory{cfg: cfg, values: map[string]cachedValues{}}
+	return &LDAPDirectory{cfg: cfg, values: newValuesCache(time.Now)}
 }
 
 func (d *LDAPDirectory) conn() (*ldap.Conn, error) {
@@ -269,27 +262,12 @@ func (d *LDAPDirectory) SearchUsers(q string) ([]Person, error) {
 	return out, nil
 }
 
-// AttributeValues: valori distinti tra gli utenti attivi; cache di 6 ore, e in
-// caso di errore l'ultimo elenco valido se c'è.
+// AttributeValues: valori distinti tra gli utenti attivi (cache, vedi valuesCache).
 func (d *LDAPDirectory) AttributeValues(attr string) ([]string, error) {
 	if !ValidAttrName(attr) {
 		return nil, fmt.Errorf("nome di attributo non valido: %q", attr)
 	}
-	key := strings.ToLower(attr)
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if c, ok := d.values[key]; ok && time.Since(c.at) < valuesTTL {
-		return c.list, nil
-	}
-	list, err := d.loadValues(attr)
-	if err != nil {
-		if c, ok := d.values[key]; ok {
-			return c.list, nil
-		}
-		return nil, err
-	}
-	d.values[key] = cachedValues{list: list, at: time.Now()}
-	return list, nil
+	return d.values.get(attr, func() ([]string, error) { return d.loadValues(attr) })
 }
 
 func (d *LDAPDirectory) loadValues(attr string) ([]string, error) {
