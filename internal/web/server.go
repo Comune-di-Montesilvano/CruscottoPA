@@ -40,6 +40,7 @@ type Server struct {
 	auth         auth.Authenticator
 	directory    identity.Directory
 	cookies      *identity.CookieCodec
+	profiles     *profileCache
 	limiter      *auth.RateLimiter
 	backup       *backup.Service
 	restoreDelay time.Duration
@@ -90,6 +91,7 @@ func New(o Options) (*Server, error) {
 	s.tmpl = tmpl
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
+	s.profiles = newProfileCache(o.Now)
 	s.routes()
 	return s, nil
 }
