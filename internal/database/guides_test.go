@@ -72,14 +72,14 @@ func TestMigrationV7GuideColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.SetGuideFetched(id, "# B", at); err != nil {
+	if err := db.SetGuideFetched(id, "https://github.com/o/r/blob/main/a.md", "# B", at); err != nil {
 		t.Fatal(err)
 	}
 	g, _ := db.GetGuide(id)
 	if g.Body != "# B" || g.FetchedAt == nil || !g.FetchedAt.Equal(at) || g.FetchError != "" || g.SourceURL == "" {
 		t.Fatalf("dopo fetch: %+v", g)
 	}
-	if err := db.SetGuideFetchError(id, "404"); err != nil {
+	if err := db.SetGuideFetchError(id, "https://github.com/o/r/blob/main/a.md", "404"); err != nil {
 		t.Fatal(err)
 	}
 	g, _ = db.GetGuide(id)
@@ -127,5 +127,27 @@ func TestValidGuideKind(t *testing.T) {
 	}
 	if ValidGuideKind("html") || ValidGuideKind("") {
 		t.Error("tipo non valido accettato")
+	}
+}
+
+// Review M2: un download partito prima di una modifica dell'admin (tipo o URL
+// cambiati) non deve sovrascrivere la guida.
+func TestSetGuideFetchedOnlyForSameSource(t *testing.T) {
+	db := newTestDB(t)
+	a := "https://github.com/o/r/blob/main/a.md"
+	id, _ := db.CreateGuide(Guide{Title: "G", Kind: GuideKindGitHub, SourceURL: a, Body: "# vecchio", Enabled: true})
+	g, _ := db.GetGuide(id)
+	g.Kind, g.SourceURL, g.Body = GuideKindMarkdown, "", "testo dell'admin"
+	if err := db.UpdateGuide(g); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetGuideFetched(id, a, "# da GitHub", time.Now()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("atteso ErrNotFound, %v", err)
+	}
+	if err := db.SetGuideFetchError(id, a, "timeout"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("errore: atteso ErrNotFound, %v", err)
+	}
+	if g, _ := db.GetGuide(id); g.Body != "testo dell'admin" || g.FetchError != "" {
+		t.Fatalf("guida sovrascritta: %+v", g)
 	}
 }

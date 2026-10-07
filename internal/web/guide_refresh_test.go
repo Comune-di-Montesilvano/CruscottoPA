@@ -16,9 +16,9 @@ func TestRefreshGuides(t *testing.T) {
 		o.GuideFetch = func(context.Context, string) (string, error) { calls++; return "# nuovo", nil }
 	})
 	stale, _ := db.CreateGuide(database.Guide{Title: "Vecchia", Kind: database.GuideKindGitHub, SourceURL: "https://github.com/o/r/blob/main/a.md", Body: "# vecchio", Enabled: true})
-	db.SetGuideFetched(stale, "# vecchio", fixedNow.Add(-7*time.Hour))
+	db.SetGuideFetched(stale, "https://github.com/o/r/blob/main/a.md", "# vecchio", fixedNow.Add(-7*time.Hour))
 	fresh, _ := db.CreateGuide(database.Guide{Title: "Fresca", Kind: database.GuideKindGitHub, SourceURL: "https://github.com/o/r/blob/main/b.md", Body: "# fresco", Enabled: true})
-	db.SetGuideFetched(fresh, "# fresco", fixedNow.Add(-time.Hour))
+	db.SetGuideFetched(fresh, "https://github.com/o/r/blob/main/b.md", "# fresco", fixedNow.Add(-time.Hour))
 	s.RefreshGuides(context.Background())
 	if g, _ := db.GetGuide(stale); g.Body != "# nuovo" {
 		t.Errorf("vecchia non aggiornata: %q", g.Body)

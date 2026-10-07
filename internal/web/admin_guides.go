@@ -216,7 +216,7 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 	default:
 		if g.Kind == database.GuideKindGitHub {
-			if err := s.db.SetGuideFetched(id, fetched, s.now()); err != nil {
+			if err := s.db.SetGuideFetched(id, g.SourceURL, fetched, s.now()); err != nil {
 				s.serverError(w, err)
 				return
 			}

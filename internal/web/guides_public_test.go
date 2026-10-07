@@ -12,7 +12,7 @@ func TestGuidePageMarkdownAndGitHub(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	md, _ := db.CreateGuide(database.Guide{Title: "Interna", Kind: database.GuideKindMarkdown, Body: "# Passi\n\n1. uno", Enabled: true})
 	gh, _ := db.CreateGuide(database.Guide{Title: "Repo", Kind: database.GuideKindGitHub, SourceURL: "https://github.com/o/r/blob/main/docs/a.md", Body: "![s](img/s.png) [altro](b.md)", Enabled: true})
-	db.SetGuideFetched(gh, "![s](img/s.png) [altro](b.md)", fixedNow)
+	db.SetGuideFetched(gh, "https://github.com/o/r/blob/main/docs/a.md", "![s](img/s.png) [altro](b.md)", fixedNow)
 	body := do(t, s, "GET", "/guide/"+itoa(md), nil, nil, nil).Body.String()
 	if !strings.Contains(body, "<h2") || !strings.Contains(body, "<ol>") || !strings.Contains(body, "Interna") {
 		t.Fatalf("markdown:\n%s", body)

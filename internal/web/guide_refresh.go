@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -16,11 +17,11 @@ func (s *Server) refreshGuide(ctx context.Context, g database.Guide) error {
 	if err == nil {
 		var body string
 		if body, err = s.fetchGuide(ctx, src.Raw); err == nil {
-			return s.db.SetGuideFetched(g.ID, body, s.now())
+			return ignoreChanged(s.db.SetGuideFetched(g.ID, g.SourceURL, body, s.now()))
 		}
 	}
 	slog.Warn("guida GitHub non aggiornata", "guida", g.ID, "err", err)
-	if serr := s.db.SetGuideFetchError(g.ID, err.Error()); serr != nil {
+	if serr := ignoreChanged(s.db.SetGuideFetchError(g.ID, g.SourceURL, err.Error())); serr != nil {
 		return serr
 	}
 	return err
@@ -62,4 +63,13 @@ func (s *Server) StartGuideRefresh(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// ignoreChanged: la guida è stata modificata (o eliminata) durante il
+// download, il risultato non serve più.
+func ignoreChanged(err error) error {
+	if errors.Is(err, database.ErrNotFound) {
+		return nil
+	}
+	return err
 }

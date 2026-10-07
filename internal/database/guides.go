@@ -142,14 +142,19 @@ WHERE g.kind = 'github' AND g.enabled = 1 AND (g.fetched_at IS NULL OR g.fetched
 ORDER BY g.fetched_at IS NOT NULL, g.fetched_at, g.id`, formatTime(before))
 }
 
-// SetGuideFetched salva la copia scaricata e azzera l'errore.
-func (db *DB) SetGuideFetched(id int64, body string, at time.Time) error {
-	return checkAffected(db.Exec(`UPDATE guides SET body = ?, fetched_at = ?, fetch_error = '' WHERE id = ?`, body, formatTime(at), id))
+// SetGuideFetched salva la copia scaricata da sourceURL e azzera l'errore.
+// Solo se la guida è ancora GitHub con lo stesso URL (un download in corso
+// non sovrascrive una modifica dell'admin); altrimenti ErrNotFound.
+func (db *DB) SetGuideFetched(id int64, sourceURL, body string, at time.Time) error {
+	return checkAffected(db.Exec(`UPDATE guides SET body = ?, fetched_at = ?, fetch_error = ''
+WHERE id = ? AND kind = 'github' AND source_url = ?`, body, formatTime(at), id, sourceURL))
 }
 
-// SetGuideFetchError registra un download fallito; il body resta quello di prima.
-func (db *DB) SetGuideFetchError(id int64, msg string) error {
-	return checkAffected(db.Exec(`UPDATE guides SET fetch_error = ? WHERE id = ?`, msg, id))
+// SetGuideFetchError registra un download fallito (stessa condizione di
+// SetGuideFetched); il body resta quello di prima.
+func (db *DB) SetGuideFetchError(id int64, sourceURL, msg string) error {
+	return checkAffected(db.Exec(`UPDATE guides SET fetch_error = ?
+WHERE id = ? AND kind = 'github' AND source_url = ?`, msg, id, sourceURL))
 }
 
 func (db *DB) DeleteGuide(id int64) error {
