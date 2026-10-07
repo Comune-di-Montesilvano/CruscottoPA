@@ -17,6 +17,7 @@ type alertForm struct {
 	Source   string
 	StartsAt string // formato inputTimeLayout, fuso s.loc()
 	EndsAt   string // "" = senza scadenza
+	Notify   bool   // "Invia notifica"
 
 	Visibility database.ContentAudience
 }
@@ -47,7 +48,7 @@ func (s *Server) newAlertForm() alertForm {
 }
 
 func (s *Server) formFromAlert(a database.Alert) alertForm {
-	f := alertForm{ID: a.ID, Title: a.Title, Body: a.Body, Level: a.Level, Source: a.Source,
+	f := alertForm{ID: a.ID, Title: a.Title, Body: a.Body, Level: a.Level, Source: a.Source, Notify: a.Notify,
 		StartsAt: a.StartsAt.In(s.loc()).Format(inputTimeLayout)}
 	if a.EndsAt != nil {
 		f.EndsAt = a.EndsAt.In(s.loc()).Format(inputTimeLayout)
@@ -139,6 +140,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 		Body:     strings.TrimSpace(strings.ReplaceAll(r.FormValue("body"), "\r\n", "\n")),
 		Level:    r.FormValue("level"),
 		Source:   strings.TrimSpace(r.FormValue("source")),
+		Notify:   r.FormValue("notify") == "1",
 		StartsAt: strings.TrimSpace(r.FormValue("starts_at")),
 		EndsAt:   strings.TrimSpace(r.FormValue("ends_at")),
 	}
@@ -180,17 +182,14 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a := database.Alert{ID: id, Title: form.Title, Body: form.Body, Level: form.Level, Source: form.Source, StartsAt: starts, EndsAt: ends}
+	a := database.Alert{ID: id, Title: form.Title, Body: form.Body, Level: form.Level, Source: form.Source, StartsAt: starts, EndsAt: ends, Notify: form.Notify}
 	if id == 0 {
 		a.CreatedAt = s.now()
 		a.CreatedBy = s.currentAdmin(r)
 		id, err = s.db.CreateAlertWithAudience(a, form.Visibility)
 	} else {
-		var old database.Alert
-		if old, err = s.db.GetAlert(id); err == nil {
-			a.Notify = old.Notify // gestito dal sotto-progetto 3
-			err = s.db.UpdateAlertWithAudience(a, form.Visibility)
-		}
+		// notified_at non cambia: un avviso già notificato non riparte.
+		err = s.db.UpdateAlertWithAudience(a, form.Visibility)
 	}
 	switch {
 	case errors.Is(err, database.ErrNotFound):

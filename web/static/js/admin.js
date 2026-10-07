@@ -131,6 +131,15 @@
 		clearTimeout(box.timer);
 		box.timer = setTimeout(() => { box.hidden = true; }, 8000);
 	}
+	// "Invia notifica": proposta per gli urgenti, finché l'admin non la cambia.
+	document.addEventListener("change", (e) => {
+		const box = e.target.closest("[data-notify]");
+		if (box) { box.dataset.touched = "1"; return; }
+		if (e.target.name !== "level") return;
+		const cb = e.target.form && e.target.form.querySelector("[data-notify]");
+		if (cb && !cb.dataset.touched) cb.checked = e.target.value === "urgent";
+	});
+
 	document.addEventListener("htmx:responseError", (e) => {
 		const status = e.detail.xhr ? e.detail.xhr.status : 0;
 		const what = status === 404 ? "elemento non trovato (forse già eliminato)"
