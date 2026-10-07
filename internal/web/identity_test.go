@@ -160,3 +160,23 @@ func TestIoLDAPDownExpiresAnonymousCookie(t *testing.T) {
 		t.Fatalf("LDAP giù: atteso 503 con il cookie scaduto, ottenuto %d %+v", rec.Code, c)
 	}
 }
+
+// L'aiuto per Firefox (sito da autorizzare per NTLM) serve solo a chi resta
+// anonimo con il riconoscimento attivo: lo decide il server con data-anonimo.
+func TestFirefoxHelpOnlyForAnonymous(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	if !strings.Contains(body, "data-anonimo") || !strings.Contains(body, "data-ff-help") || !strings.Contains(body, "network.automatic-ntlm-auth.trusted-uris") {
+		t.Fatal("senza cookie: aiuto Firefox atteso")
+	}
+	if body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Anonymous: true}), nil).Body.String(); !strings.Contains(body, "data-anonimo") {
+		t.Fatal("cookie anonimo: aiuto Firefox atteso")
+	}
+	if body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String(); strings.Contains(body, "data-anonimo") {
+		t.Fatal("utente riconosciuto: niente aiuto")
+	}
+	s2, _ := newTestServerWith(t, nil, func(o *Options) { o.Config.NTLMDomain = "" })
+	if body := do(t, s2, "GET", "/", nil, nil, nil).Body.String(); strings.Contains(body, "data-anonimo") {
+		t.Fatal("riconoscimento spento: niente aiuto")
+	}
+}

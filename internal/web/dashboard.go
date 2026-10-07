@@ -33,6 +33,7 @@ type dashboardView struct {
 	Calendar  calendarWidget
 	User      identity.User // identità dichiarata: solo per il saluto
 	Recognize bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
+	Anonymous bool          // riconoscimento attivo ma utente non riconosciuto: aiuto per Firefox
 	Filter    *contentFilter
 	Admin     bool // link al pannello admin nel footer
 }
@@ -85,6 +86,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Calendar:  cw,
 		User:      u,
 		Recognize: !known && s.canRecognize(r),
+		Anonymous: s.recognitionEnabled() && (!known || u.Anonymous),
 		Filter:    f,
 		Admin:     s.viewerIsAdmin(r),
 	})

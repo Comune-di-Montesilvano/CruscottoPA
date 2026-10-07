@@ -219,11 +219,40 @@
 		firstTry = Date.now() - last > 24 * 60 * 60 * 1000;
 		if (firstTry) localStorage.setItem(IO_KEY, String(Date.now()));
 	} catch (_) { firstTry = false; }
-	if (firstTry && document.body.hasAttribute("data-riconosci")) {
-		fetch("/io", { credentials: "same-origin" })
+	// Firefox manda NTLM solo ai siti autorizzati in about:config: a chi resta
+	// anonimo spieghiamo come farlo ("Riprova" rifà subito il tentativo).
+	const FF_KEY = "cruscotto-firefox-aiuto-chiuso";
+	function firefoxHelp() {
+		const box = document.querySelector("[data-ff-help]");
+		if (!box || !/Firefox\//.test(navigator.userAgent)) return;
+		try { if (localStorage.getItem(FF_KEY)) return; } catch (_) { /* lo mostriamo */ }
+		box.querySelector("[data-ff-host]").textContent = location.hostname;
+		const retry = box.querySelector("[data-ff-retry]");
+		retry.addEventListener("click", () => {
+			retry.disabled = true;
+			tryIo().then((ok) => {
+				if (ok) { location.reload(); return; }
+				box.querySelector("[data-ff-status]").hidden = false;
+				retry.disabled = false;
+			});
+		});
+		box.querySelector("[data-ff-dismiss]").addEventListener("click", () => {
+			try { localStorage.setItem(FF_KEY, "1"); } catch (_) { /* tornerà al prossimo accesso */ }
+			box.hidden = true;
+		});
+		box.hidden = false;
+	}
+	// tryIo: true se il server ha riconosciuto l'utente.
+	function tryIo() {
+		return fetch("/io", { credentials: "same-origin" })
 			.then((r) => (r.ok ? r.json() : null))
-			.then((j) => { if (j && j.riconosciuto) location.reload(); })
-			.catch(() => { /* resta anonimo */ });
+			.then((j) => !!(j && j.riconosciuto))
+			.catch(() => false);
+	}
+	if (firstTry && document.body.hasAttribute("data-riconosci")) {
+		tryIo().then((ok) => { if (ok) location.reload(); else firefoxHelp(); });
+	} else if (document.body.hasAttribute("data-anonimo")) {
+		firefoxHelp();
 	}
 
 	// "Mostra tutto": preferenza in un cookie letto dal server, poi ricarica.

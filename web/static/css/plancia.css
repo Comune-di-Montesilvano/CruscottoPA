@@ -200,3 +200,16 @@ dialog.notify-ask p { margin: 0 0 1rem; color: var(--p-text-2); line-height: 1.5
 .notify-ask-actions { display: flex; gap: .6rem; justify-content: flex-end; }
 .notify-ask-actions button { border: 1px solid var(--p-line); background: #fff; border-radius: 10px; padding: .55rem 1rem; font: inherit; cursor: pointer; }
 .notify-ask-actions .primary { background: var(--p-blue-2); border-color: var(--p-blue-2); color: #fff; font-weight: 600; }
+
+/* Aiuto per Firefox: autorizzare il sito per NTLM */
+.ff-help { display: flex; gap: .8rem; align-items: flex-start; background: #fff; border: 1px solid var(--p-line); border-left: 4px solid var(--p-blue-2); border-radius: 12px; padding: 1rem 1.1rem; margin: 1rem var(--p-gutter) 0; box-shadow: var(--p-shadow); color: var(--p-text-2); }
+.ff-help[hidden] { display: none; }
+.ff-help .material-icons { color: var(--p-blue-2); }
+.ff-help strong { color: var(--p-text); }
+.ff-help p { margin: .3rem 0 .5rem; }
+.ff-help ol { margin: 0 0 .8rem; padding-left: 1.2rem; line-height: 1.6; }
+.ff-help code { background: var(--p-page); border: 1px solid var(--p-line); border-radius: 6px; padding: .05rem .35rem; font-size: .88em; word-break: break-all; }
+.ff-help-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.ff-help-actions button { border: 1px solid var(--p-line); background: #fff; border-radius: 10px; padding: .45rem .9rem; font: inherit; cursor: pointer; }
+.ff-help-actions .primary { background: var(--p-blue-2); border-color: var(--p-blue-2); color: #fff; font-weight: 600; }
+.ff-help-status { color: #b42318; font-weight: 600; }

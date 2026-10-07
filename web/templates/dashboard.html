@@ -19,7 +19,7 @@
 	{{template "plancia_head"}}
 	<title>CruscottoPA{{template "title_ente"}}</title>
 </head>
-<body class="plancia"{{if .Recognize}} data-riconosci{{end}}>
+<body class="plancia"{{if .Recognize}} data-riconosci{{end}}{{if .Anonymous}} data-anonimo{{end}}>
 	<header class="hero">
 		<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span><span class="clock" data-clock>{{.Clock}}</span></div>
 		<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span></h1>
@@ -33,6 +33,24 @@
 	</label>
 	{{with .Filter}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}
 
+	{{if .Anonymous}}<aside class="ff-help" data-ff-help hidden aria-labelledby="ff-help-title">
+		<span class="material-icons" aria-hidden="true">info</span>
+		<div>
+			<strong id="ff-help-title">Firefox non ti fa riconoscere dalla plancia</strong>
+			<p>Per il saluto per nome e i contenuti del tuo ufficio, autorizza questo sito una volta sola:</p>
+			<ol>
+				<li>scrivi <code>about:config</code> nella barra degli indirizzi e accetta l'avviso;</li>
+				<li>cerca <code>network.automatic-ntlm-auth.trusted-uris</code>;</li>
+				<li>modifica il valore e inserisci <code data-ff-host></code> (se c'è già qualcosa, aggiungilo dopo una virgola);</li>
+				<li>torna qui e premi <strong>Riprova</strong>.</li>
+			</ol>
+			<p class="ff-help-status" data-ff-status hidden>Ancora non riconosciuto: controlla di aver scritto l'indirizzo esatto, poi riprova.</p>
+			<div class="ff-help-actions">
+				<button type="button" class="primary" data-ff-retry>Riprova</button>
+				<button type="button" data-ff-dismiss>Non mostrare più</button>
+			</div>
+		</div>
+	</aside>{{end}}
 	<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
 
 	<main class="layout">
@@ -57,13 +75,20 @@
 		</aside>
 	</main>
 
-	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}<span class="foot-notifiche" hidden> · <a class="foot-link" href="#" data-notifiche>Notifiche</a></span></footer>
+	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}</footer>
 	<dialog class="notify-ask" aria-labelledby="notify-ask-title">
 		<h2 id="notify-ask-title">Ricevi le notifiche degli avvisi?</h2>
 		<p>Ti avvisiamo subito di comunicazioni urgenti e manutenzioni, anche quando la plancia non è aperta.</p>
 		<div class="notify-ask-actions">
 			<button type="button" data-notify-no>Non ora</button>
 			<button type="button" class="primary" data-notify-yes autofocus>Attiva le notifiche</button>
+		</div>
+	</dialog>
+	<dialog class="notify-ask notify-blocked" aria-labelledby="notify-blocked-title">
+		<h2 id="notify-blocked-title">Le notifiche sono bloccate</h2>
+		<p>Così non ti arrivano gli avvisi urgenti e le manutenzioni. Per riattivarle: clic sull'icona del lucchetto a sinistra dell'indirizzo → <strong>Notifiche</strong> → <strong>Consenti</strong>, poi ricarica la pagina.</p>
+		<div class="notify-ask-actions">
+			<button type="button" class="primary" data-notify-no autofocus>Ho capito</button>
 		</div>
 	</dialog>
 </body>
