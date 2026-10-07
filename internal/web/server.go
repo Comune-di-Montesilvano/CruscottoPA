@@ -2,15 +2,18 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/gorilla/sessions"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
@@ -18,6 +21,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
 )
 
 // repoURL: repository del progetto, linkato dal footer della plancia.
@@ -54,6 +58,10 @@ type Server struct {
 	webDir       string
 	now          func() time.Time
 	mux          *http.ServeMux
+	hub          *notify.Hub   // plance collegate a /eventi
+	pusher       notify.Pusher // nil = Web Push spento
+	vapidPublic  string
+	notifyDone   chan struct{} // chiuso quando il dispatcher è terminato
 }
 
 func New(o Options) (*Server, error) {
@@ -95,8 +103,42 @@ func New(o Options) (*Server, error) {
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.profiles = newProfileCache(o.Now)
+	s.hub = notify.NewHub(2000)
+	if o.Config.VAPIDSubject != "" {
+		pub, priv, err := o.DB.EnsureVAPIDKeys(webpush.GenerateVAPIDKeys)
+		if err != nil {
+			return nil, fmt.Errorf("chiavi VAPID: %w", err)
+		}
+		s.vapidPublic = pub
+		s.pusher = &notify.WebPusher{Subject: o.Config.VAPIDSubject, PublicKey: pub, PrivateKey: priv}
+	}
 	s.routes()
 	return s, nil
+}
+
+// StartNotifications avvia il dispatcher delle notifiche (ogni 30 s).
+func (s *Server) StartNotifications(ctx context.Context) {
+	d := &notify.Dispatcher{Store: s.db, Hub: s.hub, Pusher: s.pusher, Visible: s.alertVisibleTo, Now: s.now}
+	s.notifyDone = make(chan struct{})
+	go func() {
+		defer close(s.notifyDone)
+		d.Run(ctx, 30*time.Second)
+	}()
+}
+
+// Close chiude i flussi SSE aperti (senza, lo shutdown attenderebbe ogni
+// client) e aspetta che il dispatcher, fermato dal ctx di StartNotifications,
+// finisca il ciclo in corso: dopo si può chiudere il database.
+func (s *Server) Close() {
+	s.hub.Close()
+	if s.notifyDone == nil {
+		return
+	}
+	select {
+	case <-s.notifyDone:
+	case <-time.After(5 * time.Second):
+		slog.Warn("notifiche: dispatcher ancora attivo allo spegnimento")
+	}
 }
 
 func (s *Server) loc() *time.Location { return s.cfg.Location }
@@ -117,6 +159,12 @@ func (s *Server) routes() {
 	s.mux.Handle("GET /favicon.ico", revalidate(http.HandlerFunc(s.handleFavicon)))
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 	s.mux.HandleFunc("GET /io", s.handleIo)
+	s.mux.HandleFunc("GET /eventi", s.handleEvents)
+	s.mux.HandleFunc("GET /push/chiave", s.handlePushKey)
+	s.mux.HandleFunc("POST /push/iscrizioni", s.handlePushSubscribe)
+	s.mux.HandleFunc("POST /push/iscrizioni/rimuovi", s.handlePushUnsubscribe)
+	s.mux.HandleFunc("GET /sw.js", s.handleServiceWorker)
+	s.mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
@@ -162,6 +210,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /admin/avvisi", s.requireAdmin(s.handleAlertsPage))
 	s.mux.HandleFunc("GET /admin/avvisi/{id}/modifica", s.requireAdmin(s.handleAlertEdit))
 	s.mux.HandleFunc("POST /admin/avvisi", s.requireAdmin(s.handleAlertSave))
+	s.mux.HandleFunc("POST /admin/notifiche/prova", s.requireAdmin(s.handlePushTest))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}", s.requireAdmin(s.handleAlertSave))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}/elimina", s.requireAdmin(s.handleAlertDelete))
 	s.mux.HandleFunc("GET /admin/calendario", s.requireAdmin(s.handleCalendarPage))

@@ -15,7 +15,7 @@ func TestProfileCache(t *testing.T) {
 	ok := func() (audience.Profile, error) { calls++; return audience.Profile{Username: "mrossi"}, nil }
 	fail := func() (audience.Profile, error) { calls++; return audience.Profile{}, errors.New("AD giù") }
 
-	if p, found := c.get("mrossi", ok); !found || p.Username != "mrossi" || calls != 1 {
+	if p, found, _ := c.get("mrossi", ok); !found || p.Username != "mrossi" || calls != 1 {
 		t.Fatal("primo caricamento")
 	}
 	now = now.Add(14 * time.Minute)
@@ -29,7 +29,7 @@ func TestProfileCache(t *testing.T) {
 		t.Fatal("dopo 15 minuti si ricarica")
 	}
 
-	if _, found := c.get("giu", fail); found || calls != 3 {
+	if _, found, down := c.get("giu", fail); found || !down || calls != 3 {
 		t.Fatal("errore: nessun profilo")
 	}
 	now = now.Add(30 * time.Second)

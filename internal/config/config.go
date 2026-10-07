@@ -40,6 +40,8 @@ type Config struct {
 	LDAP                LDAP
 	// NTLMDomain: dominio NetBIOS accettato da /io (vuoto = riconoscimento spento).
 	NTLMDomain string
+	// VAPIDSubject: contatto VAPID (mailto: o https:); vuoto = Web Push spento.
+	VAPIDSubject string
 }
 
 // Load legge le variabili d'ambiente, applica i default e valida i valori.
@@ -59,7 +61,8 @@ func Load() (Config, error) {
 			AdminGroup:     os.Getenv("LDAP_ADMIN_GROUP"),
 			AdminUsers:     splitList(os.Getenv("ADMIN_USERS")),
 		},
-		NTLMDomain: strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
+		NTLMDomain:   strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
+		VAPIDSubject: strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
 	}
 
 	var err error
@@ -147,6 +150,9 @@ func (c Config) Warnings() []string {
 	var w []string
 	if c.LDAP.Host != "mock" && c.LDAP.BindDN != "" && strings.TrimSpace(c.LDAP.BaseDN) == "" {
 		w = append(w, "LDAP_BIND_DN impostato ma LDAP_BASE_DN vuoto: le ricerche in AD (nome, gruppi, suggerimenti) falliranno")
+	}
+	if s := c.VAPIDSubject; s != "" && !strings.HasPrefix(s, "mailto:") && !strings.HasPrefix(s, "https:") {
+		w = append(w, "VAPID_SUBJECT deve iniziare con mailto: o https:")
 	}
 	return w
 }

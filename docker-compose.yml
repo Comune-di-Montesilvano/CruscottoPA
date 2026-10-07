@@ -51,6 +51,7 @@ services:
       - LDAP_ADMIN_GROUP=${LDAP_ADMIN_GROUP}
       - ADMIN_USERS=${ADMIN_USERS}
       - NTLM_DOMAIN=${NTLM_DOMAIN}
+      - VAPID_SUBJECT=${VAPID_SUBJECT}
     healthcheck:
       test: ["CMD", "/app/cruscottopa", "-healthcheck"]
       interval: 30s

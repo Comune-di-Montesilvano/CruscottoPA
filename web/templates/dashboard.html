@@ -3,11 +3,14 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
 	{{template "favicon"}}
+	<link rel="manifest" href="/manifest.webmanifest">
+	<meta name="theme-color" content="#1565c0">
 	<link rel="stylesheet" href="/static/fonts/material-icons.css">
 	<link rel="stylesheet" href="/static/css/app.css">
 	<link rel="stylesheet" href="/static/css/plancia.css">
 	<script src="/static/js/htmx.min.js" defer></script>
 	<script src="/static/js/dashboard.js" defer></script>
+	<script src="/static/js/notifiche.js" defer></script>
 {{end}}
 
 {{define "dashboard.html"}}<!doctype html>
@@ -54,6 +57,14 @@
 		</aside>
 	</main>
 
-	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}</footer>
+	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}<span class="foot-notifiche" hidden> · <a class="foot-link" href="#" data-notifiche>Notifiche</a></span></footer>
+	<dialog class="notify-ask" aria-labelledby="notify-ask-title">
+		<h2 id="notify-ask-title">Ricevi le notifiche degli avvisi?</h2>
+		<p>Ti avvisiamo subito di comunicazioni urgenti e manutenzioni, anche quando la plancia non è aperta.</p>
+		<div class="notify-ask-actions">
+			<button type="button" data-notify-no>Non ora</button>
+			<button type="button" class="primary" data-notify-yes autofocus>Attiva le notifiche</button>
+		</div>
+	</dialog>
 </body>
 </html>{{end}}

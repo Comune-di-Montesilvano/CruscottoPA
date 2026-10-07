@@ -113,6 +113,7 @@ func main() {
 		slog.Error("inizializzazione web", "err", err)
 		os.Exit(1)
 	}
+	srv.StartNotifications(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -131,6 +132,7 @@ func main() {
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	srv.Close() // chiude i flussi SSE, altrimenti Shutdown li aspetterebbe
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown", "err", err)
 	}

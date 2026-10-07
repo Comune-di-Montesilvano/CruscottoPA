@@ -7,7 +7,7 @@
 {{range .}}
 <tr>
 	<td><span class="pill pill-{{.Level}}">{{levelLabel .Level}}</span></td>
-	<td>{{.Title}}<br><small class="muted">{{alertSource .Source}} · di {{.CreatedBy}} · {{template "visibility_label" .Visibility}}</small></td>
+	<td>{{.Title}}<br><small class="muted">{{alertSource .Source}} · di {{.CreatedBy}} · {{template "visibility_label" .Visibility}}{{with .NotifiedAt}} · notificato il {{fmtDatePtr .}}{{end}}</small></td>
 	<td class="muted">{{fmtDate .StartsAt}}{{if .EndsAt}} → {{fmtDatePtr .EndsAt}}{{else}} → senza scadenza{{end}}</td>
 	<td><span class="tag{{if eq .Status "Scaduto"}}{{else if eq .Status "Programmato"}} warn{{end}}">{{.Status}}</span></td>
 	<td class="actions">
@@ -36,6 +36,8 @@
 		{{with .Errors.level}}<p class="field-error">{{.}}</p>{{end}}
 		<label>Fonte (facoltativa)<input name="source" value="{{.Form.Source}}" maxlength="60" placeholder="Servizio informatico"></label>
 		{{with .Errors.source}}<p class="field-error">{{.}}</p>{{end}}
+		<label class="inline"><input type="checkbox" name="notify" value="1" data-notify{{if .Form.Notify}} checked{{end}}>Invia notifica (quando l'avviso diventa attivo, a chi può vederlo)</label>
+		{{with .Form.NotifiedAt}}<p class="hint">Notifica già inviata il {{fmtDatePtr .}}: le modifiche, anche alle date, non la ripetono.</p>{{end}}
 		<label>Testo<textarea name="body" maxlength="2000" rows="5">{{.Form.Body}}</textarea></label>
 		{{with .Errors.body}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">Testo semplice: gli a capo vengono mantenuti, gli indirizzi https://… diventano link.</p>{{end}}
 		<div class="row">
@@ -69,5 +71,14 @@
 		<tbody>{{template "alert_rows" .Expired}}</tbody>
 	</table>
 	{{end}}
+
+	<h2 class="spaced">Notifiche</h2>
+	<div class="card">
+		<p class="hint">Prova le notifiche sui browser in cui hai attivato le notifiche dalla plancia.</p>
+		<button type="button" hx-post="/admin/notifiche/prova" hx-target="#push-test" hx-swap="innerHTML">Invia una notifica di prova a me</button>
+		<div id="push-test"></div>
+	</div>
 </div>
 {{end}}
+
+{{define "push_test_result"}}<p class="flash">{{.}}</p>{{end}}
