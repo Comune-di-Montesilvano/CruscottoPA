@@ -14,29 +14,30 @@ const (
 
 // Alert è un avviso della striscia in plancia. EndsAt nil = senza scadenza.
 type Alert struct {
-	ID        int64
-	Title     string
-	Body      string
-	Level     string
-	Source    string // fonte mostrata in plancia; "" = Servizio informatico
-	StartsAt  time.Time
-	EndsAt    *time.Time
-	Notify    bool
-	CreatedAt time.Time
-	CreatedBy string
+	ID         int64
+	Title      string
+	Body       string
+	Level      string
+	Source     string // fonte mostrata in plancia; "" = Servizio informatico
+	StartsAt   time.Time
+	EndsAt     *time.Time
+	Notify     bool
+	CreatedAt  time.Time
+	CreatedBy  string
+	NotifiedAt *time.Time // quando è partita la notifica; nil = non ancora
 
 	NotForViewer bool // calcolato dal web: avviso non destinato a chi guarda (niente popup)
 }
 
-const alertCols = `id, title, body, level, source, starts_at, ends_at, notify, created_at, created_by`
+const alertCols = `id, title, body, level, source, starts_at, ends_at, notify, created_at, created_by, notified_at`
 
 const levelOrder = `CASE level WHEN 'urgent' THEN 0 WHEN 'maintenance' THEN 1 ELSE 2 END`
 
 func scanAlert(s scanner) (Alert, error) {
 	var a Alert
 	var starts, created string
-	var ends sql.NullString
-	if err := s.Scan(&a.ID, &a.Title, &a.Body, &a.Level, &a.Source, &starts, &ends, &a.Notify, &created, &a.CreatedBy); err != nil {
+	var ends, notified sql.NullString
+	if err := s.Scan(&a.ID, &a.Title, &a.Body, &a.Level, &a.Source, &starts, &ends, &a.Notify, &created, &a.CreatedBy, &notified); err != nil {
 		return a, err
 	}
 	var err error
@@ -52,6 +53,13 @@ func scanAlert(s scanner) (Alert, error) {
 			return a, err
 		}
 		a.EndsAt = &e
+	}
+	if notified.Valid {
+		n, err := parseTime(notified.String)
+		if err != nil {
+			return a, err
+		}
+		a.NotifiedAt = &n
 	}
 	return a, nil
 }
@@ -133,4 +141,22 @@ WHERE id = ?`,
 
 func (db *DB) DeleteAlert(id int64) error {
 	return db.deleteContent(ContentAlert, "alerts", id)
+}
+
+// PendingNotifications: avvisi con notifica richiesta, attivi e non ancora notificati.
+func (db *DB) PendingNotifications(now time.Time) ([]Alert, error) {
+	n := formatTime(now)
+	return queryAlerts(db, `SELECT `+alertCols+` FROM alerts
+WHERE notify = 1 AND notified_at IS NULL AND starts_at <= ? AND (ends_at IS NULL OR ends_at > ?)
+ORDER BY starts_at, id`, n, n)
+}
+
+// MarkNotified marca l'avviso come notificato; false se lo era già (un solo invio).
+func (db *DB) MarkNotified(id int64, at time.Time) (bool, error) {
+	res, err := db.Exec(`UPDATE alerts SET notified_at = ? WHERE id = ? AND notified_at IS NULL`, formatTime(at), id)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
 }

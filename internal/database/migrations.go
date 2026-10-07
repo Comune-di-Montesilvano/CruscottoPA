@@ -14,6 +14,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV3CalendarAndSource,
 	migrateV4Branding,
 	migrateV5Audience,
+	migrateV6Notifications,
 }
 
 func (db *DB) migrate() error {
@@ -174,6 +175,33 @@ CREATE TABLE content_audience (
 	PRIMARY KEY (kind, content_id, group_id)
 );
 CREATE INDEX idx_content_audience_group ON content_audience(group_id);
+`)
+	return err
+}
+
+func migrateV6Notifications(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+ALTER TABLE alerts ADD COLUMN notified_at TEXT;
+-- Avvisi già attivi: niente notifiche arretrate al primo avvio.
+UPDATE alerts SET notified_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+WHERE starts_at <= strftime('%Y-%m-%dT%H:%M:%SZ', 'now');
+
+CREATE TABLE push_subscriptions (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	endpoint   TEXT    NOT NULL UNIQUE,
+	p256dh     TEXT    NOT NULL,
+	auth       TEXT    NOT NULL,
+	username   TEXT    NOT NULL DEFAULT '',
+	created_at TEXT    NOT NULL,
+	last_ok_at TEXT
+);
+CREATE INDEX idx_push_username ON push_subscriptions(username);
+
+CREATE TABLE vapid_keys (
+	id          INTEGER PRIMARY KEY CHECK (id = 1),
+	public_key  TEXT NOT NULL,
+	private_key TEXT NOT NULL
+);
 `)
 	return err
 }
