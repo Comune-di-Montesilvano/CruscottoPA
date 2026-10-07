@@ -7,6 +7,7 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.14
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/sessions v1.4.0
+	github.com/yuin/goldmark v1.8.6
 	modernc.org/sqlite v1.60.1
 )
 
