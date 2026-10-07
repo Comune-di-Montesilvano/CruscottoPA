@@ -34,6 +34,8 @@
 		<div data-kind-field="markdown">
 			<label>Testo<textarea name="body" rows="14" data-editor>{{.Form.Body}}</textarea></label>
 			{{with .Errors.body}}<p class="field-error">{{.}}</p>{{end}}
+			<div class="preview-bar"><button type="button" hx-post="/admin/anteprima" hx-include="closest form" hx-target="next .preview-slot" hx-swap="innerHTML">Anteprima</button></div>
+			<div class="preview-slot"></div>
 		</div>
 		<div data-kind-field="pdf">
 			<input type="hidden" name="file" value="{{.Form.File}}" data-pdf-name>

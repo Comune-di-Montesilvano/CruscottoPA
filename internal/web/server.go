@@ -244,6 +244,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /admin/backup/{name}", s.requireAdmin(s.handleBackupDownload))
 	s.mux.HandleFunc("POST /admin/backup/{name}/elimina", s.requireAdmin(s.handleBackupDelete))
 	s.mux.HandleFunc("POST /admin/backup/{name}/ripristina", s.requireAdmin(s.handleBackupRestore))
+	s.mux.HandleFunc("POST /admin/anteprima", s.requireAdmin(s.handlePreview))
 	s.mux.HandleFunc("POST /admin/media", s.requireAdmin(s.handleMediaStart))
 	s.mux.HandleFunc("POST /admin/media/{id}/pezzo", s.requireAdmin(s.handleMediaChunk))
 	s.mux.HandleFunc("POST /admin/media/{id}/fine", s.requireAdmin(s.handleMediaFinish))

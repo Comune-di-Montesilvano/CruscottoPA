@@ -42,6 +42,11 @@ jobs:
           CGO_ENABLED: 1
         run: go test ./... -race -v
 
+      # L'editor dell'admin si costruisce solo in container (stage "editor" del
+      # Dockerfile): una PR di Dependabot npm che lo rompe diventa rossa qui.
+      - name: Build editor
+        run: docker build --target editor .
+
       # Scan bloccante su dipendenze go.mod/go.sum — coglie CVE note prima
       # ancora di arrivare al build immagine (che scansiona di nuovo,
       # report-only, in release.yml).
