@@ -1,5 +1,5 @@
 # ── Stage 0: Editor dell'admin (Node solo qui) ───────────────────────────────
-FROM node:24-alpine AS editor
+FROM node:26-alpine AS editor
 WORKDIR /w
 COPY web/editor/package.json web/editor/pnpm-lock.yaml web/editor/pnpm-workspace.yaml ./
 RUN corepack enable && CI=true pnpm install --frozen-lockfile
