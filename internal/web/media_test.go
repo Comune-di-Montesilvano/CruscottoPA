@@ -159,3 +159,22 @@ func TestAlertDeleteCleansMedia(t *testing.T) {
 		t.Fatal("immagine dell'avviso eliminato ancora presente")
 	}
 }
+
+// Review I2: un pezzo rifiutato libera subito il posto e il file temporaneo,
+// altrimenti 8 immagini troppo grandi bloccherebbero gli upload per un'ora.
+func TestMediaFailedUploadFreesSlot(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	c := login(t, s)
+	big := append(append([]byte{}, pngBytes...), make([]byte, 3<<20)...)
+	for i := 0; i < maxMediaUploads+1; i++ {
+		if out := uploadMedia(t, s, c, "immagine", big); out["ok"] != false {
+			t.Fatalf("immagine troppo grande accettata: %v", out)
+		}
+	}
+	if out := uploadMedia(t, s, c, "pdf", pdfBytes); out["ok"] != true {
+		t.Fatalf("dopo upload falliti: %v", out)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(s.cfg.UploadDir, ".tmp")); len(entries) != 0 {
+		t.Errorf("file temporanei rimasti: %d", len(entries))
+	}
+}

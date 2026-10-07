@@ -93,15 +93,23 @@ func (s *Server) handleMediaStart(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMediaChunk(w http.ResponseWriter, r *http.Request) {
 	n, err := strconv.Atoi(r.URL.Query().Get("n"))
+	id := r.PathValue("id")
 	s.media.mu.Lock()
 	defer s.media.mu.Unlock()
-	u := s.media.byID[r.PathValue("id")]
+	u := s.media.byID[id]
+	// Un pezzo rifiutato chiude il caricamento: il posto e il file temporaneo
+	// si liberano subito (il client non riprende un caricamento a metà).
+	abort := func(msg string) {
+		delete(s.media.byID, id)
+		os.Remove(u.path)
+		mediaFail(w, msg)
+	}
 	switch {
 	case u == nil:
 		mediaFail(w, "Caricamento scaduto, riprova.")
 		return
 	case err != nil || n != u.next:
-		mediaFail(w, "Caricamento interrotto, riprova.")
+		abort("Caricamento interrotto, riprova.")
 		return
 	}
 	data, err := io.ReadAll(io.LimitReader(r.Body, mediaChunk+1))
@@ -110,7 +118,7 @@ func (s *Server) handleMediaChunk(w http.ResponseWriter, r *http.Request) {
 		limit = maxPDFBytes
 	}
 	if err != nil || len(data) > mediaChunk || u.size+int64(len(data)) > limit {
-		mediaFail(w, tooBigMsg(u.pdf))
+		abort(tooBigMsg(u.pdf))
 		return
 	}
 	f, err := os.OpenFile(u.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640)
@@ -122,7 +130,7 @@ func (s *Server) handleMediaChunk(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		slog.Error("media: scrittura pezzo", "err", err)
-		mediaFail(w, "Caricamento non riuscito.")
+		abort("Caricamento non riuscito.")
 		return
 	}
 	u.next++

@@ -138,6 +138,8 @@
 		return r;
 	}
 	async function uploadMedia(file, tipo) {
+		if (tipo === "pdf" && file.size > 20 * 1024 * 1024) throw new UploadError("File troppo grande (massimo 20 MB).");
+		if (tipo !== "pdf" && file.size > 2 * 1024 * 1024) throw new UploadError("Immagine troppo grande (massimo 2 MB).");
 		const start = await post("/admin/media", "tipo=" + tipo, "application/x-www-form-urlencoded");
 		for (let n = 0, off = 0; off < file.size; n++, off += start.chunk) {
 			await post(`/admin/media/${start.id}/pezzo?n=${n}`, file.slice(off, off + start.chunk), "application/octet-stream");
