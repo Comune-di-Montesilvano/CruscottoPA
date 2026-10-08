@@ -25,6 +25,7 @@ type Store interface {
 	ListPushSubscriptions() ([]database.PushSubscription, error)
 	DeletePushSubscription(endpoint string) error
 	TouchPushSubscription(endpoint string, at time.Time) error
+	RecordDelivery(alertID int64, username, endpoint, service, status string, now time.Time) error
 }
 
 // Dispatcher manda una sola volta la notifica degli avvisi che la richiedono,
@@ -148,14 +149,21 @@ func (d *Dispatcher) push(ctx context.Context, j pushJob, now time.Time) {
 	sctx, cancel := context.WithTimeout(ctx, pushTimeout)
 	defer cancel()
 	gone, err := d.Pusher.Send(sctx, j.sub, Payload(j.alert), j.alert.Level == database.LevelUrgent)
+	status := database.DeliverySent
 	switch {
 	case gone:
+		status = database.DeliveryGone
 		if err := d.Store.DeletePushSubscription(j.sub.Endpoint); err != nil {
 			slog.Warn("rimozione iscrizione push", "err", err)
 		}
 	case err != nil:
+		status = database.DeliveryFailed
 		slog.Warn("invio push", "err", err)
 	default:
 		d.Store.TouchPushSubscription(j.sub.Endpoint, now)
+	}
+	// Esito per la pagina Letture; la ricevuta arriva dal service worker.
+	if err := d.Store.RecordDelivery(j.alert.ID, j.sub.Username, j.sub.Endpoint, ServiceName(j.sub.Endpoint), status, now); err != nil {
+		slog.Warn("consegna push", "err", err)
 	}
 }

@@ -174,6 +174,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /eventi", s.handleEvents)
 	s.mux.HandleFunc("GET /push/chiave", s.handlePushKey)
 	s.mux.HandleFunc("POST /push/iscrizioni", s.handlePushSubscribe)
+	s.mux.HandleFunc("POST /push/ricevuta", s.handlePushReceipt)
 	s.mux.HandleFunc("POST /push/iscrizioni/rimuovi", s.handlePushUnsubscribe)
 	s.mux.HandleFunc("GET /sw.js", s.handleServiceWorker)
 	s.mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
