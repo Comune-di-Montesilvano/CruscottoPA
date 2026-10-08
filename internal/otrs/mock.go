@@ -16,6 +16,7 @@ type Mock struct {
 	Err        error              // se impostato, Create fallisce
 	FailUpdate bool               // simula il cliente non impostato
 	Tickets    map[string]*Ticket // per TicketID; nil = nessuna lettura
+	Replies    []MockReply        // risposte ricevute
 }
 
 // NewMock: OTRS finto per lo sviluppo; un ticket aperto compare nei propri ticket.
@@ -96,4 +97,31 @@ func (m *Mock) Attachment(ctx context.Context, email, id, articleID, fileID stri
 		}
 	}
 	return Attachment{}, ErrNotYours
+}
+
+type MockReply struct {
+	TicketID string
+	Reply    NewReply
+	Reopened bool
+}
+
+func (m *Mock) Reply(_ context.Context, email, id string, r NewReply) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Err != nil {
+		return m.Err
+	}
+	t, ok := m.Tickets[id]
+	if !ok || !strings.EqualFold(t.CustomerUserID, email) {
+		return ErrNotYours
+	}
+	reopened := t.Closed
+	if reopened {
+		t.Closed, t.State, t.StateType = false, "open", "open"
+	}
+	now := time.Now()
+	t.Changed = now
+	t.Articles = append(t.Articles, Article{ArticleID: fmt.Sprintf("%s%02d", id, len(t.Articles)+1), From: r.Name, Body: r.Body, Created: now})
+	m.Replies = append(m.Replies, MockReply{TicketID: id, Reply: r, Reopened: reopened})
+	return nil
 }

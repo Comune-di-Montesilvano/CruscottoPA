@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"sort"
 	"strconv"
 	"strings"
@@ -281,4 +282,40 @@ func (c *HTTPClient) Attachment(ctx context.Context, email, id, articleID, fileI
 		return Attachment{Filename: safeFilename(string(at.Filename)), ContentType: string(at.ContentType), Content: data}, nil
 	}
 	return Attachment{}, ErrNotYours
+}
+
+type NewReply struct {
+	Name, Email, Body string
+	Attachments       []Attachment
+}
+
+// Reply aggiunge un messaggio del cliente; un ticket chiuso torna "open".
+func (c *HTTPClient) Reply(ctx context.Context, email, id string, rep NewReply) error {
+	r, err := c.getRaw(ctx, id, false)
+	if err != nil {
+		return err
+	}
+	if !c.owned(r, email) {
+		return ErrNotYours
+	}
+	upd := map[string]any{"TicketID": string(r.TicketID), "Article": map[string]any{
+		"Subject": "Re: " + string(r.Title), "Body": rep.Body, "ContentType": "text/plain; charset=utf8",
+		"ArticleType": "webrequest", "SenderType": "customer",
+		"From": (&mail.Address{Name: rep.Name, Address: rep.Email}).String(),
+	}}
+	if string(r.StateType) == "closed" {
+		upd["Ticket"] = map[string]any{"State": "open"}
+	}
+	if len(rep.Attachments) > 0 {
+		atts := make([]map[string]any, len(rep.Attachments))
+		for i, a := range rep.Attachments {
+			atts[i] = map[string]any{"Filename": safeFilename(a.Filename), "ContentType": a.ContentType,
+				"Content": base64.StdEncoding.EncodeToString(a.Content)}
+		}
+		upd["Attachment"] = atts
+	}
+	var ignored map[string]any
+	cctx, cancel := context.WithTimeout(ctx, orDefault(c.CreateTimeout, CreateTimeout))
+	defer cancel()
+	return c.call(cctx, http.MethodPatch, c.Config.RouteUpdate, upd, &ignored, 1<<20)
 }
