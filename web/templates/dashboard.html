@@ -20,12 +20,12 @@
 	<title>CruscottoPA{{template "title_ente"}}</title>
 </head>
 <body class="plancia"{{if .Recognize}} data-riconosci{{end}}{{if .Anonymous}} data-anonimo{{end}}>
-	<header class="hero">
-		<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span></div>
+	<header class="hero hero-plancia">
 		<div class="hero-main">
 			<div>
+				<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span></div>
 				<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span></h1>
-				<p class="hero-date" data-date>{{.DateLabel}}</p>
+				{{with .Office}}<p class="hero-info">{{.}}</p>{{end}}
 			</div>
 			{{template "hero_today" .}}
 		</div>

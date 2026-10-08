@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
@@ -82,15 +83,35 @@ func TestTodayInHeroAndWidgetOrder(t *testing.T) {
 	db.CreateGuide(database.Guide{Title: "VPN da casa", Kind: "link", URL: "https://wiki/vpn", Enabled: true})
 	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
 	header := body[:strings.Index(body, "</header>")]
-	for _, want := range []string{`class="hero-today"`, "data-clock", "Settimana 41"} {
+	for _, want := range []string{`class="hero-today"`, "data-clock", "Settimana 41", "ottobre 2026"} {
 		if !strings.Contains(header, want) {
 			t.Errorf("testata: manca %q", want)
 		}
+	}
+	if strings.Contains(header, "data-date") || strings.Contains(header, "hero-info") {
+		t.Error("niente data sotto il saluto; per chi non è riconosciuto nemmeno l'ufficio")
 	}
 	if strings.Count(body, "data-clock") != 1 || strings.Contains(body, `class="widget today"`) {
 		t.Error("orologio e giorno solo nella testata")
 	}
 	if g, c := strings.Index(body, `class="widget guides"`), strings.Index(body, `id="widget-calendario"`); g < 0 || c < g {
 		t.Errorf("ordine dei widget: guide=%d calendario=%d", g, c)
+	}
+}
+
+// Sotto il saluto: ufficio e qualifica da AD (i valori tutti maiuscoli resi
+// leggibili).
+func TestHeroShowsOffice(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String()
+	header := body[:strings.Index(body, "</header>")]
+	if !strings.Contains(header, `<p class="hero-info">Tributi · Istruttore amministrativo</p>`) {
+		t.Fatalf("ufficio nella testata:\n%s", header)
+	}
+	if got := officeLine(audience.Profile{Attrs: map[string][]string{"department": {"Ragioneria"}}}); got != "Ragioneria" {
+		t.Errorf("department come ripiego: %q", got)
+	}
+	if got := officeLine(audience.Profile{}); got != "" {
+		t.Errorf("profilo vuoto: %q", got)
 	}
 }

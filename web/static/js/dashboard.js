@@ -4,10 +4,6 @@
 (() => {
 	"use strict";
 
-	const DAYS = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
-	const MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-		"luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
-
 	// Stesse soglie di greeting() in internal/web/dashboard.go.
 	const greeting = (h) => (h >= 6 && h < 13) ? "Buongiorno" : (h >= 13 && h < 18) ? "Buon pomeriggio" : "Buonasera";
 
@@ -16,7 +12,6 @@
 		const set = (sel, text) => { const el = document.querySelector(sel); if (el) el.textContent = text; };
 		set("[data-clock]", now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
 		set("[data-greeting]", greeting(now.getHours()));
-		set("[data-date]", `${DAYS[now.getDay()]} ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`);
 	}
 	tick();
 	setInterval(tick, 15000);

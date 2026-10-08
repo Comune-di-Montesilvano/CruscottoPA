@@ -80,7 +80,7 @@
 {{define "hero_today"}}
 <section class="hero-today" aria-label="Oggi">
 	<div class="today-num">{{.Today.Day}}</div>
-	<div class="today-text"><div class="today-wd">{{.Today.Weekday}}</div><small>Settimana {{.Today.Week}} · giorno {{.Today.YearDay}} di {{.Today.YearDays}}</small></div>
+	<div class="today-text"><div class="today-month">{{.Today.Month}}</div><div class="today-wd">{{.Today.Weekday}}</div><small>Settimana {{.Today.Week}} · giorno {{.Today.YearDay}} di {{.Today.YearDays}}</small></div>
 	<div class="clock" data-clock>{{.Clock}}</div>
 </section>
 {{end}}
