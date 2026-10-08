@@ -32,6 +32,8 @@ type OTRS struct {
 	URL           string // base del web service, senza "/" finale; "mock" = client finto (solo sviluppo)
 	RouteCreate   string // route POST di TicketCreate
 	RouteUpdate   string // route PATCH di TicketUpdate
+	RouteSearch   string // route POST di TicketSearch
+	RouteGet      string // route GET di TicketGet, con :TicketID
 	User          string
 	Password      string
 	Queue         string
@@ -54,10 +56,14 @@ func (o OTRS) validate(ldapMock bool) error {
 	if !strings.HasPrefix(o.URL, "https://") {
 		return errors.New("OTRS_URL deve iniziare con https://")
 	}
-	for _, r := range []struct{ name, val string }{{"OTRS_ROUTE_CREATE", o.RouteCreate}, {"OTRS_ROUTE_UPDATE", o.RouteUpdate}} {
+	for _, r := range []struct{ name, val string }{{"OTRS_ROUTE_CREATE", o.RouteCreate}, {"OTRS_ROUTE_UPDATE", o.RouteUpdate},
+		{"OTRS_ROUTE_SEARCH", o.RouteSearch}, {"OTRS_ROUTE_GET", o.RouteGet}} {
 		if !strings.HasPrefix(r.val, "/") {
 			return fmt.Errorf("%s deve iniziare con /", r.name)
 		}
+	}
+	if !strings.Contains(o.RouteGet, ":TicketID") {
+		return errors.New("OTRS_ROUTE_GET deve contenere :TicketID")
 	}
 	for _, r := range []struct{ name, val string }{{"OTRS_USER", o.User}, {"OTRS_PASSWORD", o.Password}, {"OTRS_QUEUE", o.Queue}} {
 		if r.val == "" {
@@ -111,6 +117,8 @@ func Load() (Config, error) {
 			URL:           strings.TrimRight(strings.TrimSpace(os.Getenv("OTRS_URL")), "/"),
 			RouteCreate:   getEnv("OTRS_ROUTE_CREATE", "/TicketCreate"),
 			RouteUpdate:   getEnv("OTRS_ROUTE_UPDATE", "/TicketUpdate"),
+			RouteSearch:   getEnv("OTRS_ROUTE_SEARCH", "/TicketSearch"),
+			RouteGet:      getEnv("OTRS_ROUTE_GET", "/Ticket/:TicketID"),
 			User:          os.Getenv("OTRS_USER"),
 			Password:      os.Getenv("OTRS_PASSWORD"),
 			Queue:         strings.TrimSpace(os.Getenv("OTRS_QUEUE")),

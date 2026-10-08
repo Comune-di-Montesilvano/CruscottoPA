@@ -57,6 +57,8 @@ services:
       - OTRS_URL=${OTRS_URL}
       - OTRS_ROUTE_CREATE=${OTRS_ROUTE_CREATE:-/TicketCreate}
       - OTRS_ROUTE_UPDATE=${OTRS_ROUTE_UPDATE:-/TicketUpdate}
+      - OTRS_ROUTE_SEARCH=${OTRS_ROUTE_SEARCH:-/TicketSearch}
+      - OTRS_ROUTE_GET=${OTRS_ROUTE_GET:-/Ticket/:TicketID}
       - OTRS_USER=${OTRS_USER}
       - OTRS_PASSWORD=${OTRS_PASSWORD}
       - OTRS_QUEUE=${OTRS_QUEUE}

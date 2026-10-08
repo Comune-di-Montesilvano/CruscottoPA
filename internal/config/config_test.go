@@ -11,7 +11,7 @@ var allVars = []string{
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
 	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT", "GUIDE_REFRESH_HOURS",
-	"OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
+	"OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
 }
 
 func TestLoadOTRSDisabledByDefault(t *testing.T) {
@@ -23,6 +23,9 @@ func TestLoadOTRSDisabledByDefault(t *testing.T) {
 	}
 	if cfg.OTRS.Enabled() || cfg.OTRS.RouteCreate != "/TicketCreate" || cfg.OTRS.RouteUpdate != "/TicketUpdate" {
 		t.Fatalf("default OTRS: %+v", cfg.OTRS)
+	}
+	if cfg.OTRS.RouteSearch != "/TicketSearch" || cfg.OTRS.RouteGet != "/Ticket/:TicketID" {
+		t.Fatalf("route di lettura: %+v", cfg.OTRS)
 	}
 }
 
@@ -48,6 +51,9 @@ func TestLoadOTRSValidation(t *testing.T) {
 		{"OTRS_QUEUE", "", "OTRS_QUEUE"},
 		{"OTRS_ROUTE_CREATE", "TicketCreate", "OTRS_ROUTE_CREATE"},
 		{"OTRS_ROUTE_UPDATE", "x", "OTRS_ROUTE_UPDATE"},
+		{"OTRS_ROUTE_SEARCH", "TicketSearch", "OTRS_ROUTE_SEARCH"},
+		{"OTRS_ROUTE_GET", "/Ticket", ":TicketID"},
+		{"OTRS_ROUTE_GET", "Ticket/:TicketID", "OTRS_ROUTE_GET"},
 		{"OTRS_URL", "mock", "mock"}, // mock solo con LDAP_HOST=mock
 	} {
 		base(t)
