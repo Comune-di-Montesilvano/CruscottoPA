@@ -82,8 +82,37 @@
 			const p = await Notification.requestPermission();
 			if (p === "granted") await subscribe().catch(() => {});
 			else notNow();
+			refreshOff();
 		});
 	}
+	// Avviso fisso nella testata finché le notifiche non sono attive: al clic
+	// chiede il permesso o, se il browser le ha bloccate, spiega come sbloccarle.
+	const offBtn = document.querySelector("[data-notify-off]");
+	function refreshOff() {
+		if (offBtn) offBtn.hidden = !supported || active();
+	}
+	refreshOff();
+	if (offBtn) {
+		offBtn.addEventListener("click", async () => {
+			if (Notification.permission === "denied") {
+				if (blocked && !blocked.open) blocked.showModal();
+				return;
+			}
+			const p = await Notification.requestPermission();
+			if (p === "granted") await subscribe().catch(() => {});
+			refreshOff();
+		});
+	}
+	// Permesso cambiato dalle impostazioni del browser (es. sbloccato dal lucchetto).
+	if (supported && navigator.permissions) {
+		navigator.permissions.query({ name: "notifications" }).then((st) => {
+			st.onchange = () => {
+				refreshOff();
+				if (active()) subscribe().catch(() => {});
+			};
+		}).catch(() => { /* API non disponibile: si aggiorna al prossimo caricamento */ });
+	}
+
 	for (const d of [ask, blocked]) {
 		if (!d) continue;
 		d.querySelector("[data-notify-no]").addEventListener("click", () => { notNow(); d.close(); });

@@ -30,6 +30,15 @@ body.plancia {
 .hero-chips { display: inline-flex; flex-wrap: wrap; gap: .4rem; }
 .hero-chip { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .65rem .15rem .5rem; border-radius: 999px; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .18); font-size: .82rem; }
 .hero-chip .material-icons { font-size: 15px; opacity: .85; }
+/* Notifiche non attive: avviso rosso fisso che pulsa piano finché non si attivano. */
+.notify-off { display: inline-flex; align-items: center; gap: .45rem; margin-top: .6rem; padding: .4rem .5rem .4rem .7rem; border: 0; border-radius: 999px; background: #d92d20; color: #fff; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; box-shadow: 0 0 0 0 rgba(217, 45, 32, .6); animation: notify-pulse 2.6s ease-in-out infinite; }
+.notify-off[hidden] { display: none; }
+.notify-off .material-icons { font-size: 18px; }
+.notify-off-cta { background: #fff; color: #b42318; border-radius: 999px; padding: .1rem .65rem; font-size: .78rem; }
+.notify-off:hover .notify-off-cta, .notify-off:focus-visible .notify-off-cta { background: #fee4e2; }
+.notify-off:focus-visible { outline: 3px solid rgba(255, 255, 255, .7); outline-offset: 2px; }
+@keyframes notify-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(217, 45, 32, .55); } 50% { opacity: .62; box-shadow: 0 0 0 8px rgba(217, 45, 32, 0); } }
+@media (prefers-reduced-motion: reduce) { .notify-off { animation: none; } }
 .hero-today small { opacity: .8; font-size: .78rem; }
 .hero .clock { font-size: 1.9rem; font-weight: 300; font-variant-numeric: tabular-nums; padding-left: .95rem; margin-left: .15rem; border-left: 1px solid rgba(255, 255, 255, .25); }
 .hello { margin: 0; font-size: 2rem; font-weight: 600; letter-spacing: -.01em; }

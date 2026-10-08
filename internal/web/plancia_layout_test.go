@@ -274,3 +274,27 @@ func TestHeroLine(t *testing.T) {
 		t.Error("niente contenitore delle etichette senza interno né email")
 	}
 }
+
+// Notifiche non attive: avviso rosso fisso nella testata, che pulsa piano
+// (fermo con prefers-reduced-motion). Lo mostra notifiche.js; al clic chiede
+// il permesso o, se bloccate, spiega come sbloccarle.
+func TestNotifyOffAlert(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	header := body[:strings.Index(body, "</header>")]
+	if !strings.Contains(header, `<button type="button" class="notify-off" data-notify-off hidden>`) || !strings.Contains(header, "Notifiche non attive") {
+		t.Fatalf("avviso notifiche nella testata:\n%s", header)
+	}
+	css, _ := os.ReadFile("../../web/static/css/plancia.css")
+	for _, want := range []string{"@keyframes notify-pulse", ".notify-off { ", "animation: notify-pulse", "@media (prefers-reduced-motion: reduce) { .notify-off { animation: none; } }"} {
+		if !strings.Contains(string(css), want) {
+			t.Errorf("plancia.css: manca %q", want)
+		}
+	}
+	js, _ := os.ReadFile("../../web/static/js/notifiche.js")
+	for _, want := range []string{`querySelector("[data-notify-off]")`, "function refreshOff()", "blocked.showModal()", `permissions.query({ name: "notifications" })`} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("notifiche.js: manca %q", want)
+		}
+	}
+}
