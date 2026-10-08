@@ -82,9 +82,26 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 			return
 		}
-		next(w, r)
+		next(&validationWriter{ResponseWriter: w}, r)
 	}
 }
+
+// validationWriter: nell'admin il 422 (dati rifiutati, errori nel form)
+// diventa 200 con X-Esito: non-valido. In produzione il reverse proxy
+// sostituisce ogni 4xx con la pagina di cortesia: l'admin vedrebbe un errore
+// generico invece dei campi da correggere (verificato il 2026-10-08).
+type validationWriter struct{ http.ResponseWriter }
+
+func (v *validationWriter) WriteHeader(code int) {
+	if code == http.StatusUnprocessableEntity {
+		v.Header().Set("X-Esito", "non-valido")
+		code = http.StatusOK
+	}
+	v.ResponseWriter.WriteHeader(code)
+}
+
+// Unwrap: http.ResponseController (flush, deadline) raggiunge il writer vero.
+func (v *validationWriter) Unwrap() http.ResponseWriter { return v.ResponseWriter }
 
 // cookieWouldBeDropped: cookie Secure su HTTP in chiaro verso un host diverso da
 // localhost — il browser lo scarta e il login tornerebbe in silenzio alla pagina d'accesso.

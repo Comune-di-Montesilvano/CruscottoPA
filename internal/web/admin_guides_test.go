@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"errors"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -66,7 +65,7 @@ func TestGuideValidation(t *testing.T) {
 	c := login(t, s)
 	rec := do(t, s, "POST", "/admin/guide", url.Values{"title": {""}, "url": {"wiki/vpn"}, "app_id": {"999"}}, c, hx)
 	body := rec.Body.String()
-	if rec.Code != http.StatusUnprocessableEntity {
+	if !invalid(rec) {
 		t.Fatalf("atteso 422, ottenuto %d", rec.Code)
 	}
 	for _, want := range []string{"Campo obbligatorio.", "Inserisci l&#39;indirizzo completo", "Applicativo non trovato."} {
@@ -75,7 +74,7 @@ func TestGuideValidation(t *testing.T) {
 		}
 	}
 	rec = do(t, s, "POST", "/admin/guide", url.Values{"title": {"x"}, "url": {""}, "app_id": {"0"}}, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity {
+	if !invalid(rec) {
 		t.Fatal("per le guide l'URL è obbligatorio")
 	}
 }
@@ -120,7 +119,7 @@ func TestGuideKindValidation(t *testing.T) {
 		"github 404":     {"kind": {"github"}, "title": {"X"}, "source_url": {"https://github.com/o/r/blob/main/a.md"}},
 		"tipo":           {"kind": {"html"}, "title": {"X"}},
 	} {
-		if rec := do(t, s, "POST", "/admin/guide", form, c, hx); rec.Code != 422 {
+		if rec := do(t, s, "POST", "/admin/guide", form, c, hx); !invalid(rec) {
 			t.Errorf("%s: atteso 422, %d", name, rec.Code)
 		}
 	}
@@ -185,7 +184,7 @@ func TestGuideEditWhileGitHubDown(t *testing.T) {
 	}
 	// Link nuovo: il download serve, quindi l'errore blocca il salvataggio.
 	rec = do(t, s, "POST", "/admin/guide/"+id, url.Values{"kind": {"github"}, "title": {"X"}, "source_url": {"https://github.com/o/r/blob/main/b.md"}}, c, hx)
-	if rec.Code != 422 {
+	if !invalid(rec) {
 		t.Fatalf("link nuovo con GitHub giù: atteso 422, %d", rec.Code)
 	}
 }

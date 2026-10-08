@@ -122,7 +122,7 @@ func TestEnteValidation(t *testing.T) {
 		{strings.Repeat("x", 121), pngBytes, "Massimo 120 caratteri"},
 	} {
 		rec := postEnte(t, s, map[string]string{"ente_name": tc.name}, tc.logo, c)
-		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), tc.msg) {
+		if !invalid(rec) || !strings.Contains(rec.Body.String(), tc.msg) {
 			t.Fatalf("%q: atteso 422, ottenuto %d\n%s", tc.msg, rec.Code, rec.Body)
 		}
 	}
@@ -160,7 +160,7 @@ func TestEnteWebSearch(t *testing.T) {
 		{"web_search": "https://www.google.com/search?q=%s", "site_search": "https://www.comune.example.it/search"}, // ricerca del sito senza %s
 	} {
 		bad["ente_name"] = "Comune"
-		if rec := postMultipart(t, s, "/admin/ente", bad, nil, c); rec.Code != 422 {
+		if rec := postMultipart(t, s, "/admin/ente", bad, nil, c); !invalid(rec) {
 			t.Errorf("%v: atteso 422, %d", bad, rec.Code)
 		}
 	}

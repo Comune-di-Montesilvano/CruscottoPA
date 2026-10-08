@@ -58,7 +58,7 @@ func TestUploadRestoreFlow(t *testing.T) {
 		t.Fatalf("pezzo 0: %d %s", rec.Code, rec.Body)
 	}
 	rec := do(t, s, "POST", "/admin/backup/upload/"+id+"/fine", url.Values{"conferma": {"no"}}, c, nil)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "digita RIPRISTINA") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "digita RIPRISTINA") {
 		t.Fatalf("conferma errata: %d\n%s", rec.Code, rec.Body)
 	}
 
@@ -86,7 +86,7 @@ func TestUploadRejectsInvalidArchive(t *testing.T) {
 	id, _ := startUpload(t, s, c)
 	postRaw(t, s, "/admin/backup/upload/"+id+"/chunk?n=0", []byte("non è un backup"), c)
 	rec := do(t, s, "POST", "/admin/backup/upload/"+id+"/fine", url.Values{"conferma": {"RIPRISTINA"}}, c, nil)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Archivio rifiutato") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Archivio rifiutato") {
 		t.Fatalf("archivio non valido: %d\n%s", rec.Code, rec.Body)
 	}
 	select {

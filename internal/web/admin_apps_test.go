@@ -75,7 +75,7 @@ func TestCreateAppValidation(t *testing.T) {
 		"title": "", "url": "www.comune.it", "icon_value_pack": "non_esiste_xyz", "category_id": "999",
 	}), nil, c)
 	body := rec.Body.String()
-	if rec.Code != http.StatusUnprocessableEntity {
+	if !invalid(rec) {
 		t.Fatalf("atteso 422, ottenuto %d", rec.Code)
 	}
 	for _, want := range []string{"Campo obbligatorio.", "Inserisci l&#39;indirizzo completo", "Scegli un&#39;icona dal catalogo.", "Scegli una categoria."} {
@@ -97,18 +97,18 @@ func TestAppUploadLifecycle(t *testing.T) {
 
 	// 1) upload senza file → errore
 	rec := postMultipart(t, s, path, appFields(db, map[string]string{"icon_kind": "upload"}), nil, c)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Carica un file") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Carica un file") {
 		t.Fatalf("upload senza file: %d", rec.Code)
 	}
 	// 2) tipo non ammesso
 	rec = postMultipart(t, s, path, appFields(db, map[string]string{"icon_kind": "upload"}), []byte("ciao"), c)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Formato non ammesso") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Formato non ammesso") {
 		t.Fatalf("tipo non ammesso: %d", rec.Code)
 	}
 	// 3) troppo grande
 	big := append(append([]byte{}, pngBytes...), make([]byte, maxIconBytes)...)
 	rec = postMultipart(t, s, path, appFields(db, map[string]string{"icon_kind": "upload"}), big, c)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "troppo grande") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "troppo grande") {
 		t.Fatalf("file grande: %d", rec.Code)
 	}
 	// 4) PNG valido
@@ -185,7 +185,7 @@ func TestAppIconURLMustBeHTTPS(t *testing.T) {
 	c := login(t, s)
 	apps, _ := db.ListApps()
 	rec := postMultipart(t, s, "/admin/app/"+itoa(apps[0].ID), appFields(db, map[string]string{"icon_kind": "url", "icon_value_url": "http://example.it/logo.png"}), nil, c)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "https://") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "https://") {
 		t.Fatalf("icona http: atteso 422, ottenuto %d", rec.Code)
 	}
 }
@@ -214,7 +214,7 @@ func TestAppIconBackground(t *testing.T) {
 	if got, _ := db.GetApp(a.ID); got.IconBg != "" {
 		t.Fatalf("senza casella: %q", got.IconBg)
 	}
-	if rec := postMultipart(t, s, "/admin/app", appFields(db, map[string]string{"icon_bg_on": "1", "icon_bg": "rosso"}), nil, c); rec.Code != 422 {
+	if rec := postMultipart(t, s, "/admin/app", appFields(db, map[string]string{"icon_bg_on": "1", "icon_bg": "rosso"}), nil, c); !invalid(rec) {
 		t.Fatalf("colore non valido: %d", rec.Code)
 	}
 }

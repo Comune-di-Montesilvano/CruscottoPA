@@ -62,7 +62,7 @@ func TestAlertValidation(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			rec := do(t, s, "POST", "/admin/avvisi", alertValues(tc.overrides), c, hx)
-			if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), tc.msg) {
+			if !invalid(rec) || !strings.Contains(rec.Body.String(), tc.msg) {
 				t.Fatalf("atteso 422 con %q, ottenuto %d\n%s", tc.msg, rec.Code, rec.Body)
 			}
 		})
@@ -125,7 +125,7 @@ func TestAlertSourceField(t *testing.T) {
 		t.Fatalf("DB: %+v", current)
 	}
 	rec = do(t, s, "POST", "/admin/avvisi", alertValues(map[string]string{"source": strings.Repeat("x", 61)}), c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Massimo 60 caratteri.") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Massimo 60 caratteri.") {
 		t.Fatalf("fonte troppo lunga: %d", rec.Code)
 	}
 }
