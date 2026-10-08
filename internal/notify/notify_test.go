@@ -107,14 +107,25 @@ func (f *fakeStore) RecordDelivery(_ int64, _, endpoint, _, status string, _ tim
 	return nil
 }
 
+func (f *fakeStore) SetDeliveryStatus(_ int64, endpoint, status string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.records[endpoint] = status
+	return nil
+}
+
 type fakePusher struct {
-	mu   sync.Mutex
-	sent []string
-	gone map[string]bool
-	wait chan struct{} // se non nil, ogni invio aspetta che venga chiuso
+	mu     sync.Mutex
+	sent   []string
+	gone   map[string]bool
+	wait   chan struct{} // se non nil, ogni invio aspetta che venga chiuso
+	before func(string)  // se non nil, chiamata all'inizio di ogni invio
 }
 
 func (p *fakePusher) Send(_ context.Context, s database.PushSubscription, _ []byte, _ bool) (bool, error) {
+	if p.before != nil {
+		p.before(s.Endpoint)
+	}
 	if p.wait != nil {
 		<-p.wait
 	}
@@ -275,5 +286,29 @@ func TestServiceName(t *testing.T) {
 		if got := ServiceName(in); got != want {
 			t.Errorf("ServiceName(%q) = %q, atteso %q", in, got, want)
 		}
+	}
+}
+
+// La riga di consegna esiste già quando parte l'invio: una ricevuta del
+// service worker più veloce della risposta del servizio push non si perde.
+func TestDispatcherRecordsBeforeSend(t *testing.T) {
+	st := &fakeStore{
+		pending: []database.Alert{{ID: 1, Title: "x", Level: database.LevelNews, Notify: true}},
+		marked:  map[int64]bool{},
+		subs:    []database.PushSubscription{{Endpoint: "https://p/mrossi", Username: "mrossi"}},
+	}
+	pu := &fakePusher{before: func(ep string) {
+		st.mu.Lock()
+		defer st.mu.Unlock()
+		if st.records[ep] == "" {
+			t.Errorf("consegna non registrata prima dell'invio a %s", ep)
+		}
+	}}
+	d := &Dispatcher{Store: st, Hub: NewHub(1), Pusher: pu, Now: time.Now, Visible: visibleTo("mrossi")}
+	if err := d.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if st.records["https://p/mrossi"] != database.DeliverySent {
+		t.Fatalf("esito finale: %v", st.records)
 	}
 }

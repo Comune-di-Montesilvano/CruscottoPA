@@ -7,7 +7,7 @@
 {{range .}}
 <tr>
 	<td><span class="pill pill-{{.Level}}">{{levelLabel .Level}}</span></td>
-	<td>{{.Title}}<br><small class="muted">{{alertSource .Source}} · di {{.CreatedBy}} · {{template "visibility_label" .Visibility}}{{with .NotifiedAt}} · notificato il {{fmtDatePtr .}}{{end}} · <a href="/admin/avvisi/{{.ID}}/letture">Letto da {{.Reads}}{{if .Deliveries.Sent}} · notifiche ricevute {{.Deliveries.Received}}/{{.Deliveries.Sent}}{{end}}</a></small></td>
+	<td>{{.Title}}<br><small class="muted">{{alertSource .Source}} · di {{.CreatedBy}} · {{template "visibility_label" .Visibility}}{{with .NotifiedAt}} · notificato il {{fmtDatePtr .}}{{end}} · <a href="/admin/avvisi/{{.ID}}/letture">{{if .Trackable}}Letto da {{.Reads}}{{else}}lettura non rilevabile{{end}}{{if .Deliveries.Sent}} · notifiche ricevute {{.Deliveries.Received}}/{{.Deliveries.Sent}}{{end}}</a></small></td>
 	<td class="muted">{{fmtDate .StartsAt}}{{if .EndsAt}} → {{fmtDatePtr .EndsAt}}{{else}} → senza scadenza{{end}}</td>
 	<td><span class="tag{{if eq .Status "Scaduto"}}{{else if eq .Status "Programmato"}} warn{{end}}">{{.Status}}</span></td>
 	<td class="actions">

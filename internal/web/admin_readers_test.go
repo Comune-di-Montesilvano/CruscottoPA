@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -11,7 +12,7 @@ import (
 func TestAlertReadersPage(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	c := login(t, s)
-	id, _ := db.CreateAlert(database.Alert{Title: "Sciopero", Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	id, _ := db.CreateAlert(database.Alert{Title: "Sciopero", Body: strings.Repeat("parola ", 60), Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
 	db.TouchPresence("mrossi", "Mario Rossi", fixedNow)
 	db.TouchPresence("senzanome", "", fixedNow)
 	db.MarkRead(id, "mrossi", database.ReadConfirm, fixedNow)
@@ -58,5 +59,56 @@ func TestUsersPanel(t *testing.T) {
 	}
 	if body := do(t, s, "GET", "/admin", nil, c, nil).Body.String(); !strings.Contains(body, `href="/admin/utenti"`) {
 		t.Error("voce Utenti nel menu")
+	}
+}
+
+// Avviso pubblico: «non ancora letto da» senza interrogare AD.
+func TestReadersPublicAlertNoAD(t *testing.T) {
+	calls := 0
+	dir := testDirectory
+	dir.calls = &calls
+	s, db := newTestServerWith(t, nil, func(o *Options) { o.Directory = dir })
+	c := login(t, s)
+	long := strings.Repeat("parola ", 60)
+	id, _ := db.CreateAlert(database.Alert{Title: "Lungo", Body: long, Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	db.TouchPresence("mrossi", "Mario Rossi", fixedNow)
+	db.TouchPresence("senzanome", "", fixedNow)
+	page := do(t, s, "GET", "/admin/avvisi/"+itoa(id)+"/letture", nil, c, nil).Body.String()
+	if !strings.Contains(page, "Mario Rossi") || !strings.Contains(page, "senzanome") || calls != 0 {
+		t.Fatalf("pubblico: chiamate AD %d\n%s", calls, page)
+	}
+}
+
+// AD giù su un avviso riservato: ci si ferma al primo errore e lo si dice.
+func TestReadersADDownStops(t *testing.T) {
+	calls := 0
+	dir := fakeDirectory{err: errors.New("giù"), calls: &calls}
+	s, db := newTestServerWith(t, nil, func(o *Options) { o.Directory = dir })
+	c := login(t, s)
+	g, _ := db.CreateAudienceGroup("G")
+	id, _ := db.CreateAlertWithAudience(database.Alert{Title: "Riservato", Body: strings.Repeat("parola ", 60), Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow},
+		database.ContentAudience{Mode: "only", Groups: []int64{g}})
+	for _, u := range []string{"a1", "a2", "a3"} {
+		db.TouchPresence(u, "", fixedNow)
+	}
+	page := do(t, s, "GET", "/admin/avvisi/"+itoa(id)+"/letture", nil, c, nil).Body.String()
+	if !strings.Contains(page, "Elenco non disponibile: AD non raggiungibile") || calls != 1 {
+		t.Fatalf("AD giù: chiamate %d\n%s", calls, page)
+	}
+}
+
+// Avviso breve non urgente: si legge tutto nel carosello, la lettura non è
+// rilevabile e non si elenca chi «non l'ha letto».
+func TestReadersShortAlertNotTrackable(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	id, _ := db.CreateAlert(database.Alert{Title: "Breve", Body: "Solo testo.", Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	db.TouchPresence("mrossi", "Mario Rossi", fixedNow)
+	page := do(t, s, "GET", "/admin/avvisi/"+itoa(id)+"/letture", nil, c, nil).Body.String()
+	if !strings.Contains(page, "lettura non rilevabile") || strings.Contains(page, "Non ancora letto da") {
+		t.Fatalf("avviso breve:\n%s", page)
+	}
+	if list := do(t, s, "GET", "/admin/avvisi", nil, c, nil).Body.String(); !strings.Contains(list, "lettura non rilevabile") {
+		t.Fatal("lista: avviso breve senza indicazione")
 	}
 }

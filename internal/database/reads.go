@@ -30,6 +30,7 @@ type Delivery struct {
 	ReceivedAt                          *time.Time
 }
 
+// DeliveryCount: Sent = tentativi di invio, Received = ricevute dal browser.
 type DeliveryCount struct{ Sent, Received int }
 
 // MarkRead registra la prima lettura; le successive sono ignorate.
@@ -90,6 +91,13 @@ ON CONFLICT(alert_id, endpoint) DO UPDATE SET username = excluded.username, serv
 	return err
 }
 
+// SetDeliveryStatus: esito dopo l'invio. Non tocca la ricevuta, che il
+// service worker può mandare prima che il servizio push risponda al server.
+func (db *DB) SetDeliveryStatus(alertID int64, endpoint, status string) error {
+	_, err := db.Exec(`UPDATE alert_deliveries SET status = ? WHERE alert_id = ? AND endpoint = ?`, status, alertID, endpoint)
+	return err
+}
+
 // MarkReceived: il service worker ha mostrato la notifica. Solo per consegne
 // registrate; resta la prima ricevuta.
 func (db *DB) MarkReceived(alertID int64, endpoint string, now time.Time) error {
@@ -122,7 +130,7 @@ WHERE alert_id = ? ORDER BY username, service, id`, alertID)
 
 func (db *DB) DeliveryCounts() (map[int64]DeliveryCount, error) {
 	rows, err := db.Query(`SELECT alert_id,
-	SUM(CASE WHEN status = 'inviata' THEN 1 ELSE 0 END),
+	COUNT(*),
 	SUM(CASE WHEN received_at IS NOT NULL THEN 1 ELSE 0 END)
 FROM alert_deliveries GROUP BY alert_id`)
 	if err != nil {

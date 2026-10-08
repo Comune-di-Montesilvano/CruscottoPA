@@ -26,6 +26,7 @@ type Store interface {
 	DeletePushSubscription(endpoint string) error
 	TouchPushSubscription(endpoint string, at time.Time) error
 	RecordDelivery(alertID int64, username, endpoint, service, status string, now time.Time) error
+	SetDeliveryStatus(alertID int64, endpoint, status string) error
 }
 
 // Dispatcher manda una sola volta la notifica degli avvisi che la richiedono,
@@ -148,6 +149,11 @@ func (d *Dispatcher) pushAll(ctx context.Context, jobs []pushJob, now time.Time)
 func (d *Dispatcher) push(ctx context.Context, j pushJob, now time.Time) {
 	sctx, cancel := context.WithTimeout(ctx, pushTimeout)
 	defer cancel()
+	// La consegna si registra prima dell'invio: la ricevuta del service worker
+	// può arrivare prima che il servizio push risponda.
+	if err := d.Store.RecordDelivery(j.alert.ID, j.sub.Username, j.sub.Endpoint, ServiceName(j.sub.Endpoint), database.DeliverySent, now); err != nil {
+		slog.Warn("consegna push", "err", err)
+	}
 	gone, err := d.Pusher.Send(sctx, j.sub, Payload(j.alert), j.alert.Level == database.LevelUrgent)
 	status := database.DeliverySent
 	switch {
@@ -162,8 +168,9 @@ func (d *Dispatcher) push(ctx context.Context, j pushJob, now time.Time) {
 	default:
 		d.Store.TouchPushSubscription(j.sub.Endpoint, now)
 	}
-	// Esito per la pagina Letture; la ricevuta arriva dal service worker.
-	if err := d.Store.RecordDelivery(j.alert.ID, j.sub.Username, j.sub.Endpoint, ServiceName(j.sub.Endpoint), status, now); err != nil {
-		slog.Warn("consegna push", "err", err)
+	if status != database.DeliverySent {
+		if err := d.Store.SetDeliveryStatus(j.alert.ID, j.sub.Endpoint, status); err != nil {
+			slog.Warn("esito push", "err", err)
+		}
 	}
 }

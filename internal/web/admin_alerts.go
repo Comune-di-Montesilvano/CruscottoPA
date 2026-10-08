@@ -29,6 +29,7 @@ type alertRow struct {
 	Status     string // Attivo | Programmato | Scaduto
 	Visibility string // etichetta: "" = pubblico
 	Reads      int    // letture registrate
+	Trackable  bool   // lettura rilevabile (urgente o testo da espandere)
 	Deliveries database.DeliveryCount
 }
 
@@ -91,10 +92,10 @@ func (s *Server) alertsData(form alertForm, errs formErrors) (alertsSection, err
 		return sec, err
 	}
 	for _, a := range current {
-		sec.Current = append(sec.Current, alertRow{Alert: a, Status: s.alertStatus(a), Visibility: labels[a.ID], Reads: reads[a.ID], Deliveries: deliveries[a.ID]})
+		sec.Current = append(sec.Current, alertRow{Alert: a, Status: s.alertStatus(a), Visibility: labels[a.ID], Reads: reads[a.ID], Deliveries: deliveries[a.ID], Trackable: readTrackable(a)})
 	}
 	for _, a := range expired {
-		sec.Expired = append(sec.Expired, alertRow{Alert: a, Status: "Scaduto", Visibility: labels[a.ID], Reads: reads[a.ID], Deliveries: deliveries[a.ID]})
+		sec.Expired = append(sec.Expired, alertRow{Alert: a, Status: "Scaduto", Visibility: labels[a.ID], Reads: reads[a.ID], Deliveries: deliveries[a.ID], Trackable: readTrackable(a)})
 	}
 	sec.VisibilityField, err = s.visibilityField(form.Visibility)
 	return sec, err

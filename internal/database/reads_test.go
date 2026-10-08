@@ -31,7 +31,7 @@ func TestReadsAndDeliveries(t *testing.T) {
 	if len(ds) != 2 || ds[1].Username != "mario.rossi" || ds[1].ReceivedAt == nil || !ds[1].ReceivedAt.Equal(t0.Add(time.Second)) || ds[0].Status != DeliveryFailed {
 		t.Fatalf("consegne: %+v", ds)
 	}
-	if c, _ := db.DeliveryCounts(); c[id] != (DeliveryCount{Sent: 1, Received: 1}) {
+	if c, _ := db.DeliveryCounts(); c[id] != (DeliveryCount{Sent: 2, Received: 1}) { // tentativi, ricevute
 		t.Fatalf("conteggi consegne: %+v", c)
 	}
 	if last, _ := db.LastReceivedByUser(); !last["mario.rossi"].Equal(t0.Add(time.Second)) {
@@ -51,5 +51,27 @@ func TestReadsAndDeliveries(t *testing.T) {
 	}
 	if ds, _ := db.DeliveriesFor(id); len(ds) != 0 {
 		t.Fatalf("consegne dopo eliminazione: %+v", ds)
+	}
+}
+
+// La ricevuta può arrivare prima della risposta del servizio push: l'esito
+// aggiornato dopo l'invio non deve cancellarla.
+func TestReceiptBeforeSendResult(t *testing.T) {
+	db := newTestDB(t)
+	t0 := time.Date(2026, 10, 8, 8, 0, 0, 0, time.UTC)
+	id, _ := db.CreateAlert(Alert{Title: "A", Level: LevelNews, StartsAt: t0})
+	ep := "https://fcm.googleapis.com/a"
+	db.RecordDelivery(id, "mrossi", ep, "Chrome/Edge", DeliverySent, t0) // prima dell'invio
+	db.MarkReceived(id, ep, t0.Add(time.Second))                         // il SW risponde subito
+	if err := db.SetDeliveryStatus(id, ep, DeliveryFailed); err != nil { // es. timeout lato server
+		t.Fatal(err)
+	}
+	ds, _ := db.DeliveriesFor(id)
+	if len(ds) != 1 || ds[0].ReceivedAt == nil || ds[0].Status != DeliveryFailed {
+		t.Fatalf("ricevuta persa: %+v", ds)
+	}
+	// R/I: ricevute su tentativi.
+	if c, _ := db.DeliveryCounts(); c[id] != (DeliveryCount{Sent: 1, Received: 1}) {
+		t.Fatalf("conteggi: %+v", c)
 	}
 }
