@@ -4,7 +4,8 @@ import "time"
 
 type AppWithGuides struct {
 	App
-	Guides []Guide
+	Guides  []Guide
+	Support []SupportChannel // canali di assistenza attivi
 }
 
 type CategoryWithApps struct {
@@ -51,7 +52,7 @@ ORDER BY c.sort_order, c.name COLLATE NOCASE, ` + appOrder)
 			d.Categories = append(d.Categories, CategoryWithApps{Category: c})
 			last++
 		}
-		d.Categories[last].Apps = append(d.Categories[last].Apps, AppWithGuides{App: a, Guides: []Guide{}})
+		d.Categories[last].Apps = append(d.Categories[last].Apps, AppWithGuides{App: a, Guides: []Guide{}, Support: []SupportChannel{}})
 		index[a.ID] = appPos{last, len(d.Categories[last].Apps) - 1}
 	}
 	rows.Close()
@@ -67,6 +68,15 @@ ORDER BY `+guideOrder)
 		return d, err
 	}
 	attachGuides(&d, index, guides)
+	support, err := db.SupportByApp()
+	if err != nil {
+		return d, err
+	}
+	for id, p := range index {
+		if cs := support[id]; len(cs) > 0 {
+			d.Categories[p.cat].Apps[p.app].Support = cs
+		}
+	}
 	return d, nil
 }
 
