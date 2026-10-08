@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -173,6 +174,19 @@ func (s *Server) audienceData(editID int64, errs, editErrs formErrors, ruleForm 
 	if sec.Attributes, err = s.db.ListAudienceAttributes(); err != nil {
 		return sec, err
 	}
+	// Prima quelli sotto il saluto, nell'ordine della testata (si vedono le
+	// frecce funzionare); poi gli altri, per etichetta.
+	slices.SortStableFunc(sec.Attributes, func(a, b database.AudienceAttribute) int {
+		switch {
+		case a.Hero > 0 && b.Hero > 0:
+			return a.Hero - b.Hero
+		case a.Hero > 0:
+			return -1
+		case b.Hero > 0:
+			return 1
+		}
+		return 0
+	})
 	if sec.Groups, err = s.db.ListAudienceGroups(); err != nil {
 		return sec, err
 	}

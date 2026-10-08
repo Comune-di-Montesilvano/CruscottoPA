@@ -9,7 +9,7 @@
 	<td>{{.Title}}{{with .Description}}<br><small class="muted">{{.}}</small>{{end}}</td>
 	<td class="muted">{{.When}}</td>
 	<td class="actions">
-		<button type="button" hx-get="/admin/calendario/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
+		<button type="button" hx-get="/admin/calendario/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML show:window:top">Modifica</button>
 		<button class="danger" type="button" hx-post="/admin/calendario/{{.ID}}/elimina" hx-confirm="Eliminare «{{.Title}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
 	</td>
 </tr>

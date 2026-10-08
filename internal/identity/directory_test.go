@@ -96,3 +96,11 @@ func TestMockDirectoryProfile(t *testing.T) {
 		t.Fatalf("Profile: %+v %v", p, err)
 	}
 }
+
+// Il mock restituisce anche email e telefono, per provare la testata in sviluppo.
+func TestMockDirectoryHeroAttributes(t *testing.T) {
+	p, _ := MockDirectory{}.Profile("mrossi", []string{"mail", "telephoneNumber", "description"})
+	if len(p.Attrs["mail"]) == 0 || len(p.Attrs["telephonenumber"]) == 0 || len(p.Attrs["description"]) == 0 {
+		t.Fatalf("mock senza attributi della testata: %+v", p.Attrs)
+	}
+}

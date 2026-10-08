@@ -37,7 +37,7 @@ type dashboardView struct {
 	Calendar    calendarWidget
 	User        identity.User // identità dichiarata: solo per il saluto
 	SearchIndex []searchItem  // ricerca a tendina, già filtrata per gruppi
-	Hero        []heroItem    // contatti da AD sotto il saluto (attributi scelti dall'admin)
+	Hero        heroView      // contatti da AD sotto il saluto (attributi scelti dall'admin)
 	Recognize   bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
 	Anonymous   bool          // riconoscimento attivo ma utente non riconosciuto: aiuto per Firefox
 	Filter      *contentFilter
@@ -82,14 +82,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, known := s.viewer(r)
-	var hero []heroItem
+	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
 		attrs, err := s.db.HeroAttributes()
 		if err != nil {
 			s.serverError(w, err)
 			return
 		}
-		hero = heroItems(p, attrs)
+		hero = heroLine(heroItems(p, attrs))
 	}
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
@@ -173,6 +173,27 @@ func todayInfo(t time.Time) todayView {
 	}
 	return todayView{Day: t.Day(), Weekday: weekdays[t.Weekday()], Month: fmt.Sprintf("%s %d", months[t.Month()-1], t.Year()),
 		Week: week, YearDay: t.YearDay(), YearDays: days}
+}
+
+// heroView: la riga sotto il saluto. Org: i testi (ufficio, qualifica…)
+// uniti da «·»; Chips: interno ed email, mostrati come etichette con icona.
+type heroView struct {
+	Org   string
+	Chips []heroItem
+}
+
+func heroLine(items []heroItem) heroView {
+	var org []string
+	v := heroView{}
+	for _, it := range items {
+		if it.Kind == database.HeroPhone || it.Kind == database.HeroMail {
+			v.Chips = append(v.Chips, it)
+		} else {
+			org = append(org, it.Text)
+		}
+	}
+	v.Org = strings.Join(org, " · ")
+	return v
 }
 
 // heroItem: una voce della riga sotto il saluto.

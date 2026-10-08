@@ -24,9 +24,12 @@ body.plancia {
 .hero-today .today-num { width: 54px; height: 54px; border-radius: 12px; background: #fff; color: var(--p-blue-2); display: grid; place-items: center; font-size: 1.8rem; font-weight: 700; }
 .hero-today .today-wd { font-weight: 700; font-size: 1.05rem; line-height: 1.2; text-transform: capitalize; }
 .hero-today .today-month { font-size: .68rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
-.hero-info { display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; margin: .3rem 0 0; opacity: .88; font-size: .92rem; }
-.hero-item { display: inline-flex; align-items: center; gap: .3rem; }
-.hero-item .material-icons { font-size: 16px; opacity: .8; }
+/* Sotto il saluto: ufficio e qualifica in testo, interno ed email come etichette. */
+.hero-info { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .9rem; margin: .4rem 0 0; font-size: .9rem; }
+.hero-org { opacity: .9; font-weight: 500; }
+.hero-chips { display: inline-flex; flex-wrap: wrap; gap: .4rem; }
+.hero-chip { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .65rem .15rem .5rem; border-radius: 999px; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .18); font-size: .82rem; }
+.hero-chip .material-icons { font-size: 15px; opacity: .85; }
 .hero-today small { opacity: .8; font-size: .78rem; }
 .hero .clock { font-size: 1.9rem; font-weight: 300; font-variant-numeric: tabular-nums; padding-left: .95rem; margin-left: .15rem; border-left: 1px solid rgba(255, 255, 255, .25); }
 .hello { margin: 0; font-size: 2rem; font-weight: 600; letter-spacing: -.01em; }
