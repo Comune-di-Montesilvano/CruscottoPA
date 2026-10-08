@@ -1,0 +1,42 @@
+{{define "ticket.html"}}<!doctype html>
+<html lang="it">
+<head>
+	{{template "plancia_head"}}
+	<title>{{if .OK}}{{.Ticket.Title}} · {{end}}Ticket · CruscottoPA{{template "title_ente"}}</title>
+</head>
+<body class="plancia ticket-page">
+	<main class="ticket-main">
+		<p><a href="/">← Plancia</a></p>
+		{{if .OK}}
+		<header class="ticket-head">
+			<h1>{{.Ticket.Title}}</h1>
+			<p class="muted">Ticket n. {{.Ticket.TicketNumber}} · {{ticketState .Ticket.StateType}} · aperto il {{fmtDate .Ticket.Created}}</p>
+		</header>
+		<ol class="ticket-thread">
+			{{$id := .Ticket.TicketID}}{{range .Ticket.Articles}}<li class="ticket-msg{{if .FromAgent}} from-agent{{end}}">
+				<div class="ticket-msg-head"><strong>{{if .FromAgent}}Assistenza{{else}}Tu{{end}}</strong> <small>{{fmtDate .Created}}</small></div>
+				<div class="ticket-msg-body">{{.Body}}</div>
+				{{$art := .ArticleID}}{{with .Attachments}}<ul class="ticket-msg-files">{{range .}}<li><a href="/ticket/{{$id}}/allegati/{{$art}}/{{.FileID}}" target="_blank" rel="noopener"><span class="material-icons" aria-hidden="true">attach_file</span>{{.Filename}}</a> <small>{{humanSize .Size}}</small></li>{{end}}</ul>{{end}}
+			</li>{{end}}
+		</ol>
+		<form class="ticket-reply" data-ticket-reply="{{.Ticket.TicketID}}" novalidate>
+			<h2>Rispondi</h2>
+			{{if .Ticket.Closed}}<p class="muted">Il ticket è chiuso: rispondendo verrà riaperto.</p>{{end}}
+			<label>Messaggio<textarea name="descrizione" rows="5" maxlength="10000" required></textarea></label>
+			<small class="ticket-err" data-campo="descrizione" hidden></small>
+			<div class="ticket-files">
+				<button type="button" data-ticket-attach><span class="material-icons" aria-hidden="true">attach_file</span>Allega</button>
+				<input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple hidden data-ticket-input>
+				<ul data-ticket-files></ul>
+				<small class="ticket-err" data-campo="allegati" hidden></small>
+			</div>
+			<p class="ticket-err ticket-general" data-ticket-error hidden></p>
+			<div class="ticket-actions"><button type="submit" class="primary" data-ticket-submit>Invia risposta</button></div>
+		</form>
+		{{else}}
+		<h1>Ticket non disponibile</h1>
+		<p>Il ticket non esiste, non è tuo oppure il sistema di assistenza non risponde.{{with .Fallback}} Puoi scrivere a <a href="mailto:{{.}}">{{.}}</a>.{{end}}</p>
+		{{end}}
+	</main>
+</body>
+</html>{{end}}

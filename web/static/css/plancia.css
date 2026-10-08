@@ -361,3 +361,19 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 .ticket-unread { grid-row: 1; width: .55rem; height: .55rem; margin-top: .4rem; border-radius: 50%; background: var(--p-blue-2); }
 .ticket-closed summary { cursor: pointer; color: var(--p-text-3); margin-top: .5rem; font-size: .85rem; }
 .linklike { border: 0; background: none; padding: 0; color: var(--p-blue-2); font: inherit; cursor: pointer; text-decoration: underline; }
+
+/* Pagina del ticket. */
+.ticket-main { max-width: 760px; margin: 0 auto; padding: 1.5rem 16px 3rem; }
+.ticket-head h1 { margin: .3rem 0; font-size: 1.4rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
+.ticket-thread { list-style: none; padding: 0; margin: 1.2rem 0; display: flex; flex-direction: column; gap: .8rem; }
+.ticket-msg { background: #fff; border: 1px solid var(--p-line); border-radius: 12px; padding: .8rem 1rem; max-width: 85%; align-self: flex-end; }
+.ticket-msg.from-agent { align-self: flex-start; background: #e8f0fe; border-color: #c6d8fb; }
+.ticket-msg-head small { color: var(--p-text-3); margin-left: .4rem; }
+.ticket-msg-body { white-space: pre-wrap; margin-top: .35rem; overflow-wrap: anywhere; }
+.ticket-msg-files { list-style: none; padding: 0; margin: .5rem 0 0; }
+.ticket-msg-files a { display: inline-flex; align-items: center; gap: .25rem; }
+.ticket-reply { background: #fff; border: 1px solid var(--p-line); border-radius: 12px; padding: 1rem; }
+.ticket-reply h2 { margin: 0 0 .5rem; font-size: 1.05rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
+.ticket-reply textarea { display: block; width: 100%; box-sizing: border-box; margin-top: .25rem; font: inherit; padding: .5rem .6rem; border: 1px solid #c5ccd6; border-radius: 8px; }
+.ticket-reply button { border: 1px solid var(--p-line); background: #fff; border-radius: 10px; padding: .55rem 1rem; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: .3rem; }
+.ticket-reply .primary { background: var(--p-blue-2); border-color: var(--p-blue-2); color: #fff; font-weight: 600; }

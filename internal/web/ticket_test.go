@@ -18,6 +18,7 @@ var ticketDirectory = fakeDirectory{
 	profiles: map[string]audience.Profile{
 		"mrossi":    {Username: "mrossi", Attrs: map[string][]string{"mail": {"mrossi@example.it"}, "telephonenumber": {"731"}}},
 		"senzamail": {Username: "senzamail", Attrs: map[string][]string{}},
+		"gbianchi":  {Username: "gbianchi", Attrs: map[string][]string{"mail": {"gbianchi@example.it"}}},
 	},
 }
 
