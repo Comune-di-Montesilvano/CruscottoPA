@@ -173,6 +173,7 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 		Attachments: len(atts), PC: req.PC, CreatedAt: s.now()}); err != nil {
 		slog.Error("ticket: registro", "ticket", created.TicketNumber, "err", err) // il ticket esiste comunque
 	}
+	s.ticketCache.forget(req.Email) // il widget deve mostrare subito il nuovo ticket
 	slog.Info("ticket aperto", "ticket", created.TicketNumber, "user", user, "allegati", len(atts))
 	reply(map[string]any{"ok": true, "numero": created.TicketNumber, "mail": req.Email})
 }

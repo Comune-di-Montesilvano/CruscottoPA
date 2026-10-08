@@ -73,3 +73,18 @@ func TestTicketWidgetCache(t *testing.T) {
 		t.Fatal("cache non usata")
 	}
 }
+
+// Dopo un'apertura il widget mostra subito il nuovo ticket (cache svuotata).
+func TestTicketWidgetAfterOpen(t *testing.T) {
+	s, c := ticketTestServer(t, otrs.NewMock())
+	if body := do(t, s, "GET", "/partials/ticket", nil, c, nil).Body.String(); !strings.Contains(body, "Nessun ticket aperto") {
+		t.Fatalf("widget iniziale: %s", body)
+	}
+	if out := postTicket(t, s, c, validTicket()); out["ok"] != true {
+		t.Fatalf("apertura: %v", out)
+	}
+	rec := do(t, s, "GET", "/partials/ticket", nil, c, nil)
+	if body := rec.Body.String(); !strings.Contains(body, "Stampante") {
+		t.Fatalf("widget dopo l'apertura: %s", body)
+	}
+}
