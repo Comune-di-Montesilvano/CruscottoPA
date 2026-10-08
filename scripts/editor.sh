@@ -9,9 +9,9 @@ mkdir -p "$root/web/static/vendor"
 docker run --rm \
 	-v "$root/web/editor":/src:ro \
 	-v "$root/web/static/vendor":/out \
-	node:24-alpine sh -ec '
+	node:26-alpine sh -ec '
 		cp -r /src /w && cd /w
-		corepack enable
+		npm install -g --no-fund --no-audit "$(node -p "require(\"./package.json\").packageManager")"
 		CI=true pnpm install --frozen-lockfile
 		OUT_DIR=/out pnpm build
 	'
