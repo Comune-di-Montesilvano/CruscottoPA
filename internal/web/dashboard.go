@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -82,6 +83,11 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, known := s.viewer(r)
+	if known && !u.Anonymous && u.Username != "" {
+		if err := s.db.TouchPresence(u.Username, u.Name, s.now()); err != nil {
+			slog.Warn("presenza", "err", err)
+		}
+	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
 		attrs, err := s.db.HeroAttributes()
