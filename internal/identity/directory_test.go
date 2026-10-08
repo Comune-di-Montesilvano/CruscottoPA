@@ -61,7 +61,7 @@ func TestSearchFilterEscapes(t *testing.T) {
 }
 
 func TestMembersFilter(t *testing.T) {
-	if _, ok := membersFilter([]audience.Rule{{Kind: audience.KindExclude, Value: "x"}}); ok {
+	if _, ok := membersFilter([]audience.Rule{{Kind: audience.KindExclude, Value: "x"}, {Kind: audience.KindPresent, Attr: "mail"}}); ok {
 		t.Fatal("senza regole positive non deve esserci un filtro")
 	}
 	f, ok := membersFilter([]audience.Rule{
@@ -69,8 +69,16 @@ func TestMembersFilter(t *testing.T) {
 		{Kind: audience.KindADGroup, Value: "CN=G,DC=x"},
 		{Kind: audience.KindUser, Value: "mrossi"},
 		{Kind: audience.KindExclude, Value: "stagista1"},
+		{Kind: audience.KindPresent, Attr: "mail"},
+		{Kind: audience.KindAbsent, Attr: "pager"},
+		{Kind: audience.KindPresent, Attr: "bad)(attr"},
 	})
+	if strings.Contains(f, "bad") {
+		t.Errorf("attributo non valido nel filtro: %q", f)
+	}
 	for _, want := range []string{
+		`(mail=*)`,
+		`(!(pager=*))`,
 		`(physicalDeliveryOfficeName=INFO\2a)`,
 		`(memberOf:1.2.840.113556.1.4.1941:=CN=G,DC=x)`,
 		`(sAMAccountName=mrossi)`,

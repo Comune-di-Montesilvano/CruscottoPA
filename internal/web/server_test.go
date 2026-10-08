@@ -62,7 +62,7 @@ func (f fakeDirectory) Members(rules []audience.Rule, _ []string) (int, []identi
 		return 0, nil, f.err
 	}
 	for _, r := range rules {
-		if r.Kind != audience.KindExclude {
+		if r.Kind != audience.KindExclude && !audience.IsRequirement(r.Kind) {
 			return len(f.members), f.members, nil
 		}
 	}
@@ -97,7 +97,7 @@ var testDirectory = fakeDirectory{
 		"senzanome": {Username: "senzanome"},
 	},
 	profiles: map[string]audience.Profile{
-		"mrossi":    {Username: "mrossi", Attrs: map[string][]string{"physicaldeliveryofficename": {"TRIBUTI"}}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
+		"mrossi":    {Username: "mrossi", Attrs: map[string][]string{"physicaldeliveryofficename": {"TRIBUTI"}, "title": {"Istruttore amministrativo"}}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
 		"senzanome": {Username: "senzanome", Attrs: map[string][]string{}},
 	},
 	groups:  []identity.ADGroup{{DN: "CN=SHARE_TRIBUTI_RW,DC=test", Name: "SHARE_TRIBUTI_RW"}},
