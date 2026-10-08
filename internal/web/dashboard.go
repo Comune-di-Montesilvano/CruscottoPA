@@ -30,17 +30,18 @@ type calendarWidget struct {
 
 type dashboardView struct {
 	database.Dashboard
-	Greeting  string
-	Clock     string
-	Version   string
-	Today     todayView
-	Calendar  calendarWidget
-	User      identity.User // identità dichiarata: solo per il saluto
-	Hero      []heroItem    // contatti da AD sotto il saluto (attributi scelti dall'admin)
-	Recognize bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
-	Anonymous bool          // riconoscimento attivo ma utente non riconosciuto: aiuto per Firefox
-	Filter    *contentFilter
-	Admin     bool // link al pannello admin nel footer
+	Greeting    string
+	Clock       string
+	Version     string
+	Today       todayView
+	Calendar    calendarWidget
+	User        identity.User // identità dichiarata: solo per il saluto
+	SearchIndex []searchItem  // ricerca a tendina, già filtrata per gruppi
+	Hero        []heroItem    // contatti da AD sotto il saluto (attributi scelti dall'admin)
+	Recognize   bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
+	Anonymous   bool          // riconoscimento attivo ma utente non riconosciuto: aiuto per Firefox
+	Filter      *contentFilter
+	Admin       bool // link al pannello admin nel footer
 }
 
 type avvisiView struct {
@@ -91,18 +92,19 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		hero = heroItems(p, attrs)
 	}
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
-		Hero:      hero,
-		Dashboard: d,
-		Greeting:  greeting(now.Hour()),
-		Clock:     now.Format("15:04"),
-		Version:   s.version,
-		Today:     todayInfo(now),
-		Calendar:  cw,
-		User:      u,
-		Recognize: !known && s.canRecognize(r),
-		Anonymous: s.recognitionEnabled() && (!known || u.Anonymous),
-		Filter:    f,
-		Admin:     s.viewerIsAdmin(r),
+		Hero:        hero,
+		SearchIndex: buildSearchIndex(d),
+		Dashboard:   d,
+		Greeting:    greeting(now.Hour()),
+		Clock:       now.Format("15:04"),
+		Version:     s.version,
+		Today:       todayInfo(now),
+		Calendar:    cw,
+		User:        u,
+		Recognize:   !known && s.canRecognize(r),
+		Anonymous:   s.recognitionEnabled() && (!known || u.Anonymous),
+		Filter:      f,
+		Admin:       s.viewerIsAdmin(r),
 	})
 }
 
