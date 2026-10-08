@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -100,5 +101,27 @@ func TestIconBgAdmin(t *testing.T) {
 	gruppi := do(t, s, "GET", "/admin/gruppi", nil, c, nil).Body.String()
 	if !strings.Contains(gruppi, `<td colspan="4" class="muted">Nessun attributo`) {
 		t.Error("riga «Nessun attributo» senza colspan")
+	}
+}
+
+// «Modifica» porta al form in cima alla sezione: senza, dopo il clic su una
+// riga in fondo alla lista bisogna risalire a mano.
+func TestEditButtonsScrollToForm(t *testing.T) {
+	files, _ := filepath.Glob("../../web/templates/admin_*.html")
+	edits := 0
+	for _, f := range files {
+		b, _ := os.ReadFile(f)
+		for _, line := range strings.Split(string(b), "\n") {
+			if !strings.Contains(line, `/modifica" hx-target="#section"`) {
+				continue
+			}
+			edits++
+			if !strings.Contains(line, `hx-swap="outerHTML show:window:top"`) {
+				t.Errorf("%s: %s", filepath.Base(f), strings.TrimSpace(line))
+			}
+		}
+	}
+	if edits < 7 {
+		t.Fatalf("pulsanti Modifica trovati: %d", edits)
 	}
 }

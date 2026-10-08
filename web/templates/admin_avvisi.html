@@ -11,7 +11,7 @@
 	<td class="muted">{{fmtDate .StartsAt}}{{if .EndsAt}} → {{fmtDatePtr .EndsAt}}{{else}} → senza scadenza{{end}}</td>
 	<td><span class="tag{{if eq .Status "Scaduto"}}{{else if eq .Status "Programmato"}} warn{{end}}">{{.Status}}</span></td>
 	<td class="actions">
-		<button type="button" hx-get="/admin/avvisi/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
+		<button type="button" hx-get="/admin/avvisi/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML show:window:top">Modifica</button>
 		<button class="danger" type="button" hx-post="/admin/avvisi/{{.ID}}/elimina" hx-confirm="Eliminare l'avviso «{{.Title}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
 	</td>
 </tr>

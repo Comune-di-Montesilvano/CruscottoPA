@@ -116,3 +116,21 @@ func TestAttributeHeroAdmin(t *testing.T) {
 		t.Fatalf("inesistente: %d", rec.Code)
 	}
 }
+
+// Nell'admin gli attributi «Sotto il saluto» compaiono per primi e nell'ordine
+// della testata: le frecce si vedono funzionare.
+func TestAttributeHeroAdminOrder(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	alfa, _ := db.CreateAudienceAttribute("description", "Alfa")
+	beta, _ := db.CreateAudienceAttribute("mail", "Beta")
+	db.CreateAudienceAttribute("department", "Aaa (non in testata)")
+	db.SetAttributeHero(alfa, database.HeroText)
+	db.SetAttributeHero(beta, database.HeroMail)
+	db.MoveAttributeHero(beta, -1)
+	page := do(t, s, "GET", "/admin/gruppi", nil, c, nil).Body.String()
+	b, a, other := strings.Index(page, "<td>Beta</td>"), strings.Index(page, "<td>Alfa</td>"), strings.Index(page, "<td>Aaa (non in testata)</td>")
+	if b < 0 || a < 0 || other < 0 || !(b < a && a < other) {
+		t.Fatalf("ordine nell'admin: Beta=%d Alfa=%d altro=%d", b, a, other)
+	}
+}

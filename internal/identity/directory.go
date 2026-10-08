@@ -384,9 +384,15 @@ func (MockDirectory) Profile(username string, attrs []string) (audience.Profile,
 		return audience.Profile{}, ErrUnknownUser
 	}
 	p := audience.Profile{Username: strings.ToLower(username), Attrs: map[string][]string{}, Groups: []string{mockGroups[1].DN}}
+	mock := map[string]string{
+		"physicaldeliveryofficename": "INFORMATIZZAZIONE",
+		"description":                "CED",
+		"mail":                       strings.ToLower(username) + "@example.it",
+		"telephonenumber":            "731",
+	}
 	for _, a := range attrs {
-		if strings.EqualFold(a, "physicalDeliveryOfficeName") {
-			p.Attrs["physicaldeliveryofficename"] = []string{"INFORMATIZZAZIONE"}
+		if v, ok := mock[strings.ToLower(a)]; ok {
+			p.Attrs[strings.ToLower(a)] = []string{v}
 		}
 	}
 	return p, nil

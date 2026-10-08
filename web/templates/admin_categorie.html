@@ -26,7 +26,7 @@
 				<td class="actions">
 					<button class="icon" type="button" title="Su" hx-post="/admin/categorie/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>
 					<button class="icon" type="button" title="Giù" hx-post="/admin/categorie/{{.ID}}/sposta" hx-vals='{"dir":"down"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_downward</span></button>
-					<button type="button" hx-get="/admin/categorie/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Modifica</button>
+					<button type="button" hx-get="/admin/categorie/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML show:window:top">Modifica</button>
 					<button class="danger" type="button" hx-post="/admin/categorie/{{.ID}}/elimina" hx-confirm="Eliminare la categoria «{{.Name}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
 				</td>
 			</tr>

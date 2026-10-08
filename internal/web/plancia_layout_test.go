@@ -110,11 +110,8 @@ func TestHeroContacts(t *testing.T) {
 	db.SetAttributeHero(tit, database.HeroText)
 	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String()
 	header := body[:strings.Index(body, "</header>")]
-	if !strings.Contains(header, `<span class="hero-item">Tributi</span>`) || !strings.Contains(header, "Istruttore amministrativo") {
+	if !strings.Contains(header, `<span class="hero-org">Tributi · Istruttore amministrativo</span>`) {
 		t.Fatalf("contatti nella testata:\n%s", header)
-	}
-	if strings.Index(header, "Tributi") > strings.Index(header, "Istruttore") {
-		t.Error("ordine della testata non rispettato")
 	}
 	anon := do(t, s, "GET", "/", nil, nil, nil).Body.String()
 	if strings.Contains(anon[:strings.Index(anon, "</header>")], "hero-info") {
@@ -256,5 +253,24 @@ func TestSearchHrefCheckedInBrowser(t *testing.T) {
 	}
 	if strings.Contains(string(js), "a.href = it.u") {
 		t.Error("href preso dall'indice senza controllo")
+	}
+}
+
+// I testi (ufficio, qualifica…) in una riga unita da «·»; interno ed email
+// come etichette con icona, nell'ordine scelto.
+func TestHeroLine(t *testing.T) {
+	got := heroLine([]heroItem{{"text", "Informatizzazione"}, {"mail", "m@x.it"}, {"text", "Ced"}, {"phone", "Int. 731"}})
+	if got.Org != "Informatizzazione · Ced" || len(got.Chips) != 2 || got.Chips[0].Kind != "mail" || got.Chips[1].Text != "Int. 731" {
+		t.Fatalf("heroLine = %+v", got)
+	}
+	if empty := heroLine(nil); empty.Org != "" || len(empty.Chips) != 0 {
+		t.Fatalf("vuota: %+v", empty)
+	}
+	s, db := newTestServer(t, nil)
+	off, _ := db.CreateAudienceAttribute("physicalDeliveryOfficeName", "Ufficio")
+	db.SetAttributeHero(off, database.HeroText)
+	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String()
+	if strings.Contains(body, "hero-chips") {
+		t.Error("niente contenitore delle etichette senza interno né email")
 	}
 }

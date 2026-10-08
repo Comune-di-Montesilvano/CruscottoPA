@@ -25,7 +25,7 @@
 			<div>
 				<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span></div>
 				<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span></h1>
-				{{with .Hero}}<p class="hero-info">{{range .}}<span class="hero-item">{{if eq .Kind "phone"}}<span class="material-icons" aria-hidden="true">call</span>{{else if eq .Kind "mail"}}<span class="material-icons" aria-hidden="true">mail</span>{{end}}{{.Text}}</span>{{end}}</p>{{end}}
+				{{if or .Hero.Org .Hero.Chips}}<div class="hero-info">{{with .Hero.Org}}<span class="hero-org">{{.}}</span>{{end}}{{with .Hero.Chips}}<span class="hero-chips">{{range .}}<span class="hero-chip"><span class="material-icons" aria-hidden="true">{{if eq .Kind "phone"}}call{{else}}mail{{end}}</span>{{.Text}}</span>{{end}}</span>{{end}}</div>{{end}}
 			</div>
 			{{template "hero_today" .}}
 		</div>
