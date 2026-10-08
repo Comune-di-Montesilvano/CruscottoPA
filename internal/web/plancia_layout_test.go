@@ -2,6 +2,7 @@ package web
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -99,20 +100,46 @@ func TestTodayInHeroAndWidgetOrder(t *testing.T) {
 	}
 }
 
-// Sotto il saluto: ufficio e qualifica da AD (i valori tutti maiuscoli resi
-// leggibili).
-func TestHeroShowsOffice(t *testing.T) {
-	s, _ := newTestServer(t, nil)
+// Sotto il saluto: gli attributi AD scelti dall'admin, nell'ordine scelto.
+func TestHeroContacts(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	off, _ := db.CreateAudienceAttribute("physicalDeliveryOfficeName", "Ufficio")
+	tit, _ := db.CreateAudienceAttribute("title", "Qualifica")
+	db.CreateAudienceAttribute("department", "Settore") // non in testata
+	db.SetAttributeHero(off, database.HeroText)
+	db.SetAttributeHero(tit, database.HeroText)
 	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String()
 	header := body[:strings.Index(body, "</header>")]
-	if !strings.Contains(header, `<p class="hero-info">Tributi · Istruttore amministrativo</p>`) {
-		t.Fatalf("ufficio nella testata:\n%s", header)
+	if !strings.Contains(header, `<span class="hero-item">Tributi</span>`) || !strings.Contains(header, "Istruttore amministrativo") {
+		t.Fatalf("contatti nella testata:\n%s", header)
 	}
-	if got := officeLine(audience.Profile{Attrs: map[string][]string{"department": {"Ragioneria"}}}); got != "Ragioneria" {
-		t.Errorf("department come ripiego: %q", got)
+	if strings.Index(header, "Tributi") > strings.Index(header, "Istruttore") {
+		t.Error("ordine della testata non rispettato")
 	}
-	if got := officeLine(audience.Profile{}); got != "" {
-		t.Errorf("profilo vuoto: %q", got)
+	anon := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	if strings.Contains(anon[:strings.Index(anon, "</header>")], "hero-info") {
+		t.Error("riga dei contatti per un anonimo")
+	}
+}
+
+func TestHeroItems(t *testing.T) {
+	attrs := []database.AudienceAttribute{
+		{Name: "description", Hero: 1, HeroKind: database.HeroText},
+		{Name: "telephoneNumber", Hero: 2, HeroKind: database.HeroPhone},
+		{Name: "mail", Hero: 3, HeroKind: database.HeroMail},
+		{Name: "pager", Hero: 4, HeroKind: database.HeroText},
+	}
+	// Più valori: il primo non vuoto; soli spazi: saltato.
+	p := audience.Profile{Attrs: map[string][]string{
+		"description":     {" ", "CED"},
+		"telephonenumber": {"731"},
+		"mail":            {"m.rossi@example.it"},
+		"pager":           {"  "},
+	}}
+	got := heroItems(p, attrs)
+	want := []heroItem{{"text", "Ced"}, {"phone", "Int. 731"}, {"mail", "m.rossi@example.it"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("heroItems = %+v", got)
 	}
 }
 

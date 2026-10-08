@@ -36,7 +36,7 @@ type dashboardView struct {
 	Today     todayView
 	Calendar  calendarWidget
 	User      identity.User // identità dichiarata: solo per il saluto
-	Office    string        // ufficio e qualifica da AD, sotto il saluto
+	Hero      []heroItem    // contatti da AD sotto il saluto (attributi scelti dall'admin)
 	Recognize bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
 	Anonymous bool          // riconoscimento attivo ma utente non riconosciuto: aiuto per Firefox
 	Filter    *contentFilter
@@ -81,12 +81,17 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, known := s.viewer(r)
-	office := ""
+	var hero []heroItem
 	if _, p, ok := s.viewerProfile(r); ok {
-		office = officeLine(p)
+		attrs, err := s.db.HeroAttributes()
+		if err != nil {
+			s.serverError(w, err)
+			return
+		}
+		hero = heroItems(p, attrs)
 	}
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
-		Office:    office,
+		Hero:      hero,
 		Dashboard: d,
 		Greeting:  greeting(now.Hour()),
 		Clock:     now.Format("15:04"),
@@ -168,28 +173,34 @@ func todayInfo(t time.Time) todayView {
 		Week: week, YearDay: t.YearDay(), YearDays: days}
 }
 
-// heroAttrs: attributi AD letti per la riga sotto il saluto.
-var heroAttrs = []string{"physicalDeliveryOfficeName", "department", "title"}
+// heroItem: una voce della riga sotto il saluto.
+type heroItem struct{ Kind, Text string }
 
-// officeLine: "Ufficio · qualifica" dal profilo AD; "" se non c'è nulla.
-func officeLine(p audience.Profile) string {
-	first := func(attrs ...string) string {
-		for _, a := range attrs {
-			for _, v := range p.Attrs[strings.ToLower(a)] {
-				if v = strings.TrimSpace(v); v != "" {
-					return readable(v)
-				}
+// heroItems: valori degli attributi marcati per la testata, nell'ordine
+// scelto; primo valore non vuoto, valori vuoti saltati.
+func heroItems(p audience.Profile, attrs []database.AudienceAttribute) []heroItem {
+	out := []heroItem{}
+	for _, a := range attrs {
+		v := ""
+		for _, x := range p.Attrs[strings.ToLower(a.Name)] {
+			if x = strings.TrimSpace(x); x != "" {
+				v = x
+				break
 			}
 		}
-		return ""
-	}
-	var parts []string
-	for _, v := range []string{first("physicalDeliveryOfficeName", "department"), first("title")} {
-		if v != "" {
-			parts = append(parts, v)
+		if v == "" {
+			continue
 		}
+		switch a.HeroKind {
+		case database.HeroPhone:
+			v = "Int. " + v
+		case database.HeroMail:
+		default:
+			v = readable(v)
+		}
+		out = append(out, heroItem{Kind: a.HeroKind, Text: v})
 	}
-	return strings.Join(parts, " · ")
+	return out
 }
 
 // readable: un valore AD tutto maiuscolo diventa "Prima lettera maiuscola".
