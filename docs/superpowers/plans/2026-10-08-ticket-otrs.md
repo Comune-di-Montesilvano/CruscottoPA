@@ -699,6 +699,7 @@ func (m *Mock) Create(_ context.Context, t NewTicket) (Created, error) {
 package database
 
 import (
+	"strconv"
 	"testing"
 	"time"
 )
@@ -708,7 +709,7 @@ func TestTicketsRecordCountList(t *testing.T) {
 	now := time.Date(2026, 10, 8, 10, 0, 0, 0, time.UTC)
 	for i, at := range []time.Time{now.Add(-2 * time.Hour), now.Add(-30 * time.Minute), now} {
 		if err := db.RecordTicket(TicketSent{Username: "MRossi", Name: "Mario Rossi", Email: "mrossi@example.it",
-			Subject: "Prova", TicketID: itoa(int64(i)), TicketNumber: "N" + itoa(int64(i)), CustomerSet: i != 1, Attachments: i, CreatedAt: at}); err != nil {
+			Subject: "Prova", TicketID: strconv.Itoa(i), TicketNumber: "N" + strconv.Itoa(i), CustomerSet: i != 1, Attachments: i, CreatedAt: at}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -728,7 +729,6 @@ func TestTicketsRecordCountList(t *testing.T) {
 }
 ```
 
-Se `itoa` non esiste nel pacchetto `database` dei test, usare `strconv.FormatInt` (verificare con `grep -n "func itoa" internal/database/*_test.go`).
 
 - [ ] **Step 2: Verificare che fallisca** — `go test ./internal/database/ -run TestTickets` → FAIL.
 
@@ -818,7 +818,6 @@ FROM tickets_sent ORDER BY created_at DESC, id DESC LIMIT ?`, limit)
 }
 ```
 
-Verificare i nomi degli helper di data con `grep -n "func formatTime\|func parseTime" internal/database/*.go` e adeguarli se diversi.
 
 - [ ] **Step 4: Test verdi** — `go test ./internal/database/` → PASS (anche `TestOpenAppliesMigrationsAndSeed`, che usa `len(migrations)`).
 - [ ] **Step 5: Commit** — `git add internal/database && git commit -m "database: registro dei ticket aperti (v11)"`.
