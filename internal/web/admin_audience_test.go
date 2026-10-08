@@ -48,7 +48,7 @@ func TestAudienceGroupLifecycle(t *testing.T) {
 		}
 	}
 	page := do(t, s, "GET", "/admin/gruppi/"+g+"/modifica", nil, c, hx).Body.String()
-	for _, want := range []string{"Ufficio = TRIBUTI", "Gruppo AD SHARE_TRIBUTI_RW", "Utente mario.rossi", "Escludi stagista1"} {
+	for _, want := range []string{"Ufficio = TRIBUTI", "Gruppo AD SHARE_TRIBUTI_RW", "Utente mario.rossi", "Togli stagista1"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("manca %q", want)
 		}
@@ -108,8 +108,8 @@ func TestRuleFormKeepsValuesOn422(t *testing.T) {
 	g, _ := db.CreateAudienceGroup("G")
 	rec := do(t, s, "POST", "/admin/gruppi/"+itoa(g)+"/regole", url.Values{"kind": {"exclude"}, "value": {"nome sbagliato"}}, c, hx)
 	body := rec.Body.String()
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, `value="nome sbagliato"`) || !strings.Contains(body, `<option value="exclude" selected>`) {
-		t.Fatalf("dopo un errore il form deve conservare tipo e valore: %d\n%s", rec.Code, body)
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, `value="nome sbagliato"`) || strings.Index(body, "Username non valido") < strings.Index(body, "Esclusi") {
+		t.Fatalf("dopo un errore il form degli esclusi deve conservare il valore e mostrare l'errore lì: %d\n%s", rec.Code, body)
 	}
 }
 

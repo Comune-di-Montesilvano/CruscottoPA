@@ -31,7 +31,6 @@
 		<input type="search" id="search" placeholder="Cerca un applicativo o una guida…" autocomplete="off" aria-label="Cerca un applicativo o una guida">
 		<kbd>/</kbd>
 	</label>
-	{{with .Filter}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}
 
 	{{if .Anonymous}}<aside class="ff-help" data-ff-help hidden aria-labelledby="ff-help-title">
 		<span class="material-icons" aria-hidden="true">info</span>
@@ -51,9 +50,10 @@
 			</div>
 		</div>
 	</aside>{{end}}
-	<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
 
 	<main class="layout">
+		<div class="main-col">
+		<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
 		<section class="apps" aria-label="Applicativi">
 			{{range .Categories}}
 			<div class="category" data-category>
@@ -66,7 +66,9 @@
 			<p class="empty">Nessun applicativo configurato. Gli amministratori possono aggiungerli dal <a href="/admin">pannello di amministrazione</a>.</p>
 			{{end}}
 			<p class="empty" id="no-results" hidden>Nessun risultato.</p>
+			{{with .Filter}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}
 		</section>
+		</div>
 
 		<aside class="widgets" aria-label="Oggi, calendario e guide">
 			{{template "widget_oggi" .Today}}

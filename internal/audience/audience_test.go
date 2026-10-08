@@ -4,7 +4,7 @@ import "testing"
 
 var mario = Profile{
 	Username: "mario.rossi",
-	Attrs:    map[string][]string{"physicaldeliveryofficename": {"INFORMATIZZAZIONE"}},
+	Attrs:    map[string][]string{"physicaldeliveryofficename": {"INFORMATIZZAZIONE"}, "mail": {"mario.rossi@example.it"}, "pager": {" "}},
 	Groups:   []string{"CN=SHARE_PNRR_RW,OU=Gruppi,DC=intranet,DC=local"},
 }
 
@@ -23,6 +23,13 @@ func TestMember(t *testing.T) {
 		{"oppure tra regole", []Rule{{Kind: KindUser, Value: "altro"}, {Kind: KindAttr, Attr: "physicalDeliveryOfficeName", Value: "INFORMATIZZAZIONE"}}, true},
 		{"esclusione vince", []Rule{{Kind: KindAttr, Attr: "physicalDeliveryOfficeName", Value: "INFORMATIZZAZIONE"}, {Kind: KindExclude, Value: "mario.rossi"}}, false},
 		{"solo esclusioni", []Rule{{Kind: KindExclude, Value: "altro"}}, false},
+		{"requisito presente soddisfatto", []Rule{{Kind: KindUser, Value: "mario.rossi"}, {Kind: KindPresent, Attr: "Mail"}}, true},
+		{"requisito presente mancante", []Rule{{Kind: KindUser, Value: "mario.rossi"}, {Kind: KindPresent, Attr: "telephoneNumber"}}, false},
+		{"requisito presente con valore vuoto", []Rule{{Kind: KindUser, Value: "mario.rossi"}, {Kind: KindPresent, Attr: "pager"}}, false},
+		{"requisito assente soddisfatto", []Rule{{Kind: KindUser, Value: "mario.rossi"}, {Kind: KindAbsent, Attr: "telephoneNumber"}}, true},
+		{"requisito assente violato", []Rule{{Kind: KindUser, Value: "mario.rossi"}, {Kind: KindAbsent, Attr: "mail"}}, false},
+		{"tutti i requisiti", []Rule{{Kind: KindUser, Value: "mario.rossi"}, {Kind: KindPresent, Attr: "mail"}, {Kind: KindPresent, Attr: "telephoneNumber"}}, false},
+		{"solo requisiti", []Rule{{Kind: KindPresent, Attr: "mail"}}, false},
 	}
 	for _, c := range cases {
 		if got := Member(mario, c.rules); got != c.want {
@@ -56,7 +63,7 @@ func TestVisible(t *testing.T) {
 }
 
 func TestValidKindAndMode(t *testing.T) {
-	if !ValidKind("attr") || !ValidKind("exclude") || ValidKind("altro") {
+	if !ValidKind("attr") || !ValidKind("exclude") || !ValidKind("present") || !ValidKind("absent") || ValidKind("altro") {
 		t.Fatal("ValidKind")
 	}
 	if !ValidMode("") || !ValidMode("only") || !ValidMode("hide") || ValidMode("x") {

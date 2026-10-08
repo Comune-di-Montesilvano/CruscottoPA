@@ -39,7 +39,7 @@
 		<label class="inline"><input type="checkbox" name="notify" value="1" data-notify{{if .Form.Notify}} checked{{end}}>Invia notifica (quando l'avviso diventa attivo, a chi può vederlo)</label>
 		{{with .Form.NotifiedAt}}<p class="hint">Notifica già inviata il {{fmtDatePtr .}}: le modifiche, anche alle date, non la ripetono.</p>{{end}}
 		<label>Testo<textarea name="body" maxlength="20000" rows="8" data-editor>{{.Form.Body}}</textarea></label>
-		{{with .Errors.body}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">In plancia il carosello mostra l'inizio del testo; il resto con «Leggi tutto».</p>{{end}}
+		{{with .Errors.body}}<p class="field-error">{{.}}</p>{{else}}<p class="hint">In plancia il carosello mostra l'inizio del testo; il resto con «Continua a leggere».</p>{{end}}
 		<div class="preview-bar"><button type="button" hx-post="/admin/anteprima" hx-include="closest form" hx-target="next .preview-slot" hx-swap="innerHTML">Anteprima</button></div>
 		<div class="preview-slot"></div>
 		<div class="row">

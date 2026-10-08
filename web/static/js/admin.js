@@ -93,6 +93,16 @@
 		if (label) label.value = b.dataset.label || "";
 		b.parentElement.innerHTML = "";
 	});
+	// Elenco dei gruppi: il numero dei membri apre la riga con chi sono
+	// (caricata da HTMX quando diventa visibile).
+	document.addEventListener("click", (e) => {
+		const b = e.target.closest("[data-members-toggle]");
+		if (!b) return;
+		const row = document.getElementById(b.dataset.membersToggle);
+		if (!row) return;
+		row.hidden = !row.hidden;
+		b.setAttribute("aria-expanded", String(!row.hidden));
+	});
 	// Il campo "Attributo" serve solo con il tipo "Attributo".
 	document.addEventListener("change", (e) => {
 		const sel = e.target.closest("[data-rule-kind]");

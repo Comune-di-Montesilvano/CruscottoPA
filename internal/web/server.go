@@ -51,6 +51,7 @@ type Server struct {
 	directory    identity.Directory
 	cookies      *identity.CookieCodec
 	profiles     *profileCache
+	membersCache *membersCache
 	limiter      *auth.RateLimiter
 	media        mediaUploads // caricamenti a pezzi in corso (immagini e PDF)
 	backup       *backup.Service
@@ -113,6 +114,7 @@ func New(o Options) (*Server, error) {
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.profiles = newProfileCache(o.Now)
+	s.membersCache = newMembersCache(o.Now)
 	s.hub = notify.NewHub(2000)
 	if o.Config.VAPIDSubject != "" {
 		pub, priv, err := o.DB.EnsureVAPIDKeys(webpush.GenerateVAPIDKeys)
@@ -198,6 +200,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/gruppi/{id}/regole", s.requireAdmin(s.handleRuleAdd))
 	s.mux.HandleFunc("POST /admin/gruppi/{id}/regole/{rid}/elimina", s.requireAdmin(s.handleRuleDelete))
 	s.mux.HandleFunc("POST /admin/gruppi/{id}/anteprima", s.requireAdmin(s.handleAudiencePreview))
+	s.mux.HandleFunc("GET /admin/gruppi/{id}/anteprima", s.requireAdmin(s.handleAudiencePreview))
+	s.mux.HandleFunc("GET /admin/gruppi/{id}/membri", s.requireAdmin(s.handleMemberCount))
 	s.mux.HandleFunc("GET /admin/gruppi/{id}/bozza", s.requireAdmin(s.handleDraftPreview))
 	s.mux.HandleFunc("GET /admin/ad/attributi", s.requireAdmin(s.handleSuggestAttributes))
 	s.mux.HandleFunc("GET /admin/ad/suggerimenti", s.requireAdmin(s.handleSuggest))

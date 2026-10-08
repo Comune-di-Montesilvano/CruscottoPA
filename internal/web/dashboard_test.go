@@ -52,7 +52,7 @@ func TestDashboardTilesGuidesAlerts(t *testing.T) {
 	for _, want := range []string{
 		`href="https://rubrica.local"`, `href="https://mail.local"`,
 		`style="background:#dee8fc"`, // tinta di #2563eb (Rubrica)
-		`data-flyout-toggle`, "1 guida", "Cercare un interno",
+		`data-tile-toggle`, "1 guida", "Cercare un interno",
 		`class="widget guides"`, "VPN da casa",
 		"data-carousel", `class="news news-urgent"`, "CED",
 		`<a href="https://cert.local" target="_blank" rel="noopener noreferrer">`, // popup urgente in Markdown
@@ -64,7 +64,7 @@ func TestDashboardTilesGuidesAlerts(t *testing.T) {
 			t.Errorf("manca %q", want)
 		}
 	}
-	if n := strings.Count(body, "data-flyout-toggle"); n != 1 {
+	if n := strings.Count(body, "data-tile-toggle"); n != 1 {
 		t.Errorf("badge guide solo sulle app con guide: trovati %d", n)
 	}
 }

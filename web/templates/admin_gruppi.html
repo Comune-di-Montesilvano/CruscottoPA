@@ -36,17 +36,24 @@
 		</form>
 		{{with .Errors.name}}<p class="field-error">{{.}}</p>{{end}}
 		<table class="list">
-			<thead><tr><th>Nome</th><th>Regole</th><th>Usato da</th><th></th></tr></thead>
+			<thead><tr><th>Nome</th><th>Membri</th><th>Regole</th><th>Usato da</th><th></th></tr></thead>
 			<tbody>
 			{{range .Groups}}<tr>
-				<td>{{.Name}}</td><td>{{.Rules}}</td><td>{{.Uses}} contenuti</td>
+				<td>{{.Name}}</td>
+				<td><button type="button" class="members-toggle" data-members-toggle="membri-{{.ID}}" aria-expanded="false" aria-controls="membri-{{.ID}}" title="Mostra chi sono">
+					<span hx-get="/admin/gruppi/{{.ID}}/membri" hx-trigger="load" hx-swap="innerHTML">…</span>
+					<span class="material-icons" aria-hidden="true">expand_more</span></button></td>
+				<td>{{.Rules}}</td><td>{{.Uses}} contenuti</td>
 				<td class="actions">
 					<button class="icon" type="button" title="Su" hx-post="/admin/gruppi/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>
 					<button class="icon" type="button" title="Giù" hx-post="/admin/gruppi/{{.ID}}/sposta" hx-vals='{"dir":"down"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_downward</span></button>
 					<button type="button" hx-get="/admin/gruppi/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML">Regole</button>
 					<button class="danger" type="button" hx-post="/admin/gruppi/{{.ID}}/elimina" hx-confirm="Eliminare il gruppo «{{.Name}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
 				</td></tr>
-			{{else}}<tr><td colspan="4" class="muted">Nessun gruppo.</td></tr>{{end}}
+			<tr class="members-row" id="membri-{{.ID}}" hidden><td colspan="5">
+				<div hx-get="/admin/gruppi/{{.ID}}/anteprima" hx-trigger="intersect once" hx-swap="innerHTML"><p class="muted">Caricamento…</p></div>
+			</td></tr>
+			{{else}}<tr><td colspan="5" class="muted">Nessun gruppo.</td></tr>{{end}}
 			</tbody>
 		</table>
 	</div>
@@ -54,37 +61,83 @@
 {{end}}
 
 {{define "group_edit"}}
-<div class="card">
+<div class="card group-editor">
 	<h2>Regole di «{{.Group.Name}}»</h2>
 	<form class="form inline-form" hx-post="/admin/gruppi/{{.Group.ID}}" hx-target="#section" hx-swap="outerHTML">
 		<label>Nome<input name="name" value="{{.Group.Name}}" maxlength="60" required></label>
 		<button type="submit">Rinomina</button>
 	</form>
-	<p class="hint">Un utente è nel gruppo se soddisfa almeno una regola e non è escluso.</p>
-	<ul class="rules">
-		{{range .Rules}}<li>{{.Text}} <button class="danger small" type="button" hx-post="/admin/gruppi/{{.GroupID}}/regole/{{.ID}}/elimina" hx-target="#section" hx-swap="outerHTML">Togli</button></li>
-		{{else}}<li class="muted">Nessuna regola: il gruppo non ha membri.</li>{{end}}
-	</ul>
-	<form class="form rule-form" hx-post="/admin/gruppi/{{.Group.ID}}/regole" hx-target="#section" hx-swap="outerHTML">
-		{{$kind := .Form.Kind}}{{if not $kind}}{{if .Attributes}}{{$kind = "attr"}}{{else}}{{$kind = "adgroup"}}{{end}}{{end}}
-		<label>Tipo<select name="kind" data-rule-kind>
-			<option value="attr"{{if eq $kind "attr"}} selected{{end}}>Attributo</option><option value="adgroup"{{if eq $kind "adgroup"}} selected{{end}}>Gruppo AD</option>
-			<option value="user"{{if eq $kind "user"}} selected{{end}}>Utente</option><option value="exclude"{{if eq $kind "exclude"}} selected{{end}}>Escludi utente</option>
-		</select></label>
-		{{$attr := .Form.Attr}}<label data-for-kind="attr"{{if ne $kind "attr"}} hidden{{end}}>Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}"{{if eq .Name $attr}} selected{{end}}>{{.Label}}</option>{{else}}<option value="" disabled selected>Nessun attributo configurato</option>{{end}}</select>
-			{{if not .Attributes}}<span class="hint">Aggiungi un attributo nel riquadro «Attributi AD utilizzabili» in alto (es. l'ufficio).</span>{{end}}</label>
-		<label>Valore<input name="value" value="{{.Form.Value}}" autocomplete="off" required
-			hx-get="/admin/ad/suggerimenti" hx-trigger="input changed delay:300ms" hx-include="closest form" hx-target="next .suggestions" hx-swap="innerHTML"></label>
-		<div class="suggestions"></div>
-		<input type="hidden" name="label" value="{{.Form.Label}}">
-		<div class="draft-preview" aria-live="polite" hx-target="this" hx-get="/admin/gruppi/{{.Group.ID}}/bozza" hx-trigger="input from:closest form delay:400ms, change from:closest form, click from:closest form delay:50ms" hx-include="closest form" hx-swap="innerHTML"></div>
-		<button class="primary" type="submit">Aggiungi regola</button>
-	</form>
-	{{with .Errors.rule}}<p class="field-error">{{.}}</p>{{end}}
-	<button type="button" hx-post="/admin/gruppi/{{.Group.ID}}/anteprima" hx-target="#preview" hx-swap="innerHTML">Anteprima membri</button>
+	{{if not .FormBlock}}{{with .Errors.rule}}<p class="field-error">{{.}}</p>{{end}}{{end}}
+	<p class="rule-summary">{{.Summary}}</p>
+	{{$g := .Group.ID}}{{$e := .}}
+
+	<section class="rule-block rule-include">
+		<h3>Chi entra <small>basta una regola</small></h3>
+		<ul class="chips">
+			{{range .Include}}{{template "rule_chip" .}}{{else}}<li class="muted">Nessuna regola: il gruppo non ha membri.</li>{{end}}
+		</ul>
+		<form class="form rule-form" hx-post="/admin/gruppi/{{$g}}/regole" hx-target="#section" hx-swap="outerHTML">
+			{{$kind := ""}}{{if eq .FormBlock "include"}}{{$kind = .Form.Kind}}{{end}}{{if not $kind}}{{if .Attributes}}{{$kind = "attr"}}{{else}}{{$kind = "adgroup"}}{{end}}{{end}}
+			<label>Tipo<select name="kind" data-rule-kind>
+				<option value="attr"{{if eq $kind "attr"}} selected{{end}}>Attributo</option><option value="adgroup"{{if eq $kind "adgroup"}} selected{{end}}>Gruppo AD</option>
+				<option value="user"{{if eq $kind "user"}} selected{{end}}>Utente</option>
+			</select></label>
+			{{$attr := .Form.Attr}}<label data-for-kind="attr"{{if ne $kind "attr"}} hidden{{end}}>Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}"{{if eq .Name $attr}} selected{{end}}>{{.Label}}</option>{{else}}<option value="" disabled selected>Nessun attributo configurato</option>{{end}}</select>
+				{{if not .Attributes}}<span class="hint">Aggiungi un attributo nel riquadro «Attributi AD utilizzabili» in alto (es. l'ufficio).</span>{{end}}</label>
+			<label>Valore<input name="value" value="{{if eq .FormBlock "include"}}{{.Form.Value}}{{end}}" autocomplete="off" required
+				hx-get="/admin/ad/suggerimenti" hx-trigger="input changed delay:300ms" hx-include="closest form" hx-target="next .suggestions" hx-swap="innerHTML"></label>
+			<div class="suggestions"></div>
+			<input type="hidden" name="label" value="{{if eq .FormBlock "include"}}{{.Form.Label}}{{end}}">
+			{{template "draft_box" $g}}
+			<button class="primary" type="submit">Aggiungi</button>
+		</form>
+		{{if eq .FormBlock "include"}}{{with .Errors.rule}}<p class="field-error">{{.}}</p>{{end}}{{end}}
+	</section>
+
+	<section class="rule-block rule-require">
+		<h3>Requisiti <small>servono tutti</small></h3>
+		<ul class="chips">
+			{{range .Require}}{{template "rule_chip" .}}{{else}}<li class="muted">Nessun requisito.</li>{{end}}
+		</ul>
+		<form class="form rule-form" hx-post="/admin/gruppi/{{$g}}/regole" hx-target="#section" hx-swap="outerHTML">
+			{{$attr := ""}}{{$kind := "present"}}{{if eq .FormBlock "require"}}{{$attr = .Form.Attr}}{{$kind = .Form.Kind}}{{end}}
+			<label>Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}"{{if eq .Name $attr}} selected{{end}}>{{.Label}}</option>{{else}}<option value="" disabled selected>Nessun attributo configurato</option>{{end}}</select></label>
+			<label>Condizione<select name="kind">
+				<option value="present"{{if eq $kind "present"}} selected{{end}}>compilato</option>
+				<option value="absent"{{if eq $kind "absent"}} selected{{end}}>vuoto</option>
+			</select></label>
+			{{template "draft_box" $g}}
+			<button class="primary" type="submit"{{if not .Attributes}} disabled{{end}}>Aggiungi requisito</button>
+		</form>
+		<p class="hint">Es. Email compilato: restano fuori gli account senza posta (servizio, tecnici). Gli attributi sono quelli del riquadro in alto.</p>
+		{{if eq .FormBlock "require"}}{{with .Errors.rule}}<p class="field-error">{{.}}</p>{{end}}{{end}}
+	</section>
+
+	<section class="rule-block rule-exclude">
+		<h3>Esclusi <small>mai nel gruppo, anche se rispettano le regole</small></h3>
+		<ul class="chips">
+			{{range .Exclude}}{{template "rule_chip" .}}{{else}}<li class="muted">Nessuno.</li>{{end}}
+		</ul>
+		<form class="form rule-form" hx-post="/admin/gruppi/{{$g}}/regole" hx-target="#section" hx-swap="outerHTML">
+			<input type="hidden" name="kind" value="exclude">
+			<label>Utente<input name="value" value="{{if eq .FormBlock "exclude"}}{{.Form.Value}}{{end}}" autocomplete="off" required placeholder="username"
+				hx-get="/admin/ad/suggerimenti" hx-trigger="input changed delay:300ms" hx-include="closest form" hx-target="next .suggestions" hx-swap="innerHTML"></label>
+			<div class="suggestions"></div>
+			{{template "draft_box" $g}}
+			<button class="primary" type="submit">Escludi</button>
+		</form>
+		{{if eq .FormBlock "exclude"}}{{with .Errors.rule}}<p class="field-error">{{.}}</p>{{end}}{{end}}
+	</section>
+
+	<button type="button" hx-post="/admin/gruppi/{{$g}}/anteprima" hx-target="#preview" hx-swap="innerHTML">Anteprima membri</button>
 	<div id="preview">{{with .Preview}}{{template "group_preview" .}}{{end}}</div>
 </div>
 {{end}}
+
+{{define "rule_chip"}}<li class="chip">{{.Text}}<button class="chip-x" type="button" title="Togli" aria-label="Togli {{.Text}}" hx-post="/admin/gruppi/{{.GroupID}}/regole/{{.ID}}/elimina" hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">close</span></button></li>{{end}}
+
+{{/* Anteprima della regola in bozza: aggiorna solo sé stessa. */}}
+{{define "draft_box"}}<div class="draft-preview" aria-live="polite" hx-target="this" hx-get="/admin/gruppi/{{.}}/bozza" hx-trigger="input from:closest form delay:400ms, change from:closest form, click from:closest form delay:50ms" hx-include="closest form" hx-swap="innerHTML"></div>{{end}}
 
 {{define "group_preview"}}{{if .Err}}<p class="flash error">{{.Err}}</p>{{else if eq .Count 0}}<p class="muted">Nessun utente corrisponde.</p>{{else}}<p>{{.Count}} {{if eq .Count 1}}utente{{else}}utenti{{end}}{{if gt .Count (len .People)}} (primi {{len .People}}){{end}}:</p>
 <table class="list preview-table"><thead><tr><th>Nome</th><th>Username</th>{{range .Attrs}}<th>{{.Label}}</th>{{end}}</tr></thead><tbody>

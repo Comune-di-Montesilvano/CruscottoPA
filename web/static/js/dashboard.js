@@ -45,6 +45,7 @@
 
 	// ── Carosello avvisi ─────────────────────────────────
 	const ROTATE_MS = 12000;
+	const NEWS_HOVER_MS = 500;
 	const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 	let carousel = null;
 
@@ -58,10 +59,12 @@
 		const dots = Array.from(root.querySelectorAll(".dot"));
 		const counter = root.querySelector("[data-counter]");
 		const pauseBtn = root.querySelector("[data-pause]");
-		const state = { index: 0, paused: false, hover: false, timer: null, currentId: null };
+		const state = { index: 0, paused: false, hover: false, expanded: false, timer: null, currentId: null };
 		root.classList.add("js-on");
 
 		function show(i) {
+			// Cambiando avviso si richiude quello espanso.
+			root.querySelectorAll(".news-expand[open]").forEach((d) => { d.open = false; });
 			state.index = (i + cards.length) % cards.length;
 			cards.forEach((c, k) => c.classList.toggle("active", k === state.index));
 			dots.forEach((d, k) => d.classList.toggle("on", k === state.index));
@@ -74,7 +77,7 @@
 
 		if (cards.length > 1 && !reduceMotion) {
 			state.timer = setInterval(() => {
-				if (!state.paused && !state.hover) show(state.index + 1);
+				if (!state.paused && !state.hover && !state.expanded) show(state.index + 1);
 			}, ROTATE_MS);
 		} else if (pauseBtn) {
 			pauseBtn.hidden = true;
@@ -86,6 +89,53 @@
 			pauseBtn.textContent = state.paused ? "▶" : "❚❚";
 			pauseBtn.setAttribute("aria-label", state.paused ? "Riprendi lo scorrimento" : "Metti in pausa");
 		});
+		// Un avviso espanso copre la pagina invece di spingerla (il carosello
+		// tiene l'altezza di prima) e ferma lo scorrimento finché non si riduce.
+		const track = root.querySelector(".carousel-track");
+		let newsTimer = null;
+		function openNews(more, via) {
+			clearTimeout(newsTimer);
+			if (!more.open) track.style.height = `${track.offsetHeight}px`;
+			more.dataset.via = via;
+			more.open = true;
+		}
+		root.addEventListener("click", (e) => {
+			const summary = e.target.closest(".news-expand > summary");
+			if (summary) {
+				// Aperto dal mouse: il clic lo fissa invece di chiuderlo.
+				const more = summary.parentElement;
+				e.preventDefault();
+				if (more.open && more.dataset.via !== "hover") more.open = false;
+				else openNews(more, "click");
+				return;
+			}
+			// Clic sull'estratto: come "Continua a leggere" (non sui link).
+			const more = e.target.closest(".news-short")?.parentElement.querySelector(":scope > .news-expand");
+			if (more && !e.target.closest("a")) openNews(more, "click");
+		}, true);
+		// Col mouse sopra per mezzo secondo l'avviso lungo si apre; uscendo si
+		// richiude, se non è stato fissato col clic.
+		root.addEventListener("pointerover", (e) => {
+			if (e.pointerType !== "mouse") return;
+			const card = e.target.closest(".news.active");
+			const more = card?.querySelector(":scope > .news-expand");
+			if (!more || more.open || card.contains(e.relatedTarget)) return;
+			clearTimeout(newsTimer);
+			newsTimer = setTimeout(() => { if (!more.open) openNews(more, "hover"); }, NEWS_HOVER_MS);
+		});
+		root.addEventListener("pointerout", (e) => {
+			if (e.pointerType !== "mouse") return;
+			const card = e.target.closest(".news");
+			if (!card || card.contains(e.relatedTarget)) return;
+			clearTimeout(newsTimer);
+			const more = card.querySelector(":scope > .news-expand[open]");
+			if (more && more.dataset.via === "hover") more.open = false;
+		});
+		root.addEventListener("toggle", () => {
+			state.expanded = !!root.querySelector(".news-expand[open]");
+			if (!state.expanded) track.style.height = "";
+			root.querySelectorAll(".news-expand:not([open])").forEach((d) => { delete d.dataset.via; });
+		}, true);
 		root.addEventListener("mouseenter", () => { state.hover = true; });
 		root.addEventListener("mouseleave", () => { state.hover = false; });
 		root.addEventListener("focusin", () => { state.hover = true; });
@@ -126,9 +176,11 @@
 		next.showModal();
 	}
 
-	// Il refresh degli avvisi non deve far sparire un urgente aperto.
+	// Il refresh degli avvisi non deve far sparire un urgente aperto né
+	// richiudere un avviso che si sta leggendo.
 	document.addEventListener("htmx:beforeSwap", (e) => {
-		if (e.detail.target.id === "alerts" && urgentOpen) e.detail.shouldSwap = false;
+		if (e.detail.target.id !== "alerts") return;
+		if (urgentOpen || e.detail.target.querySelector(".news-expand[open]")) e.detail.shouldSwap = false;
 	});
 	document.addEventListener("htmx:afterSwap", (e) => {
 		if (e.detail.target.id === "alerts") {
@@ -137,23 +189,62 @@
 		}
 	});
 
-	// ── Schede delle tile (badge su touch, Esc, click fuori) ──
+	// ── Tile: si allunga dopo 300 ms col mouse sopra, col focus o col badge
+	// (touch). Aperta dal badge resta aperta finché non si chiude (Esc, click fuori).
+	const HOVER_OPEN_MS = 300;
+	let hoverTimer = null;
 	function closeTile(tile) {
 		tile.classList.remove("open");
-		tile.querySelector("[data-flyout-toggle]")?.setAttribute("aria-expanded", "false");
+		tile.style.height = "";
+		delete tile.dataset.via;
+		tile.querySelector("[data-tile-toggle]")?.setAttribute("aria-expanded", "false");
 	}
+	function openTile(tile, via) {
+		clearTimeout(hoverTimer);
+		const open = document.querySelector(".tile.open");
+		if (open && open !== tile) closeTile(open);
+		// La card aperta esce dal flusso: la tile tiene la sua altezza.
+		if (!tile.classList.contains("open")) tile.style.height = `${tile.offsetHeight}px`;
+		tile.classList.add("open");
+		tile.dataset.via = via;
+		tile.querySelector("[data-tile-toggle]")?.setAttribute("aria-expanded", "true");
+	}
+	document.addEventListener("pointerover", (e) => {
+		if (e.pointerType !== "mouse") return;
+		const tile = e.target.closest(".tile");
+		if (!tile || tile.contains(e.relatedTarget) || tile.classList.contains("open")) return;
+		clearTimeout(hoverTimer);
+		hoverTimer = setTimeout(() => { if (!tile.classList.contains("open")) openTile(tile, "hover"); }, HOVER_OPEN_MS);
+	});
+	document.addEventListener("pointerout", (e) => {
+		if (e.pointerType !== "mouse") return;
+		const tile = e.target.closest(".tile");
+		if (!tile || tile.contains(e.relatedTarget)) return;
+		clearTimeout(hoverTimer);
+		if (tile.dataset.via === "hover") closeTile(tile);
+	});
+	document.addEventListener("focusin", (e) => {
+		const tile = e.target.closest(".tile");
+		if (tile && !tile.classList.contains("open")) openTile(tile, "focus");
+	});
+	document.addEventListener("focusout", (e) => {
+		const tile = e.target.closest(".tile");
+		if (tile && !tile.contains(e.relatedTarget) && tile.dataset.via === "focus") closeTile(tile);
+	});
 	document.addEventListener("click", (e) => {
 		const open = document.querySelector(".tile.open");
-		const badge = e.target.closest("[data-flyout-toggle]");
+		const badge = e.target.closest("[data-tile-toggle]");
 		if (badge) {
 			const tile = badge.closest(".tile");
-			const willOpen = !tile.classList.contains("open");
-			if (open && open !== tile) closeTile(open);
-			tile.classList.toggle("open", willOpen);
-			badge.setAttribute("aria-expanded", String(willOpen));
+			// Aperta dal mouse o dal focus: il click la fissa; fissata: la chiude.
+			if (tile.dataset.via === "click") closeTile(tile);
+			else openTile(tile, "click");
 			return;
 		}
 		if (open && !e.target.closest(".tile.open")) closeTile(open);
+		// Click fuori da un avviso espanso (sull'ombra): si riduce.
+		const news = document.querySelector(".news-expand[open]");
+		if (news && !e.target.closest(".news")) news.open = false;
 	});
 
 	// ── Tastiera: "/" ricerca, Esc chiude ricerca e schede ──
@@ -170,6 +261,8 @@
 			}
 			const open = document.querySelector(".tile.open");
 			if (open) closeTile(open);
+			const news = document.querySelector(".news-expand[open]");
+			if (news) news.open = false;
 			if (document.activeElement && document.activeElement.closest(".tile")) document.activeElement.blur();
 		}
 	});

@@ -1,0 +1,33 @@
+# CruscottoPA — override per lo sviluppo locale (mai su Portainer).
+#
+# Sorgente montato e "go run" al posto dell'immagine: dopo una modifica a
+# template, CSS, JS o Go basta
+#   docker compose restart cruscottopa
+# senza rifare la build. Si attiva da solo con, nel .env:
+#   COMPOSE_PATH_SEPARATOR=:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+#
+# L'editor dell'admin (web/static/vendor) non è nell'immagine: senza
+# "sh scripts/editor.sh" l'admin usa la textarea normale.
+
+services:
+  cruscottopa:
+    image: golang:1.27-alpine
+    build: !reset null
+    pull_policy: missing
+    # Stesso uid dell'immagine: i file in /data restano usabili tornando
+    # all'immagine vera (con root diventerebbero "readonly database").
+    user: "1001:1001"
+    working_dir: /src
+    command: ["go", "run", "-buildvcs=false", "-ldflags=-X main.AppVersion=dev-DEV", "./cmd/server"]
+    volumes:
+      - .:/src
+      # Cache dei moduli e della build: la ricompilazione al riavvio dura pochi secondi.
+      - ./.devcache:/cache
+    environment:
+      - CGO_ENABLED=0
+      - GOPATH=/cache/gopath
+      - GOCACHE=/cache/build
+    # Il binario /app/cruscottopa non c'è: niente healthcheck in sviluppo.
+    healthcheck:
+      test: ["NONE"]

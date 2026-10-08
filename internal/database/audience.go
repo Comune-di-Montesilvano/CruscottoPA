@@ -52,7 +52,7 @@ func (db *DB) CreateAudienceAttribute(name, label string) (int64, error) {
 func (db *DB) DeleteAudienceAttribute(id int64) error {
 	var n int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM audience_rules r JOIN audience_attributes a ON a.name = r.attr COLLATE NOCASE
-WHERE a.id = ? AND r.kind = 'attr'`, id).Scan(&n); err != nil {
+WHERE a.id = ? AND r.attr <> ''`, id).Scan(&n); err != nil {
 		return err
 	}
 	if n > 0 {
@@ -192,8 +192,11 @@ func (db *DB) AddAudienceRule(r AudienceRule) (int64, error) {
 	if r.Kind == audience.KindUser || r.Kind == audience.KindExclude {
 		r.Value = strings.ToLower(r.Value)
 	}
-	if r.Kind != audience.KindAttr {
+	if r.Kind != audience.KindAttr && !audience.IsRequirement(r.Kind) {
 		r.Attr = ""
+	}
+	if audience.IsRequirement(r.Kind) {
+		r.Value = ""
 	}
 	if r.Kind == audience.KindADGroup {
 		dn, err := audience.NormalizeDN(r.Value)

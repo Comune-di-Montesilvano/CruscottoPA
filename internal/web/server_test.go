@@ -62,7 +62,7 @@ func (f fakeDirectory) Members(rules []audience.Rule, _ []string) (int, []identi
 		return 0, nil, f.err
 	}
 	for _, r := range rules {
-		if r.Kind != audience.KindExclude {
+		if r.Kind != audience.KindExclude && !audience.IsRequirement(r.Kind) {
 			return len(f.members), f.members, nil
 		}
 	}

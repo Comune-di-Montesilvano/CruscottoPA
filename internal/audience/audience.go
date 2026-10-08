@@ -15,15 +15,21 @@ const (
 	KindADGroup = "adgroup" // gruppo AD (DN), annidati compresi
 	KindUser    = "user"    // utente incluso
 	KindExclude = "exclude" // utente escluso
+	KindPresent = "present" // requisito: attributo compilato
+	KindAbsent  = "absent"  // requisito: attributo vuoto
 )
 
 func ValidKind(k string) bool {
 	switch k {
-	case KindAttr, KindADGroup, KindUser, KindExclude:
+	case KindAttr, KindADGroup, KindUser, KindExclude, KindPresent, KindAbsent:
 		return true
 	}
 	return false
 }
+
+// IsRequirement: regola che tutti i membri devono soddisfare (AND), non una
+// via d'ingresso nel gruppo.
+func IsRequirement(k string) bool { return k == KindPresent || k == KindAbsent }
 
 // Profile è ciò che serve sapere di un utente per i gruppi della plancia.
 type Profile struct {
@@ -36,7 +42,8 @@ type Rule struct{ Kind, Attr, Value string }
 
 func norm(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
-// Member: almeno una regola attr/adgroup/user soddisfatta e nessuna exclude.
+// Member: almeno una regola attr/adgroup/user soddisfatta, tutti i requisiti
+// (present/absent) rispettati e nessuna exclude.
 func Member(p Profile, rules []Rule) bool {
 	user := norm(p.Username)
 	in := false
@@ -44,6 +51,10 @@ func Member(p Profile, rules []Rule) bool {
 		switch r.Kind {
 		case KindExclude:
 			if norm(r.Value) == user {
+				return false
+			}
+		case KindPresent, KindAbsent:
+			if hasValue(p.Attrs[norm(r.Attr)]) != (r.Kind == KindPresent) {
 				return false
 			}
 		case KindUser:
@@ -59,6 +70,15 @@ func Member(p Profile, rules []Rule) bool {
 		}
 	}
 	return in
+}
+
+func hasValue(vals []string) bool {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // sameDN confronta due DN come fa AD (maiuscole e spazi non contano); se uno
