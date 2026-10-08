@@ -52,6 +52,7 @@ func (c *ticketCache) mine(email string, load func() ([]otrs.Summary, error)) ([
 		return nil, err
 	}
 	c.mu.Lock()
+	c.pruneLocked()
 	c.mineBy[key] = cachedMine{list: list, expires: c.now().Add(ticketCacheTTL)}
 	c.mu.Unlock()
 	return list, nil
@@ -70,9 +71,25 @@ func (c *ticketCache) ticket(email, id string, load func() (otrs.Ticket, error))
 		return otrs.Ticket{}, err
 	}
 	c.mu.Lock()
+	c.pruneLocked()
 	c.tickets[key] = cachedTicket{t: t, expires: c.now().Add(ticketCacheTTL)}
 	c.mu.Unlock()
 	return t, nil
+}
+
+// pruneLocked (con il lock): via le voci scadute, così la cache non cresce.
+func (c *ticketCache) pruneLocked() {
+	now := c.now()
+	for k, e := range c.mineBy {
+		if !now.Before(e.expires) {
+			delete(c.mineBy, k)
+		}
+	}
+	for k, e := range c.tickets {
+		if !now.Before(e.expires) {
+			delete(c.tickets, k)
+		}
+	}
 }
 
 // forget: dopo una risposta (o una notifica) si rilegge da OTRS.

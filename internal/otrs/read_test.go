@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,9 @@ import (
 )
 
 var rome, _ = time.LoadLocation("Europe/Rome")
+
+// noAttachments: senza Attachments=1 OTRS non manda il campo Attachment.
+var noAttachments = regexp.MustCompile(`,\s*"Attachment":\[[^\]]*\]`)
 
 // otrsRead simula TicketSearch e TicketGet. search riceve il corpo e risponde
 // con gli ID; tickets è restituito da TicketGet per ID.
@@ -41,7 +45,7 @@ func otrsRead(t *testing.T, search func(body map[string]any) string, tickets map
 			}
 			if body["Attachments"] != float64(1) {
 				// senza allegati: nessun campo Attachment negli articoli
-				io.WriteString(w, strings.ReplaceAll(tickets[id], `"Attachment":`, `"_Attachment":`))
+				io.WriteString(w, noAttachments.ReplaceAllString(tickets[id], ""))
 				return
 			}
 			io.WriteString(w, tickets[id])
@@ -197,5 +201,45 @@ func TestChangedSkipsFailingTicket(t *testing.T) {
 	got, err := c.Changed(context.Background(), time.Now())
 	if !errors.Is(err, ErrOTRS) || len(got) != 1 || got[0].TicketID != "5" {
 		t.Fatalf("parziale: %+v %v", got, err)
+	}
+}
+
+// Ticket uniti o rimossi: mai mostrati né modificabili.
+func TestMergedNotYours(t *testing.T) {
+	c, _ := otrsRead(t, func(map[string]any) string { return `{"TicketID":["5"]}` }, map[string]string{
+		"5": ticketJSON("5", "mrossi@example.it", "Coda prova", "merged"),
+	})
+	if _, err := c.Get(context.Background(), "mrossi@example.it", "5"); !errors.Is(err, ErrNotYours) {
+		t.Fatalf("merged: %v", err)
+	}
+	if got, err := c.Mine(context.Background(), "mrossi@example.it"); err != nil || len(got) != 0 {
+		t.Fatalf("merged in Mine: %+v %v", got, err)
+	}
+}
+
+// Mail dell'operatore a un terzo (es. fornitore): visibile come in OTRS,
+// ma marcata per non essere notificata come risposta.
+func TestArticleToThirdParty(t *testing.T) {
+	c := &HTTPClient{Loc: rome}
+	tk := c.convert(rawTicket{CustomerUserID: "mrossi@example.it", Article: []rawArticle{
+		{ArticleID: "1", ArticleType: "email-external", SenderType: "agent", To: "Fornitore <supporto@fornitore.example>"},
+		{ArticleID: "2", ArticleType: "email-external", SenderType: "agent", To: "\"Mario Rossi\" <MRossi@example.it>"},
+		{ArticleID: "3", ArticleType: "phone", SenderType: "agent"},
+	}})
+	if !tk.Articles[0].ToThirdParty || tk.Articles[1].ToThirdParty || tk.Articles[2].ToThirdParty {
+		t.Fatalf("destinatari: %+v", tk.Articles)
+	}
+}
+
+// Allegati troppo grandi per una risposta: il ticket si legge senza.
+func TestGetTooLargeDropsAttachments(t *testing.T) {
+	old := maxGetBytes
+	maxGetBytes = 4000
+	defer func() { maxGetBytes = old }()
+	big := strings.Replace(ticketJSON("5", "mrossi@example.it", "Coda prova", "open"), "JVBERi0xLjQ=", strings.Repeat("A", 6000), 1)
+	c, _ := otrsRead(t, func(map[string]any) string { return `{}` }, map[string]string{"5": big})
+	tk, err := c.Get(context.Background(), "mrossi@example.it", "5")
+	if err != nil || !tk.AttachmentsOmitted || len(tk.Articles) != 2 {
+		t.Fatalf("degrado: %+v %v", tk, err)
 	}
 }

@@ -66,6 +66,13 @@ func (s *Server) ticketWatchOnce(ctx context.Context, w *ticketWatcher) error {
 	if since.IsZero() {
 		since = start.AddDate(0, 0, -7)
 	}
+	// OTRS ragiona in ora locale senza fuso: se fra since e adesso cambia
+	// l'ora legale, un'ora si ripete e va riletta (lo stato evita i doppioni).
+	if _, a := since.In(s.loc()).Zone(); true {
+		if _, b := start.In(s.loc()).Zone(); a != b {
+			since = since.Add(-time.Hour)
+		}
+	}
 	threshold := since
 	if threshold.Before(w.floor) {
 		threshold = w.floor
@@ -87,7 +94,7 @@ func (s *Server) ticketWatchOnce(ctx context.Context, w *ticketWatcher) error {
 			if n > newest {
 				newest = n
 			}
-			if !a.FromAgent || n <= last {
+			if !a.FromAgent || a.ToThirdParty || n <= last {
 				continue
 			}
 			if !known && a.Created.Before(threshold) {

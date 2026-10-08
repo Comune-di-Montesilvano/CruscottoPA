@@ -96,3 +96,27 @@ func TestTicketNotifyStateAndUsers(t *testing.T) {
 		t.Fatal("pulizia: utente vecchio rimasto")
 	}
 }
+
+// L'associazione mail → utente si riscrive solo se cambia o dopo 24 ore.
+func TestUpsertTicketUserThrottled(t *testing.T) {
+	db := newTestDB(t)
+	t0 := time.Date(2026, 10, 8, 10, 0, 0, 0, time.UTC)
+	updated := func() string {
+		var at string
+		db.QueryRow(`SELECT updated_at FROM ticket_users`).Scan(&at)
+		return at
+	}
+	db.UpsertTicketUser("m@example.it", "mrossi", t0)
+	db.UpsertTicketUser("m@example.it", "mrossi", t0.Add(time.Hour))
+	if updated() != formatTime(t0) {
+		t.Fatalf("riscritto entro 24 ore: %s", updated())
+	}
+	db.UpsertTicketUser("m@example.it", "mrossi", t0.Add(25*time.Hour))
+	if updated() != formatTime(t0.Add(25*time.Hour)) {
+		t.Fatalf("non rinnovato dopo 24 ore: %s", updated())
+	}
+	db.UpsertTicketUser("m@example.it", "altro", t0.Add(26*time.Hour))
+	if u, _ := db.TicketUserFor("m@example.it"); u != "altro" {
+		t.Fatalf("utente cambiato non registrato: %q", u)
+	}
+}

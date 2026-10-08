@@ -12,6 +12,7 @@
 			<h1>{{.Ticket.Title}}</h1>
 			<p class="muted">Ticket n. {{.Ticket.TicketNumber}} · {{ticketState .Ticket.StateType}} · aperto il {{fmtDate .Ticket.Created}}</p>
 		</header>
+		{{if .Ticket.AttachmentsOmitted}}<p class="muted">Allegati non mostrati: sono troppo grandi per la plancia. Li trovi nelle mail del ticket.</p>{{end}}
 		<ol class="ticket-thread">
 			{{$id := .Ticket.TicketID}}{{range .Ticket.Articles}}<li class="ticket-msg{{if .FromAgent}} from-agent{{end}}">
 				<div class="ticket-msg-head"><strong>{{if .FromAgent}}Assistenza{{else}}Tu{{end}}</strong> <small>{{fmtDate .Created}}</small></div>

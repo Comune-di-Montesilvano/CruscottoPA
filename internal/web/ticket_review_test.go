@@ -153,3 +153,54 @@ func TestTicketAttachmentsSurviveOTRSFailure(t *testing.T) {
 		t.Fatal("allegato riusabile dopo un invio riuscito")
 	}
 }
+
+// «Visto» = data dell'ultimo messaggio mostrato, non l'ora corrente.
+func TestTicketSeenUsesLastShownArticle(t *testing.T) {
+	s, c := ticketTestServer(t, mockConversation())
+	do(t, s, "GET", "/ticket/5", nil, c, nil)
+	seen, _ := s.db.TicketSeen("mrossi")
+	if want := fixedNow.Add(-time.Hour); !seen["5"].Equal(want) {
+		t.Fatalf("visto: %v, atteso %v", seen["5"], want)
+	}
+}
+
+func TestTicketAttachmentNeverClientError(t *testing.T) {
+	s, _ := ticketTestServer(t, mockConversation())
+	rec := do(t, s, "GET", "/ticket/5/allegati/102/1", nil, nil, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "non disponibile") {
+		t.Fatalf("anonimo: %d %q", rec.Code, rec.Body)
+	}
+}
+
+// Download in parallelo limitati: oltre il limite si chiede di riprovare.
+func TestTicketAttachmentBusy(t *testing.T) {
+	s, c := ticketTestServer(t, mockConversation())
+	for i := 0; i < cap(s.ticketDownloads); i++ {
+		s.ticketDownloads <- struct{}{}
+	}
+	rec := do(t, s, "GET", "/ticket/5/allegati/102/1", nil, c, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "riprova") {
+		t.Fatalf("occupato: %d %q", rec.Code, rec.Body)
+	}
+}
+
+func TestTicketPageAttachmentsOmitted(t *testing.T) {
+	m := mockConversation()
+	m.Tickets["5"].AttachmentsOmitted = true
+	s, c := ticketTestServer(t, m)
+	if body := do(t, s, "GET", "/ticket/5", nil, c, nil).Body.String(); !strings.Contains(body, "troppo grandi") {
+		t.Fatal("nessun avviso per gli allegati non mostrati")
+	}
+}
+
+func TestTicketCachePrunesExpired(t *testing.T) {
+	now := fixedNow
+	c := newTicketCache(func() time.Time { return now })
+	c.mine("a@example.it", func() ([]otrs.Summary, error) { return nil, nil })
+	c.ticket("a@example.it", "5", func() (otrs.Ticket, error) { return otrs.Ticket{}, nil })
+	now = now.Add(ticketCacheTTL + time.Second)
+	c.mine("b@example.it", func() ([]otrs.Summary, error) { return nil, nil })
+	if len(c.mineBy) != 1 || len(c.tickets) != 0 {
+		t.Fatalf("voci scadute rimaste: %d %d", len(c.mineBy), len(c.tickets))
+	}
+}

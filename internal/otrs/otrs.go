@@ -26,6 +26,9 @@ import (
 // come la pagina di cortesia del proxy, oppure {"Error":…}).
 var ErrOTRS = errors.New("OTRS non disponibile")
 
+// errTooLarge: risposta oltre il limite (di solito per gli allegati).
+var errTooLarge = fmt.Errorf("%w: risposta troppo grande", ErrOTRS)
+
 // Tempi massimi delle due chiamate: insieme restano sotto il timeout del
 // reverse proxy (60 s), altrimenti l'utente vede un errore per un ticket
 // che esiste già e lo riapre.
@@ -123,7 +126,11 @@ func (c *HTTPClient) call(ctx context.Context, method, route string, body map[st
 		return fmt.Errorf("%w: %v", ErrOTRS, err)
 	}
 	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err == nil && int64(len(raw)) > maxBytes {
+		slog.Warn("otrs: risposta troppo grande", "route", route, "max", maxBytes)
+		return errTooLarge
+	}
 	ct, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil || resp.StatusCode != http.StatusOK || ct != "application/json" {
 		slog.Warn("otrs: risposta non valida", "route", route, "status", resp.StatusCode, "content_type", ct)

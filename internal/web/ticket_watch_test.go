@@ -193,3 +193,41 @@ func TestTicketCacheRefreshAndWatcherForget(t *testing.T) {
 		t.Fatal("il watcher non ha svuotato la cache del ticket cambiato")
 	}
 }
+
+// Mail dell'operatore a un terzo: nessuna notifica all'utente.
+func TestTicketWatchSkipsThirdPartyMail(t *testing.T) {
+	s, m, fp, _ := watchServer(t)
+	w := &ticketWatcher{}
+	s.ticketWatchOnce(context.Background(), w)
+	m.Tickets["5"].Changed = fixedNow.Add(time.Minute)
+	m.Tickets["5"].Articles = append(m.Tickets["5"].Articles, otrs.Article{ArticleID: "150", FromAgent: true, ToThirdParty: true, Body: "al fornitore", Created: fixedNow.Add(time.Minute)})
+	s.ticketWatchOnce(context.Background(), w)
+	if len(fp.sent) != 0 {
+		t.Fatalf("notificata una mail a terzi: %v", fp.sent)
+	}
+}
+
+type sinceRecorder struct {
+	*otrs.Mock
+	got []time.Time
+}
+
+func (r *sinceRecorder) Changed(ctx context.Context, since time.Time) ([]otrs.Ticket, error) {
+	r.got = append(r.got, since)
+	return r.Mock.Changed(ctx, since)
+}
+
+// Fine dell'ora legale (Europe/Rome, 25/10/2026): l'ora 02:00-03:00 si ripete
+// e OTRS ragiona in ora locale; since si anticipa di un'ora.
+func TestTicketWatchDSTWidensSince(t *testing.T) {
+	s, m, _, _ := watchServer(t)
+	rec := &sinceRecorder{Mock: m}
+	s.tickets = rec
+	now := time.Date(2026, 10, 25, 1, 5, 0, 0, time.UTC) // 02:05 CET
+	s.now = func() time.Time { return now }
+	w := &ticketWatcher{since: time.Date(2026, 10, 25, 0, 58, 0, 0, time.UTC), floor: now.Add(-time.Hour)} // 02:58 CEST
+	s.ticketWatchOnce(context.Background(), w)
+	if want := time.Date(2026, 10, 24, 23, 58, 0, 0, time.UTC); len(rec.got) != 1 || !rec.got[0].Equal(want) {
+		t.Fatalf("since: %v, atteso %v", rec.got, want)
+	}
+}

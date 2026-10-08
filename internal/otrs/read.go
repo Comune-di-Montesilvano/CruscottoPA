@@ -24,8 +24,10 @@ const (
 	maxMine     = 20
 	maxChanged  = 50
 	closedDays  = 7
-	maxGetBytes = 40 << 20 // TicketGet con il contenuto degli allegati
 )
+
+// maxGetBytes: TicketGet con il contenuto degli allegati (variabile per i test).
+var maxGetBytes int64 = 40 << 20
 
 var openStates = []string{"new", "open", "pending reminder", "pending auto"}
 
@@ -41,13 +43,15 @@ type Summary struct {
 
 type Ticket struct {
 	Summary
-	CustomerUserID string
-	Articles       []Article
+	CustomerUserID     string
+	Articles           []Article
+	AttachmentsOmitted bool // allegati troppo grandi per una risposta: ticket letto senza
 }
 
 type Article struct {
 	ArticleID           string
 	FromAgent           bool
+	ToThirdParty        bool // mail dell'operatore a qualcun altro: non è una risposta all'utente
 	From, Subject, Body string
 	Created             time.Time
 	Attachments         []AttachmentInfo
@@ -106,8 +110,8 @@ type rawAttachment struct {
 }
 
 type rawArticle struct {
-	ArticleID, ArticleType, SenderType, From, Subject, Body, Created flexString
-	Attachment                                                       []rawAttachment
+	ArticleID, ArticleType, SenderType, From, To, Subject, Body, Created flexString
+	Attachment                                                           []rawAttachment
 }
 
 type rawTicket struct {
@@ -140,7 +144,7 @@ func (c *HTTPClient) getRaw(ctx context.Context, id string, attachments bool) (r
 	defer cancel()
 	route := strings.Replace(c.Config.RouteGet, ":TicketID", id, 1)
 	if err := c.call(cctx, http.MethodGet, route, body, &out, maxGetBytes); err != nil {
-		if strings.Contains(err.Error(), "TicketGet.") { // es. TicketGet.AccessDenied o ticket inesistente
+		if !errors.Is(err, errTooLarge) && strings.Contains(err.Error(), "TicketGet.") { // es. TicketGet.AccessDenied o ticket inesistente
 			return rawTicket{}, ErrNotYours
 		}
 		return rawTicket{}, err
@@ -166,7 +170,8 @@ func (c *HTTPClient) convert(r rawTicket) Ticket {
 			continue
 		}
 		art := Article{ArticleID: string(a.ArticleID), FromAgent: string(a.SenderType) == "agent", From: string(a.From),
-			Subject: string(a.Subject), Body: string(a.Body), Created: c.parseTime(a.Created)}
+			ToThirdParty: toThirdParty(a, string(r.CustomerUserID)),
+			Subject:      string(a.Subject), Body: string(a.Body), Created: c.parseTime(a.Created)}
 		for i, at := range a.Attachment {
 			size, _ := strconv.ParseInt(string(at.FilesizeRaw), 10, 64)
 			art.Attachments = append(art.Attachments, AttachmentInfo{FileID: strconv.Itoa(i + 1),
@@ -181,8 +186,21 @@ func (c *HTTPClient) convert(r rawTicket) Ticket {
 }
 
 // owned: il ticket è nella coda configurata e il cliente è email.
+// owned: ticket della coda configurata, del cliente email, non unito ad
+// altri né rimosso.
 func (c *HTTPClient) owned(r rawTicket, email string) bool {
+	if st := string(r.StateType); st == "merged" || st == "removed" {
+		return false
+	}
 	return string(r.Queue) == c.Config.Queue && email != "" && strings.EqualFold(strings.TrimSpace(string(r.CustomerUserID)), strings.TrimSpace(email))
+}
+
+// toThirdParty: mail dell'operatore indirizzata ad altri (es. un fornitore).
+func toThirdParty(a rawArticle, customer string) bool {
+	if string(a.SenderType) != "agent" || string(a.ArticleType) != "email-external" || customer == "" {
+		return false
+	}
+	return !strings.Contains(strings.ToLower(string(a.To)), strings.ToLower(strings.TrimSpace(customer)))
 }
 
 func (c *HTTPClient) Mine(ctx context.Context, email string) ([]Summary, error) {
@@ -226,13 +244,21 @@ func (c *HTTPClient) Mine(ctx context.Context, email string) ([]Summary, error) 
 
 func (c *HTTPClient) Get(ctx context.Context, email, id string) (Ticket, error) {
 	r, err := c.getRaw(ctx, id, true)
+	omitted := false
+	if errors.Is(err, errTooLarge) {
+		// Allegati troppo grandi per una risposta: il testo si legge senza.
+		r, err = c.getRaw(ctx, id, false)
+		omitted = true
+	}
 	if err != nil {
 		return Ticket{}, err
 	}
 	if !c.owned(r, email) {
 		return Ticket{}, ErrNotYours
 	}
-	return c.convert(r), nil
+	t := c.convert(r)
+	t.AttachmentsOmitted = omitted
+	return t, nil
 }
 
 func (c *HTTPClient) Changed(ctx context.Context, since time.Time) ([]Ticket, error) {

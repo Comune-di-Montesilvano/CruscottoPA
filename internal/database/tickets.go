@@ -112,9 +112,13 @@ ON CONFLICT(ticket_id) DO UPDATE SET last_article_id = excluded.last_article_id,
 }
 
 func (db *DB) UpsertTicketUser(email, username string, now time.Time) error {
+	// Il widget la chiama a ogni caricamento: si scrive solo se cambia l'utente
+	// o dopo 24 ore (la pulizia toglie le righe ferme da 30 giorni).
 	_, err := db.Exec(`INSERT INTO ticket_users (email, username, updated_at) VALUES (?, ?, ?)
-ON CONFLICT(email) DO UPDATE SET username = excluded.username, updated_at = excluded.updated_at`,
-		strings.ToLower(strings.TrimSpace(email)), strings.ToLower(strings.TrimSpace(username)), formatTime(now))
+ON CONFLICT(email) DO UPDATE SET username = excluded.username, updated_at = excluded.updated_at
+WHERE ticket_users.username <> excluded.username OR ticket_users.updated_at < ?`,
+		strings.ToLower(strings.TrimSpace(email)), strings.ToLower(strings.TrimSpace(username)), formatTime(now),
+		formatTime(now.Add(-24*time.Hour)))
 	return err
 }
 

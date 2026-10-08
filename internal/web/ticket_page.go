@@ -40,7 +40,15 @@ func (s *Server) handleTicketPage(w http.ResponseWriter, r *http.Request) {
 		s.render(w, http.StatusOK, "ticket.html", v)
 		return
 	}
-	if err := s.db.MarkTicketSeen(s.ticketUser(r), id, s.now()); err != nil {
+	// Visto fino all'ultimo messaggio mostrato (non "adesso": la pagina può
+	// venire dalla cache, e l'orologio di OTRS può differire dal nostro).
+	seen := t.Created
+	for _, a := range t.Articles {
+		if a.Created.After(seen) {
+			seen = a.Created
+		}
+	}
+	if err := s.db.MarkTicketSeen(s.ticketUser(r), id, seen); err != nil {
 		slog.Warn("ticket: visto", "err", err)
 	}
 	v.Ticket, v.OK, v.Requester = t, true, req
@@ -70,18 +78,30 @@ func attachmentHeaders(contentType, filename string) http.Header {
 }
 
 func (s *Server) handleTicketAttachment(w http.ResponseWriter, r *http.Request) {
+	// Sempre 200 con un messaggio: un 404 lo sostituirebbe il proxy.
+	text := func(msg string) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write([]byte(msg))
+	}
 	req, problem := s.ticketRequester(r)
 	if !s.ticketsEnabled() || problem != "" {
-		http.NotFound(w, r)
+		text("Allegato non disponibile.")
+		return
+	}
+	// Ogni download legge da OTRS tutti gli allegati del ticket: pochi alla volta.
+	select {
+	case s.ticketDownloads <- struct{}{}:
+		defer func() { <-s.ticketDownloads }()
+	default:
+		text("Troppi download in corso: riprova tra qualche secondo.")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), otrs.ReadTimeout)
 	defer cancel()
 	a, err := s.tickets.Attachment(ctx, req.Email, r.PathValue("id"), r.PathValue("art"), r.PathValue("file"))
 	if err != nil {
-		// 200 con un messaggio: un 404 lo sostituirebbe il proxy.
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write([]byte("Allegato non disponibile."))
+		text("Allegato non disponibile.")
 		return
 	}
 	for k, vs := range attachmentHeaders(a.ContentType, strings.ReplaceAll(a.Filename, `"`, "")) {

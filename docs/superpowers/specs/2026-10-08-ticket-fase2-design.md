@@ -53,7 +53,7 @@ Attachment(ctx, email, ticketID, articleID, fileID string) (Attachment, error)
 
 **Reply**: `TicketUpdate` con articolo cliente (`webrequest`, `customer`, `From` «Nome <mail>», `text/plain; charset=utf8`) e allegati; se il ticket ha `StateType` `closed`, nello stesso `TicketUpdate` `Ticket.State` = `open`.
 
-**Changed**: `TicketSearch` sulla coda con `TicketChangeTimeNewerDate` = `since` e stati aperti o chiusi da meno di 7 giorni, poi `TicketGet` con articoli. Al massimo 50 ticket per giro.
+**Changed**: `TicketSearch` sulla coda con `TicketChangeTimeNewerDate` = `since` (qualsiasi stato: OTRS 5 non combina «aperti oppure chiusi da poco» in una ricerca, e una risposta su un ticket chiuso va notificata), poi `TicketGet` con articoli. Al massimo 50 ticket per giro; un ticket illeggibile non blocca gli altri.
 
 **Attachment**: `TicketGet` con `AllArticles` e `Attachments`, scelta per `ArticleID` + `FileID` fra gli articoli visibili.
 
