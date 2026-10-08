@@ -282,14 +282,22 @@ func TestNotifyOffAlert(t *testing.T) {
 	s, _ := newTestServer(t, nil)
 	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
 	header := body[:strings.Index(body, "</header>")]
-	if !strings.Contains(header, `<button type="button" class="notify-off" data-notify-off hidden>`) || !strings.Contains(header, "Notifiche non attive") {
+	// Al centro della testata, tra saluto e riquadro di oggi.
+	center, today := strings.Index(header, `class="hero-center"`), strings.Index(header, `class="hero-today"`)
+	if center < 0 || center > today || !strings.Contains(header, `<button type="button" class="notify-off" data-notify-off hidden>`) ||
+		!strings.Contains(header, "Notifiche disattivate") || !strings.Contains(header, "Non riceverai gli avvisi urgenti") {
 		t.Fatalf("avviso notifiche nella testata:\n%s", header)
 	}
 	css, _ := os.ReadFile("../../web/static/css/plancia.css")
-	for _, want := range []string{"@keyframes notify-pulse", ".notify-off { ", "animation: notify-pulse", "@media (prefers-reduced-motion: reduce) { .notify-off { animation: none; } }"} {
+	for _, want := range []string{"@keyframes notify-pulse", ".notify-off { ", "animation: notify-pulse", ".hero-center {"} {
 		if !strings.Contains(string(css), want) {
 			t.Errorf("plancia.css: manca %q", want)
 		}
+	}
+	// Solo dissolvenza e alone, niente movimento: resta attiva anche con
+	// «effetti di animazione» spenti in Windows (prefers-reduced-motion).
+	if strings.Contains(string(css), ".notify-off { animation: none; }") {
+		t.Error("la pulsazione non deve spegnersi con prefers-reduced-motion")
 	}
 	js, _ := os.ReadFile("../../web/static/js/notifiche.js")
 	for _, want := range []string{`querySelector("[data-notify-off]")`, "function refreshOff()", "blocked.showModal()", `permissions.query({ name: "notifications" })`} {
