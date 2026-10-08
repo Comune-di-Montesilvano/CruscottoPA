@@ -28,7 +28,7 @@ func TestRequirementRulesAdmin(t *testing.T) {
 		}
 	}
 	rec := do(t, s, "POST", base+"/regole", url.Values{"kind": {"absent"}, "attr": {"department"}}, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Scegli un attributo configurato") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Scegli un attributo configurato") {
 		t.Fatalf("requisito su attributo non configurato: %d", rec.Code)
 	}
 
@@ -100,7 +100,7 @@ func TestAttributeHeroAdmin(t *testing.T) {
 		t.Fatalf("testata: %d", rec.Code)
 	}
 	do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(tel)+"/testata", url.Values{"hero_kind": {"phone"}}, c, hx)
-	if rec := do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(tel)+"/testata", url.Values{"hero_kind": {"boh"}}, c, hx); rec.Code != http.StatusUnprocessableEntity {
+	if rec := do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(tel)+"/testata", url.Values{"hero_kind": {"boh"}}, c, hx); !invalid(rec) {
 		t.Fatalf("formato non valido: %d", rec.Code)
 	}
 	do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(tel)+"/sposta", url.Values{"dir": {"up"}}, c, hx)

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -33,7 +32,7 @@ func TestVisibilityNeedsGroup(t *testing.T) {
 	s, _ := newTestServer(t, nil)
 	c := login(t, s)
 	form := url.Values{"title": {"x"}, "level": {"news"}, "starts_at": {"2026-10-06T09:00"}, "visibilita": {"hide"}}
-	if rec := do(t, s, "POST", "/admin/avvisi", form, c, map[string]string{"HX-Request": "true"}); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Scegli almeno un gruppo") {
+	if rec := do(t, s, "POST", "/admin/avvisi", form, c, map[string]string{"HX-Request": "true"}); !invalid(rec) || !strings.Contains(rec.Body.String(), "Scegli almeno un gruppo") {
 		t.Fatalf("Nascosto a senza gruppi: %d", rec.Code)
 	}
 }

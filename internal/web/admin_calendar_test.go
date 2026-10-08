@@ -63,7 +63,7 @@ func TestCalendarAdminValidation(t *testing.T) { // Review Focus #4
 	} {
 		t.Run(name, func(t *testing.T) {
 			rec := do(t, s, "POST", "/admin/calendario", tc.form, c, hx)
-			if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), tc.msg) {
+			if !invalid(rec) || !strings.Contains(rec.Body.String(), tc.msg) {
 				t.Fatalf("atteso 422 con %q, ottenuto %d\n%s", tc.msg, rec.Code, rec.Body)
 			}
 		})
@@ -119,7 +119,7 @@ func TestCalendarAdminImplausibleYear(t *testing.T) {
 	c := login(t, s)
 	for _, d := range []string{"0026-10-10", "2062-10-10", "2015-10-10"} {
 		rec := do(t, s, "POST", "/admin/calendario", calForm("x", "event", d, ""), c, hx)
-		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Anno non plausibile") {
+		if !invalid(rec) || !strings.Contains(rec.Body.String(), "Anno non plausibile") {
 			t.Errorf("%s: atteso 422 Anno non plausibile, ottenuto %d", d, rec.Code)
 		}
 	}

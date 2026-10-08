@@ -52,7 +52,7 @@ func TestBackupPageAndCreate(t *testing.T) {
 		t.Fatalf("crea: %d\n%s", rec.Code, rec.Body)
 	}
 	rec = do(t, s, "POST", "/admin/backup", nil, c, hx) // stesso secondo (orologio fisso)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "esiste già") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "esiste già") {
 		t.Fatalf("doppio click: %d\n%s", rec.Code, rec.Body)
 	}
 }
@@ -78,7 +78,7 @@ func TestBackupDownloadAndDelete(t *testing.T) {
 
 	auto, _ := s.backup.Create(backup.KindAuto)
 	rec = do(t, s, "POST", "/admin/backup/"+auto.Name+"/elimina", nil, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "conservazione automatica") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "conservazione automatica") {
 		t.Fatalf("auto non eliminabile: %d\n%s", rec.Code, rec.Body)
 	}
 }
@@ -92,7 +92,7 @@ func TestRestoreFromList(t *testing.T) {
 	path := "/admin/backup/" + info.Name + "/ripristina"
 
 	rec := do(t, s, "POST", path, url.Values{"conferma": {"ripristina"}}, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "digita RIPRISTINA") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "digita RIPRISTINA") {
 		t.Fatalf("conferma errata: %d\n%s", rec.Code, rec.Body)
 	}
 	if list, _ := s.backup.List(); len(list) != 1 {

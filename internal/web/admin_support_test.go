@@ -36,7 +36,7 @@ func TestSupportAdmin(t *testing.T) {
 		{"title": {"X"}, "url": {"javascript:alert(1)"}},
 		{"title": {"X"}, "url": {"https://x"}, "app": {"999999"}},
 	} {
-		if rec := do(t, s, "POST", "/admin/assistenza/"+id, bad, c, hx); rec.Code != http.StatusUnprocessableEntity {
+		if rec := do(t, s, "POST", "/admin/assistenza/"+id, bad, c, hx); !invalid(rec) {
 			t.Errorf("%v: atteso 422, %d", bad, rec.Code)
 		}
 	}

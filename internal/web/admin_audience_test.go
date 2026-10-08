@@ -18,7 +18,7 @@ func TestAudienceAttributesAdmin(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "Ufficio") {
 		t.Fatalf("aggiungi attributo: %d\n%s", rec.Code, rec.Body)
 	}
-	if rec := do(t, s, "POST", "/admin/gruppi/attributi", url.Values{"name": {"a)(b"}, "label": {"X"}}, c, hx); rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Nome di attributo LDAP non valido") {
+	if rec := do(t, s, "POST", "/admin/gruppi/attributi", url.Values{"name": {"a)(b"}, "label": {"X"}}, c, hx); !invalid(rec) || !strings.Contains(rec.Body.String(), "Nome di attributo LDAP non valido") {
 		t.Fatalf("nome non valido: %d", rec.Code)
 	}
 	attrs, _ := db.ListAudienceAttributes()
@@ -53,7 +53,7 @@ func TestAudienceGroupLifecycle(t *testing.T) {
 			t.Errorf("manca %q", want)
 		}
 	}
-	if rec := do(t, s, "POST", "/admin/gruppi/"+g+"/regole", url.Values{"kind": {"attr"}, "attr": {"department"}, "value": {"X"}}, c, hx); rec.Code != http.StatusUnprocessableEntity {
+	if rec := do(t, s, "POST", "/admin/gruppi/"+g+"/regole", url.Values{"kind": {"attr"}, "attr": {"department"}, "value": {"X"}}, c, hx); !invalid(rec) {
 		t.Fatalf("attributo non configurato accettato: %d", rec.Code)
 	}
 	prev := do(t, s, "POST", "/admin/gruppi/"+g+"/anteprima", nil, c, hx).Body.String()
@@ -64,7 +64,7 @@ func TestAudienceGroupLifecycle(t *testing.T) {
 	apps, _ := db.ListApps()
 	db.SetContentAudience(database.ContentApp, apps[0].ID, database.ContentAudience{Mode: "only", Groups: []int64{groups[0].ID}})
 	rec := do(t, s, "POST", "/admin/gruppi/"+g+"/elimina", nil, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), apps[0].Title) {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), apps[0].Title) {
 		t.Fatalf("gruppo in uso eliminato: %d\n%s", rec.Code, rec.Body)
 	}
 }
@@ -97,7 +97,7 @@ func TestADGroupRuleInvalidDN(t *testing.T) {
 	c := login(t, s)
 	g, _ := db.CreateAudienceGroup("G")
 	rec := do(t, s, "POST", "/admin/gruppi/"+itoa(g)+"/regole", url.Values{"kind": {"adgroup"}, "value": {"non un DN"}}, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "DN non valido") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "DN non valido") {
 		t.Fatalf("DN non valido: atteso 422 con messaggio, ottenuto %d", rec.Code)
 	}
 }
@@ -108,7 +108,7 @@ func TestRuleFormKeepsValuesOn422(t *testing.T) {
 	g, _ := db.CreateAudienceGroup("G")
 	rec := do(t, s, "POST", "/admin/gruppi/"+itoa(g)+"/regole", url.Values{"kind": {"exclude"}, "value": {"nome sbagliato"}}, c, hx)
 	body := rec.Body.String()
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(body, `value="nome sbagliato"`) || strings.Index(body, "Username non valido") < strings.Index(body, "Esclusi") {
+	if !invalid(rec) || !strings.Contains(body, `value="nome sbagliato"`) || strings.Index(body, "Username non valido") < strings.Index(body, "Esclusi") {
 		t.Fatalf("dopo un errore il form degli esclusi deve conservare il valore e mostrare l'errore lì: %d\n%s", rec.Code, body)
 	}
 }

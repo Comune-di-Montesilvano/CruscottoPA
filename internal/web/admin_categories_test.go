@@ -33,11 +33,11 @@ func TestCategoryValidationAndDuplicates(t *testing.T) {
 	c := login(t, s)
 
 	rec := do(t, s, "POST", "/admin/categorie", url.Values{"name": {"   "}}, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Campo obbligatorio.") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Campo obbligatorio.") {
 		t.Fatalf("nome vuoto: %d\n%s", rec.Code, rec.Body)
 	}
 	rec = do(t, s, "POST", "/admin/categorie", url.Values{"name": {"applicativi"}}, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Esiste già") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Esiste già") {
 		t.Fatalf("duplicato: %d\n%s", rec.Code, rec.Body)
 	}
 }
@@ -78,7 +78,7 @@ func TestDeleteCategoryWithAppsShowsMessage(t *testing.T) {
 	c := login(t, s)
 	cats, _ := db.ListCategories()
 	rec := do(t, s, "POST", "/admin/categorie/"+itoa(cats[0].ID)+"/elimina", nil, c, hx)
-	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "Sposta o elimina prima le app") {
+	if !invalid(rec) || !strings.Contains(rec.Body.String(), "Sposta o elimina prima le app") {
 		t.Fatalf("categoria con app: %d\n%s", rec.Code, rec.Body)
 	}
 }

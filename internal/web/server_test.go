@@ -247,3 +247,25 @@ func TestStaticNoDirectoryListing(t *testing.T) {
 		t.Fatalf("file statico: %d", rec.Code)
 	}
 }
+
+// invalid: l'admin ha rifiutato i dati (errori nel form). In produzione il
+// reverse proxy sostituisce ogni 4xx con la pagina di cortesia, quindi la
+// risposta è 200 e l'esito sta nell'header X-Esito.
+func invalid(rec *httptest.ResponseRecorder) bool {
+	return rec.Code == http.StatusOK && rec.Header().Get("X-Esito") == "non-valido"
+}
+
+// Nell'admin la validazione non risponde mai 4xx (verificato in produzione il
+// 2026-10-08: il proxy mostrava la pagina di cortesia al posto degli errori).
+func TestAdminValidationNeverClientError(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	db.CreateCategory("Generali")
+	rec := do(t, s, "POST", "/admin/categorie", url.Values{"name": {"Generali"}}, c, hx)
+	if rec.Code != http.StatusOK || rec.Header().Get("X-Esito") != "non-valido" || !strings.Contains(rec.Body.String(), "Esiste già una categoria") {
+		t.Fatalf("validazione admin: %d %q\n%s", rec.Code, rec.Header().Get("X-Esito"), rec.Body)
+	}
+	if ok := do(t, s, "POST", "/admin/categorie", url.Values{"name": {"Nuova"}}, c, hx); ok.Code != http.StatusOK || ok.Header().Get("X-Esito") != "" {
+		t.Fatalf("salvataggio riuscito: %d %q", ok.Code, ok.Header().Get("X-Esito"))
+	}
+}
