@@ -50,4 +50,21 @@ func TestTicketJS(t *testing.T) {
 	if strings.Count(src, "sessionStorage") > strings.Count(src, "try {")*2 {
 		t.Error("sessionStorage senza try/catch")
 	}
+	// Correggendo un campo, il suo errore sparisce subito (non solo al prossimo invio).
+	if !strings.Contains(src, "showErr(e.target.name, \"\")") {
+		t.Error("ticket.js: l'errore del campo non si toglie mentre si scrive")
+	}
+}
+
+// I bottoni del dialog hanno lo stile degli altri dialog della plancia.
+func TestTicketCSS(t *testing.T) {
+	css, err := os.ReadFile("../../web/static/css/plancia.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"dialog.ticket button {", ".ticket-actions .primary {"} {
+		if !strings.Contains(string(css), want) {
+			t.Errorf("plancia.css: manca %q", want)
+		}
+	}
 }

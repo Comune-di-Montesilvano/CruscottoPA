@@ -96,7 +96,10 @@
 	});
 	if (!form) return;
 
-	form.addEventListener("input", saveDraft);
+	form.addEventListener("input", function (e) {
+		if (e.target.name) showErr(e.target.name, "");
+		saveDraft();
+	});
 	const input = dlg.querySelector("[data-ticket-input]");
 	dlg.querySelector("[data-ticket-attach]").addEventListener("click", function () { input.click(); });
 	input.addEventListener("change", function () {
