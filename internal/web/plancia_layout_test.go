@@ -2,6 +2,7 @@ package web
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -99,19 +100,161 @@ func TestTodayInHeroAndWidgetOrder(t *testing.T) {
 	}
 }
 
-// Sotto il saluto: ufficio e qualifica da AD (i valori tutti maiuscoli resi
-// leggibili).
-func TestHeroShowsOffice(t *testing.T) {
-	s, _ := newTestServer(t, nil)
+// Sotto il saluto: gli attributi AD scelti dall'admin, nell'ordine scelto.
+func TestHeroContacts(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	off, _ := db.CreateAudienceAttribute("physicalDeliveryOfficeName", "Ufficio")
+	tit, _ := db.CreateAudienceAttribute("title", "Qualifica")
+	db.CreateAudienceAttribute("department", "Settore") // non in testata
+	db.SetAttributeHero(off, database.HeroText)
+	db.SetAttributeHero(tit, database.HeroText)
 	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String()
 	header := body[:strings.Index(body, "</header>")]
-	if !strings.Contains(header, `<p class="hero-info">Tributi · Istruttore amministrativo</p>`) {
-		t.Fatalf("ufficio nella testata:\n%s", header)
+	if !strings.Contains(header, `<span class="hero-item">Tributi</span>`) || !strings.Contains(header, "Istruttore amministrativo") {
+		t.Fatalf("contatti nella testata:\n%s", header)
 	}
-	if got := officeLine(audience.Profile{Attrs: map[string][]string{"department": {"Ragioneria"}}}); got != "Ragioneria" {
-		t.Errorf("department come ripiego: %q", got)
+	if strings.Index(header, "Tributi") > strings.Index(header, "Istruttore") {
+		t.Error("ordine della testata non rispettato")
 	}
-	if got := officeLine(audience.Profile{}); got != "" {
-		t.Errorf("profilo vuoto: %q", got)
+	anon := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	if strings.Contains(anon[:strings.Index(anon, "</header>")], "hero-info") {
+		t.Error("riga dei contatti per un anonimo")
+	}
+}
+
+func TestHeroItems(t *testing.T) {
+	attrs := []database.AudienceAttribute{
+		{Name: "description", Hero: 1, HeroKind: database.HeroText},
+		{Name: "telephoneNumber", Hero: 2, HeroKind: database.HeroPhone},
+		{Name: "mail", Hero: 3, HeroKind: database.HeroMail},
+		{Name: "pager", Hero: 4, HeroKind: database.HeroText},
+	}
+	// Più valori: il primo non vuoto; soli spazi: saltato.
+	p := audience.Profile{Attrs: map[string][]string{
+		"description":     {" ", "CED"},
+		"telephonenumber": {"731"},
+		"mail":            {"m.rossi@example.it"},
+		"pager":           {"  "},
+	}}
+	got := heroItems(p, attrs)
+	want := []heroItem{{"text", "Ced"}, {"phone", "Int. 731"}, {"mail", "m.rossi@example.it"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("heroItems = %+v", got)
+	}
+}
+
+func TestTileSupport(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	apps, _ := db.ListApps()
+	a := apps[0]
+	a.URL = "https://rubrica.local"
+	db.UpdateApp(a)
+	db.CreateSupportChannel(database.SupportChannel{Title: "Portale Maggioli", URL: "https://assistenza.example", Note: "serve l'utenza", Enabled: true, AppIDs: []int64{a.ID}})
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	for _, want := range []string{
+		`class="tile-support-flag`,
+		`Problemi con ` + a.Title + `?`,
+		`<a href="https://assistenza.example" target="_blank" rel="noopener">Portale Maggioli ↗</a>`,
+		`serve l&#39;utenza`,
+		`aria-controls="guide-app-` + itoa(a.ID) + `"`, // si apre anche senza guide
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("manca %q", want)
+		}
+	}
+}
+
+// Canale di un'app nascosta al visitatore: non compare.
+func TestTileSupportFollowsAppVisibility(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	seedVisibility(t, db) // Webmail riservata al gruppo Tributi
+	var webmail int64
+	apps, _ := db.ListApps()
+	for _, a := range apps {
+		if a.Title == "Webmail" {
+			webmail = a.ID
+		}
+	}
+	db.CreateSupportChannel(database.SupportChannel{Title: "Canale riservato", URL: "https://r.example", Enabled: true, AppIDs: []int64{webmail}})
+	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Anonymous: true}), nil).Body.String()
+	if strings.Contains(body, "Canale riservato") {
+		t.Fatal("canale di un'app nascosta visibile")
+	}
+	member := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String()
+	if !strings.Contains(member, "Canale riservato") {
+		t.Fatal("chi vede l'app deve vederne l'assistenza")
+	}
+}
+
+func TestSearchDropdownMarkup(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	for _, want := range []string{`role="combobox"`, `aria-controls="search-results"`, `aria-expanded="false"`, `id="search-results" role="listbox"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("manca %q", want)
+		}
+	}
+	if strings.Contains(body, "data-search-item") || strings.Contains(body, `id="no-results"`) {
+		t.Error("il vecchio filtro delle tile va tolto")
+	}
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`getElementById("search-index")`, `"ArrowDown"`, `"ArrowUp"`, `"Enter"`, "aria-activedescendant", `normalize("NFD")`} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	if strings.Contains(string(js), "data-search-item") {
+		t.Error("dashboard.js filtra ancora le tile")
+	}
+}
+
+// Uscendo dalla ricerca con Tab (blur) la tendina si chiude; le opzioni non
+// prendono il focus (pattern combobox: il focus resta sull'input).
+func TestSearchDropdownClosesOnBlur(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`"focusout"`, "!wrap.contains(e.relatedTarget)", "a.tabIndex = -1"} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+}
+
+// Tendina accessibile: opzione attiva annunciata, intestazioni in role=group,
+// scorrimento solo con i tasti (non col mouse); icona dell'assistenza letta
+// come testo, non come "support_agent".
+func TestSearchAndTileA11y(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`"aria-selected"`, `setAttribute("role", "group")`, `"aria-labelledby"`, "function setActive(i, scroll)", "setActive(options.indexOf(a), false)"} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	s, db := newTestServer(t, nil)
+	apps, _ := db.ListApps()
+	a := apps[0]
+	a.URL = "https://rubrica.local"
+	db.UpdateApp(a)
+	db.CreateSupportChannel(database.SupportChannel{Title: "Canale", URL: "https://c.example", Enabled: true, AppIDs: []int64{a.ID}})
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	if !strings.Contains(body, `aria-hidden="true">support_agent</span><span class="visually-hidden">Assistenza disponibile</span>`) {
+		t.Error("icona dell'assistenza nel badge senza testo per i lettori di schermo")
+	}
+	css, _ := os.ReadFile("../../web/static/css/app.css")
+	if !strings.Contains(string(css), ".visually-hidden {") {
+		t.Error("manca la classe .visually-hidden")
+	}
+}
+
+// Difesa anche nel browser: un URL dell'indice diventa href solo se http/https
+// o percorso interno (CodeQL js/xss-through-dom).
+func TestSearchHrefCheckedInBrowser(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{"function safeHref(", `url.protocol === "https:"`, "a.href = href"} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	if strings.Contains(string(js), "a.href = it.u") {
+		t.Error("href preso dall'indice senza controllo")
 	}
 }

@@ -54,12 +54,14 @@
 				<p class="hint">Se l'immagine non è raggiungibile, in plancia compaiono le iniziali.</p>
 			</div>
 			<label class="inline">Colore di sfondo<input type="color" name="icon_color" value="{{.Form.IconColor}}"></label>
+			<label class="inline"><input type="checkbox" name="icon_bg_on" value="1"{{if .Form.IconBg}} checked{{end}}>Riquadro dell'icona colorato <small class="muted">(per i loghi bianchi)</small><input type="color" name="icon_bg" value="{{if .Form.IconBg}}{{.Form.IconBg}}{{else}}#1565c0{{end}}"></label>
 			{{with .Errors.icon}}<p class="field-error">{{.}}</p>{{end}}
 		</fieldset>
 
 		<label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Form.Enabled}} checked{{end}}>Visibile in plancia</label>
 		{{template "visibility_fieldset" .VisibilityField}}
 		{{with .Errors.visibilita}}<p class="field-error">{{.}}</p>{{end}}
+		{{if .Form.ID}}<p class="hint">Assistenza: {{range $i, $c := .Support}}{{if $i}}, {{end}}{{$c.Title}}{{if not $c.Enabled}} (disattivato){{end}}{{else}}nessun canale{{end}} · <a href="/admin/assistenza">gestisci</a></p>{{end}}
 		<div class="actions">
 			<button class="primary" type="submit">Salva</button>
 			{{if .Form.ID}}<a class="button" href="/admin/app">Annulla</a>{{end}}

@@ -25,17 +25,22 @@
 			<div>
 				<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span></div>
 				<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span></h1>
-				{{with .Office}}<p class="hero-info">{{.}}</p>{{end}}
+				{{with .Hero}}<p class="hero-info">{{range .}}<span class="hero-item">{{if eq .Kind "phone"}}<span class="material-icons" aria-hidden="true">call</span>{{else if eq .Kind "mail"}}<span class="material-icons" aria-hidden="true">mail</span>{{end}}{{.Text}}</span>{{end}}</p>{{end}}
 			</div>
 			{{template "hero_today" .}}
 		</div>
 	</header>
 
-	<label class="search">
-		<span class="material-icons" aria-hidden="true">search</span>
-		<input type="search" id="search" placeholder="Cerca un applicativo o una guida…" autocomplete="off" aria-label="Cerca un applicativo o una guida">
-		<kbd>/</kbd>
-	</label>
+	<div class="search-wrap">
+		<label class="search">
+			<span class="material-icons" aria-hidden="true">search</span>
+			<input type="search" id="search" placeholder="Cerca un applicativo, una guida o l'assistenza…" autocomplete="off" aria-label="Cerca un applicativo, una guida o l'assistenza"
+				role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false">
+			<kbd>/</kbd>
+		</label>
+		<div class="search-results" id="search-results" role="listbox" aria-label="Risultati" hidden></div>
+	</div>
+	<script type="application/json" id="search-index">{{.SearchIndex}}</script>
 
 	{{if .Anonymous}}<aside class="ff-help" data-ff-help hidden aria-labelledby="ff-help-title">
 		<span class="material-icons" aria-hidden="true">info</span>
@@ -70,7 +75,6 @@
 			{{else}}
 			<p class="empty">Nessun applicativo configurato. Gli amministratori possono aggiungerli dal <a href="/admin">pannello di amministrazione</a>.</p>
 			{{end}}
-			<p class="empty" id="no-results" hidden>Nessun risultato.</p>
 			{{with .Filter}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}
 		</section>
 		</div>

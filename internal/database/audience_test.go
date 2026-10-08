@@ -198,3 +198,31 @@ func TestRequirementRules(t *testing.T) {
 		t.Fatalf("attributo usato da un requisito: atteso ErrInUse, ottenuto %v", err)
 	}
 }
+
+func TestAttributeHero(t *testing.T) {
+	db := newTestDB(t)
+	off, _ := db.CreateAudienceAttribute("physicalDeliveryOfficeName", "Ufficio")
+	tel, _ := db.CreateAudienceAttribute("telephoneNumber", "Interno")
+	mail, _ := db.CreateAudienceAttribute("mail", "Email")
+	if err := db.SetAttributeHero(tel, HeroPhone); err != nil {
+		t.Fatal(err)
+	}
+	db.SetAttributeHero(off, HeroText)
+	db.SetAttributeHero(mail, HeroMail)
+	if err := db.SetAttributeHero(off, "boh"); err == nil {
+		t.Fatal("formato non valido accettato")
+	}
+	db.MoveAttributeHero(off, -1)
+	h, _ := db.HeroAttributes()
+	if len(h) != 3 || h[0].ID != off || h[1].ID != tel || h[2].HeroKind != HeroMail {
+		t.Fatalf("ordine: %+v", h)
+	}
+	db.SetAttributeHero(off, "")
+	h, _ = db.HeroAttributes()
+	if len(h) != 2 || h[0].ID != tel || h[0].Hero != 1 || h[1].Hero != 2 {
+		t.Fatalf("dopo averne tolto uno: %+v", h)
+	}
+	if err := db.SetAttributeHero(999, HeroText); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("inesistente: %v", err)
+	}
+}

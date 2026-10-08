@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -77,12 +76,9 @@ func (s *Server) profileFor(username string) (p audience.Profile, ok, down bool)
 		slog.Warn("attributi dei gruppi", "err", err)
 		return audience.Profile{}, false, true
 	}
-	// Oltre agli attributi dei gruppi, quelli della testata (ufficio, qualifica).
-	names := append([]string{}, heroAttrs...)
-	for _, a := range attrs {
-		if !slices.ContainsFunc(names, func(n string) bool { return strings.EqualFold(n, a.Name) }) {
-			names = append(names, a.Name)
-		}
+	names := make([]string, len(attrs))
+	for i, a := range attrs {
+		names[i] = a.Name
 	}
 	return s.profiles.get(username, func() (audience.Profile, error) { return s.directory.Profile(username, names) })
 }

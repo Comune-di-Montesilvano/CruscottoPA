@@ -32,6 +32,7 @@ type overviewView struct {
 	Incomplete    []database.App
 	Apps          int
 	Guides        int
+	Support       int
 	Categories    int
 	BackupWarning string
 	Closures      []calendar.Occurrence
@@ -58,8 +59,13 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
+	chans, err := s.db.ListSupportChannels()
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
 	v := overviewView{ActiveAlerts: alerts, Incomplete: []database.App{},
-		Apps: len(apps), Guides: len(guides), Categories: len(cats)}
+		Apps: len(apps), Guides: len(guides), Support: len(chans), Categories: len(cats)}
 	for _, a := range apps {
 		if a.URL == "" {
 			v.Incomplete = append(v.Incomplete, a)

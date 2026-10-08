@@ -286,6 +286,44 @@ func (s *Server) handleAttributeDelete(w http.ResponseWriter, r *http.Request) {
 	s.renderAudience(w, statusFor(errs), 0, errs, nil)
 }
 
+// handleAttributeHero: mostra (con un formato) o toglie l'attributo dalla
+// riga sotto il saluto in plancia.
+func (s *Server) handleAttributeHero(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	kind := r.FormValue("hero_kind")
+	errs := formErrors{}
+	if kind != "" && !database.ValidHeroKind(kind) {
+		errs.add("attr", "Formato non valido.")
+	} else if err := s.db.SetAttributeHero(id, kind); errors.Is(err, database.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.renderAudience(w, statusFor(errs), 0, errs, nil)
+}
+
+func (s *Server) handleAttributeHeroMove(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.db.MoveAttributeHero(id, moveDir(r)); errors.Is(err, database.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.renderAudience(w, http.StatusOK, 0, nil, nil)
+}
+
 // ── Gruppi ─────────────────────────────────────────────────────────────
 
 func (s *Server) handleAudienceGroupCreate(w http.ResponseWriter, r *http.Request) {

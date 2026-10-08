@@ -16,6 +16,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV5Audience,
 	migrateV6Notifications,
 	migrateV7Guides,
+	migrateV8SupportAndHero,
 }
 
 func (db *DB) migrate() error {
@@ -220,4 +221,29 @@ func migrateV7Guides(tx *sql.Tx) error {
 		}
 	}
 	return nil
+}
+
+// migrateV8SupportAndHero: canali di assistenza collegati agli applicativi e
+// attributi AD mostrati sotto il saluto, sfondo del riquadro dell'icona.
+func migrateV8SupportAndHero(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE support_channels (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	title      TEXT    NOT NULL,
+	url        TEXT    NOT NULL,
+	note       TEXT    NOT NULL DEFAULT '',
+	sort_order INTEGER NOT NULL DEFAULT 0,
+	enabled    INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE app_support (
+	app_id     INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+	channel_id INTEGER NOT NULL REFERENCES support_channels(id) ON DELETE CASCADE,
+	PRIMARY KEY (app_id, channel_id)
+);
+CREATE INDEX idx_app_support_channel ON app_support(channel_id);
+ALTER TABLE audience_attributes ADD COLUMN hero INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE audience_attributes ADD COLUMN hero_kind TEXT NOT NULL DEFAULT 'text';
+ALTER TABLE apps ADD COLUMN icon_bg TEXT NOT NULL DEFAULT ''; -- sfondo del riquadro icona, '' = bianco
+`)
+	return err
 }
