@@ -42,3 +42,6 @@ img.app-icon { background: none; }
 .md pre { overflow-x: auto; background: #f3f6fa; border-radius: 8px; padding: .7rem .9rem; }
 .md pre code { border: 0; padding: 0; }
 .md blockquote { border-left: 4px solid #d0d7e2; padding-left: .9rem; color: #475569; }
+
+/* Testo solo per i lettori di schermo. */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

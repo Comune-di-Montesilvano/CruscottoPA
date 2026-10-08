@@ -218,3 +218,29 @@ func TestSearchDropdownClosesOnBlur(t *testing.T) {
 		}
 	}
 }
+
+// Tendina accessibile: opzione attiva annunciata, intestazioni in role=group,
+// scorrimento solo con i tasti (non col mouse); icona dell'assistenza letta
+// come testo, non come "support_agent".
+func TestSearchAndTileA11y(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`"aria-selected"`, `setAttribute("role", "group")`, `"aria-labelledby"`, "function setActive(i, scroll)", "setActive(options.indexOf(a), false)"} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	s, db := newTestServer(t, nil)
+	apps, _ := db.ListApps()
+	a := apps[0]
+	a.URL = "https://rubrica.local"
+	db.UpdateApp(a)
+	db.CreateSupportChannel(database.SupportChannel{Title: "Canale", URL: "https://c.example", Enabled: true, AppIDs: []int64{a.ID}})
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	if !strings.Contains(body, `aria-hidden="true">support_agent</span><span class="visually-hidden">Assistenza disponibile</span>`) {
+		t.Error("icona dell'assistenza nel badge senza testo per i lettori di schermo")
+	}
+	css, _ := os.ReadFile("../../web/static/css/app.css")
+	if !strings.Contains(string(css), ".visually-hidden {") {
+		t.Error("manca la classe .visually-hidden")
+	}
+}

@@ -13,6 +13,14 @@
 		btn.setAttribute("aria-pressed", "true");
 	});
 
+	// Scegliere il colore del riquadro spunta «Riquadro dell'icona colorato»:
+	// altrimenti il colore verrebbe ignorato in silenzio.
+	document.addEventListener("input", (e) => {
+		if (e.target.name !== "icon_bg") return;
+		const on = e.target.form?.querySelector('[name="icon_bg_on"]');
+		if (on) on.checked = true;
+	});
+
 	document.addEventListener("input", (e) => {
 		if (e.target.name !== "icon_color") return;
 		const preview = e.target.form?.querySelector("[data-preview]");

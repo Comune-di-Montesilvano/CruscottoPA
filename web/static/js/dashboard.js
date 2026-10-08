@@ -52,12 +52,16 @@
 		options = [];
 		active = -1;
 	}
-	function setActive(i) {
-		options.forEach((o, k) => o.classList.toggle("active", k === i));
+	// scroll: solo coi tasti; col mouse la lista non deve muoversi sotto il puntatore.
+	function setActive(i, scroll) {
+		options.forEach((o, k) => {
+			o.classList.toggle("active", k === i);
+			o.setAttribute("aria-selected", String(k === i));
+		});
 		active = i;
 		if (i >= 0) {
 			input.setAttribute("aria-activedescendant", options[i].id);
-			options[i].scrollIntoView({ block: "nearest" });
+			if (scroll) options[i].scrollIntoView({ block: "nearest" });
 		} else {
 			input.removeAttribute("aria-activedescendant");
 		}
@@ -71,7 +75,13 @@
 			const hits = index.map((it) => [score(it, q), it]).filter(([sc, it]) => sc >= 0 && it.k === kind)
 				.sort((a, b) => a[0] - b[0] || a[1].t.localeCompare(b[1].t, "it")).slice(0, MAX_PER_GROUP);
 			if (!hits.length) return;
-			list.append(el("div", "search-group", label));
+			const group = el("div", "search-group-box");
+			group.setAttribute("role", "group");
+			const head = el("div", "search-group", label);
+			head.id = `search-group-${kind}`;
+			group.setAttribute("aria-labelledby", head.id);
+			group.append(head);
+			list.append(group);
 			hits.forEach(([, it]) => {
 				const a = el("a", "search-option");
 				a.id = `search-opt-${options.length}`;
@@ -86,23 +96,23 @@
 				txt.append(el("span", "search-title", it.t));
 				if (it.s) txt.append(el("span", "search-sub", it.k === "support" ? `Assistenza per ${it.s}` : it.s));
 				a.append(ic, txt);
-				a.addEventListener("mousemove", () => setActive(options.indexOf(a)));
+				a.addEventListener("mousemove", () => setActive(options.indexOf(a), false));
 				options.push(a);
-				list.append(a);
+				group.append(a);
 			});
 		});
 		if (!options.length) list.append(el("div", "search-empty", `Nessun risultato per «${input.value.trim()}»`));
 		list.hidden = false;
 		input.setAttribute("aria-expanded", "true");
-		setActive(options.length ? 0 : -1);
+		setActive(options.length ? 0 : -1, true);
 	}
 	if (input && list) {
 		input.addEventListener("input", render);
 		input.addEventListener("focus", () => { if (input.value.trim()) render(); });
 		input.addEventListener("keydown", (e) => {
 			if (list.hidden) return;
-			if (e.key === "ArrowDown" && options.length) { e.preventDefault(); setActive((active + 1) % options.length); }
-			else if (e.key === "ArrowUp" && options.length) { e.preventDefault(); setActive((active - 1 + options.length) % options.length); }
+			if (e.key === "ArrowDown" && options.length) { e.preventDefault(); setActive((active + 1) % options.length, true); }
+			else if (e.key === "ArrowUp" && options.length) { e.preventDefault(); setActive((active - 1 + options.length) % options.length, true); }
 			else if (e.key === "Enter" && active >= 0) { e.preventDefault(); options[active].click(); }
 		});
 		document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) closeResults(); });

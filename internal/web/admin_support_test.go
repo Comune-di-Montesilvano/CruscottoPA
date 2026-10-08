@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -66,5 +67,38 @@ func TestAppFormShowsSupport(t *testing.T) {
 	body := do(t, s, "GET", "/admin/app/"+itoa(apps[0].ID)+"/modifica", nil, c, hx).Body.String()
 	if !strings.Contains(body, "Assistenza:") || !strings.Contains(body, "Portale Maggioli") || !strings.Contains(body, `href="/admin/assistenza"`) {
 		t.Fatalf("scheda app senza assistenza:\n%s", body)
+	}
+}
+
+// La scheda dell'app elenca anche i canali disattivati, segnalandoli.
+func TestAppFormShowsDisabledSupport(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	apps, _ := db.ListApps()
+	db.CreateSupportChannel(database.SupportChannel{Title: "Vecchio portale", URL: "https://x", Enabled: false, AppIDs: []int64{apps[0].ID}})
+	body := do(t, s, "GET", "/admin/app/"+itoa(apps[0].ID)+"/modifica", nil, c, hx).Body.String()
+	if !strings.Contains(body, "Vecchio portale (disattivato)") {
+		t.Fatalf("canale disattivato nella scheda:\n%s", body)
+	}
+}
+
+func TestIconBgAdmin(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	apps, _ := db.ListApps()
+	a := apps[0]
+	a.IconKind, a.IconValue, a.IconBg = "url", "https://logo.example/pagopa.svg", "#0066cc"
+	db.UpdateApp(a)
+	page := do(t, s, "GET", "/admin/app", nil, c, nil).Body.String()
+	if !strings.Contains(page, `src="https://logo.example/pagopa.svg" alt="" style="background:#0066cc"`) {
+		t.Errorf("icona da URL nell'elenco admin senza sfondo:\n%s", page)
+	}
+	js, _ := os.ReadFile("../../web/static/js/admin.js")
+	if !strings.Contains(string(js), `[name="icon_bg_on"]`) {
+		t.Error("admin.js: scegliere un colore deve spuntare «Riquadro dell'icona colorato»")
+	}
+	gruppi := do(t, s, "GET", "/admin/gruppi", nil, c, nil).Body.String()
+	if !strings.Contains(gruppi, `<td colspan="4" class="muted">Nessun attributo`) {
+		t.Error("riga «Nessun attributo» senza colspan")
 	}
 }

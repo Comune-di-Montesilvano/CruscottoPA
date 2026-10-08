@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -70,5 +71,53 @@ func TestDashboardSupport(t *testing.T) {
 	got := d.Categories[0].Apps[0].Support
 	if len(got) != 1 || got[0].Title != "Attivo" {
 		t.Fatalf("canali sulla tile: %+v", got)
+	}
+}
+
+func TestMigrationV8OnPopulatedV7(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v7.db")
+	all := migrations
+	t.Cleanup(func() { migrations = all })
+	migrations = all[:7]
+	old, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := old.SchemaVersion(); v != 7 {
+		t.Fatalf("versione di partenza: %d", v)
+	}
+	if _, err := old.Exec(`INSERT INTO apps (category_id, title, url) VALUES (1, 'PagoPA', 'https://pagopa.local')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.Exec(`INSERT INTO audience_attributes (name, label) VALUES ('mail', 'Email')`); err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+
+	migrations = all
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("migrazione v8: %v", err)
+	}
+	defer db.Close()
+	if v, _ := db.SchemaVersion(); v != len(all) {
+		t.Fatalf("versione dopo: %d", v)
+	}
+	apps, _ := db.ListApps()
+	var pagopa *App
+	for i := range apps {
+		if apps[i].Title == "PagoPA" {
+			pagopa = &apps[i]
+		}
+	}
+	if pagopa == nil || pagopa.IconBg != "" {
+		t.Fatalf("app esistente dopo la v8: %+v", pagopa)
+	}
+	attrs, _ := db.ListAudienceAttributes()
+	if len(attrs) != 1 || attrs[0].Hero != 0 || attrs[0].HeroKind != HeroText {
+		t.Fatalf("attributo esistente dopo la v8: %+v", attrs)
+	}
+	if _, err := db.CreateSupportChannel(SupportChannel{Title: "X", URL: "https://x", Enabled: true, AppIDs: []int64{pagopa.ID}}); err != nil {
+		t.Fatalf("tabelle dell'assistenza: %v", err)
 	}
 }

@@ -54,7 +54,7 @@
 {{end}}{{end}}
 {{end}}{{end}}
 
-{{define "app_icon"}}{{if eq .IconKind "pack"}}<span class="app-icon" style="background:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<img class="app-icon" src="/uploads/icons/{{.IconValue}}" alt=""{{with .IconBg}} style="background:{{.}}"{{end}}>{{else if eq .IconKind "url"}}<img class="app-icon" src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}">{{else}}<span class="app-icon" style="background:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
+{{define "app_icon"}}{{if eq .IconKind "pack"}}<span class="app-icon" style="background:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<img class="app-icon" src="/uploads/icons/{{.IconValue}}" alt=""{{with .IconBg}} style="background:{{.}}"{{end}}>{{else if eq .IconKind "url"}}<img class="app-icon" src="{{.IconValue}}" alt=""{{with .IconBg}} style="background:{{.}}"{{end}} data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}">{{else}}<span class="app-icon" style="background:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
 {{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="/uploads/icons/{{.IconValue}}" alt=""></span>{{else if eq .IconKind "url"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
@@ -68,7 +68,7 @@
 			{{with .Description}}<span class="tile-desc">{{.}}</span>{{end}}
 		</span>
 	</a>
-	{{if or .Guides .Support}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="guide-app-{{.ID}}">{{if .Support}}<span class="tile-support-flag material-icons" title="Assistenza disponibile" aria-label="Assistenza disponibile">support_agent</span>{{end}}{{with .Guides}}{{len .}} {{if eq (len .) 1}}guida{{else}}guide{{end}}{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
+	{{if or .Guides .Support}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="guide-app-{{.ID}}">{{if .Support}}<span class="tile-support-flag material-icons" title="Assistenza disponibile" aria-hidden="true">support_agent</span><span class="visually-hidden">Assistenza disponibile</span>{{end}}{{with .Guides}}{{len .}} {{if eq (len .) 1}}guida{{else}}guide{{end}}{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
 	<div class="tile-more" id="guide-app-{{.ID}}">
 		{{with .Guides}}<ul>{{range .}}<li>{{template "guide_link" .}}</li>{{end}}</ul>{{end}}
 		{{$app := .Title}}{{range .Support}}<div class="tile-support">

@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -40,7 +41,7 @@ type appsSection struct {
 
 	VisibilityField  visibilityField
 	VisibilityLabels map[int64]string
-	Support          []database.SupportChannel // canali attivi dell'app in modifica
+	Support          []database.SupportChannel // canali dell'app in modifica (anche disattivati)
 }
 
 func newAppForm() appForm {
@@ -78,11 +79,15 @@ func (s *Server) appsData(form appForm, errs formErrors) (appsSection, error) {
 	}
 	sec := appsSection{Apps: rows, Categories: cats, Form: form, Errors: errs}
 	if form.ID != 0 {
-		by, err := s.db.SupportByApp()
+		chans, err := s.db.ListSupportChannels()
 		if err != nil {
 			return sec, err
 		}
-		sec.Support = by[form.ID]
+		for _, c := range chans {
+			if slices.Contains(c.AppIDs, form.ID) {
+				sec.Support = append(sec.Support, c)
+			}
+		}
 	}
 	if sec.VisibilityField, err = s.visibilityField(form.Visibility); err != nil {
 		return sec, err

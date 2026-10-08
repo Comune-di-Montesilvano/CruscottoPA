@@ -23,7 +23,7 @@
 				{{if .Hero}}<button class="icon" type="button" title="Prima nella testata" hx-post="/admin/gruppi/attributi/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>
 				<button class="icon" type="button" title="Dopo nella testata" hx-post="/admin/gruppi/attributi/{{.ID}}/sposta" hx-vals='{"dir":"down"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_downward</span></button>{{end}}
 				<button class="danger" type="button" hx-post="/admin/gruppi/attributi/{{.ID}}/elimina" hx-confirm="Togliere l'attributo «{{.Label}}»?" hx-target="#section" hx-swap="outerHTML">Togli</button></td></tr>
-			{{else}}<tr><td class="muted">Nessun attributo: aggiungine uno (es. physicalDeliveryOfficeName → Ufficio).</td></tr>{{end}}
+			{{else}}<tr><td colspan="4" class="muted">Nessun attributo: aggiungine uno (es. physicalDeliveryOfficeName → Ufficio).</td></tr>{{end}}
 		</tbody></table>
 		<form class="form inline-form" hx-post="/admin/gruppi/attributi" hx-target="#section" hx-swap="outerHTML">
 			<label>Nome LDAP<input id="attr-name" name="name" maxlength="64" placeholder="Cerca: uff, depart…" autocomplete="off" required
