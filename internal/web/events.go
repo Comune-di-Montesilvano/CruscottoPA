@@ -52,7 +52,11 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, ": ping\n\n")
 		case e := <-c.Events:
 			b, _ := json.Marshal(e)
-			fmt.Fprintf(w, "event: avviso\ndata: %s\n\n", b)
+			name := "avviso"
+			if e.Kind != "" {
+				name = e.Kind
+			}
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, b)
 		}
 		flusher.Flush()
 	}

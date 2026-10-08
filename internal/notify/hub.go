@@ -13,6 +13,9 @@ type Event struct {
 	ID    int64  `json:"id"`
 	Title string `json:"title"`
 	Level string `json:"level"`
+	Kind  string `json:"kind,omitempty"` // "" = avviso, "ticket" = risposta a un ticket
+	Body  string `json:"body,omitempty"`
+	URL   string `json:"url,omitempty"`
 }
 
 // Client è una plancia collegata a /eventi.

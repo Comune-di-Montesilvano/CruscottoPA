@@ -143,6 +143,15 @@
 			});
 		}
 	}
+	function onTicket(t, leader) {
+		document.body.dispatchEvent(new Event("ticket")); // aggiorna il widget (hx-trigger "ticket from:body")
+		if (leader && supported && active() && document.visibilityState !== "visible") {
+			const opts = { body: t.body || "", icon: "/static/img/icon-192.png", tag: "ticket-" + t.id, data: { url: t.url } };
+			navigator.serviceWorker.getRegistration().then((reg) => {
+				if (reg) reg.showNotification(t.title, opts); else new Notification(t.title, opts);
+			});
+		}
+	}
 	if ("EventSource" in window) {
 		const bc = "BroadcastChannel" in window ? new BroadcastChannel("cruscotto-eventi") : null;
 		const stream = () => new Promise(() => { // mai risolta: il lock resta finché la scheda è aperta
@@ -153,9 +162,15 @@
 				onAvviso(a, true);
 				if (bc) bc.postMessage(a);
 			});
+			es.addEventListener("ticket", (e) => {
+				let t = {};
+				try { t = JSON.parse(e.data); } catch (_) { return; }
+				onTicket(t, true);
+				if (bc) bc.postMessage(t);
+			});
 		});
 		if (bc && navigator.locks) {
-			bc.onmessage = (e) => onAvviso(e.data, false);
+			bc.onmessage = (e) => (e.data && e.data.kind === "ticket" ? onTicket(e.data, false) : onAvviso(e.data, false));
 			navigator.locks.request("cruscotto-eventi", stream);
 		} else {
 			stream();

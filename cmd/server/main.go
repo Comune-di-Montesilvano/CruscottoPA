@@ -126,6 +126,7 @@ func main() {
 	srv.StartNotifications(ctx)
 	srv.StartGuideRefresh(ctx)
 	srv.StartPresenceCleanup(ctx)
+	srv.StartTicketWatch(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              ":" + cfg.Port,

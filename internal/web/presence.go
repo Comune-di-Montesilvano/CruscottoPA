@@ -97,6 +97,9 @@ func (s *Server) StartPresenceCleanup(ctx context.Context) {
 		defer t.Stop()
 		for {
 			s.CleanupPresence()
+			if err := s.db.CleanupTicketState(s.now()); err != nil {
+				slog.Warn("pulizia stato ticket", "err", err)
+			}
 			select {
 			case <-ctx.Done():
 				return
