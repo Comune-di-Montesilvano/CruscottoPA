@@ -282,17 +282,77 @@ func TestNotifyOffAlert(t *testing.T) {
 	s, _ := newTestServer(t, nil)
 	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
 	header := body[:strings.Index(body, "</header>")]
-	if !strings.Contains(header, `<button type="button" class="notify-off" data-notify-off hidden>`) || !strings.Contains(header, "Notifiche non attive") {
+	// Al centro della testata, tra saluto e riquadro di oggi.
+	center, today := strings.Index(header, `class="hero-center"`), strings.Index(header, `class="hero-today"`)
+	if center < 0 || center > today || !strings.Contains(header, `<button type="button" class="notify-off" data-notify-off hidden>`) ||
+		!strings.Contains(header, "Notifiche disattivate") || !strings.Contains(header, "Non riceverai gli avvisi urgenti") {
 		t.Fatalf("avviso notifiche nella testata:\n%s", header)
 	}
 	css, _ := os.ReadFile("../../web/static/css/plancia.css")
-	for _, want := range []string{"@keyframes notify-pulse", ".notify-off { ", "animation: notify-pulse", "@media (prefers-reduced-motion: reduce) { .notify-off { animation: none; } }"} {
+	for _, want := range []string{"@keyframes notify-pulse", ".notify-off { ", "animation: notify-pulse", ".hero-center {"} {
 		if !strings.Contains(string(css), want) {
 			t.Errorf("plancia.css: manca %q", want)
 		}
 	}
+	// Solo dissolvenza e alone, niente movimento: resta attiva anche con
+	// «effetti di animazione» spenti in Windows (prefers-reduced-motion).
+	if strings.Contains(string(css), ".notify-off { animation: none; }") {
+		t.Error("la pulsazione non deve spegnersi con prefers-reduced-motion")
+	}
 	js, _ := os.ReadFile("../../web/static/js/notifiche.js")
 	for _, want := range []string{`querySelector("[data-notify-off]")`, "function refreshOff()", "blocked.showModal()", `permissions.query({ name: "notifications" })`} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("notifiche.js: manca %q", want)
+		}
+	}
+}
+
+// Presenza e letture dal browser; ricevuta della notifica dal service worker.
+func TestPresenceAndReadJS(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`beacon("/presenza"`, `matchMedia("(display-mode: standalone)")`, "function sendRead(", `sendRead(next.dataset.urgent, "conferma")`, `sendRead(card.dataset.alert, "apertura")`, "navigator.sendBeacon("} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	sw, _ := os.ReadFile("../../web/static/sw.js")
+	for _, want := range []string{`"/push/ricevuta"`, "pushManager.getSubscription()", `startsWith("avviso-")`, "renotify: true"} {
+		if !strings.Contains(string(sw), want) {
+			t.Errorf("sw.js: manca %q", want)
+		}
+	}
+}
+
+// Guide illustrate per browser: notifiche bloccate (Chrome, Edge, Firefox) e
+// riconoscimento in Firefox. Il JS mostra solo i passi del browser in uso.
+func TestBrowserGuides(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Anonymous: true}), nil).Body.String()
+	for _, b := range []string{"chrome", "edge", "firefox"} {
+		if !strings.Contains(body, `<div class="guide-steps" data-browser="`+b+`" hidden>`) {
+			t.Errorf("passi per %s mancanti", b)
+		}
+		for _, n := range []string{"1", "2"} {
+			img := "/static/img/guida/notifiche-" + b + "-" + n + ".svg"
+			if !strings.Contains(body, `src="`+img+`"`) {
+				t.Errorf("manca %s nel popup", img)
+			}
+			if _, err := os.Stat("../../web" + strings.TrimPrefix(img, "")); err != nil {
+				t.Errorf("file %s: %v", img, err)
+			}
+		}
+	}
+	for _, n := range []string{"1", "2", "3"} {
+		img := "/static/img/guida/firefox-ntlm-" + n + ".svg"
+		if !strings.Contains(body, `src="`+img+`"`) {
+			t.Errorf("manca %s nel riquadro Firefox", img)
+		}
+		if _, err := os.Stat("../../web" + img); err != nil {
+			t.Errorf("file %s: %v", img, err)
+		}
+	}
+	js, _ := os.ReadFile("../../web/static/js/notifiche.js")
+	for _, want := range []string{"function browserName()", `/Edg\//`, `/Firefox\//`, `querySelectorAll("[data-browser]")`} {
 		if !strings.Contains(string(js), want) {
 			t.Errorf("notifiche.js: manca %q", want)
 		}

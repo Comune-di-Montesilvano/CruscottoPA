@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,6 +50,31 @@ func readPushBody(r *http.Request) (pushBody, bool) {
 		return b, false
 	}
 	return b, notify.AllowedEndpoint(b.Endpoint)
+}
+
+// handlePushReceipt: il service worker conferma di aver mostrato la notifica
+// di un avviso (tag "avviso-<id>"). Solo per consegne già registrate.
+func (s *Server) handlePushReceipt(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		Tag      string `json:"tag"`
+		Endpoint string `json:"endpoint"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 4<<10)).Decode(&b); err != nil || !notify.AllowedEndpoint(b.Endpoint) {
+		pushReply(w, false)
+		return
+	}
+	idText, ok := strings.CutPrefix(b.Tag, "avviso-")
+	id, err := strconv.ParseInt(idText, 10, 64)
+	if !ok || err != nil {
+		pushReply(w, false)
+		return
+	}
+	if err := s.db.MarkReceived(id, b.Endpoint, s.now()); err != nil {
+		slog.Warn("ricevuta push", "err", err)
+		pushReply(w, false)
+		return
+	}
+	pushReply(w, true)
 }
 
 func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {

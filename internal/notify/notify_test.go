@@ -60,6 +60,7 @@ type fakeStore struct {
 	subs    []database.PushSubscription
 	deleted []string
 	touched []string
+	records map[string]string // endpoint → stato della consegna
 }
 
 func (f *fakeStore) PendingNotifications(time.Time) ([]database.Alert, error) {
@@ -96,14 +97,35 @@ func (f *fakeStore) TouchPushSubscription(e string, _ time.Time) error {
 	return nil
 }
 
+func (f *fakeStore) RecordDelivery(_ int64, _, endpoint, _, status string, _ time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.records == nil {
+		f.records = map[string]string{}
+	}
+	f.records[endpoint] = status
+	return nil
+}
+
+func (f *fakeStore) SetDeliveryStatus(_ int64, endpoint, status string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.records[endpoint] = status
+	return nil
+}
+
 type fakePusher struct {
-	mu   sync.Mutex
-	sent []string
-	gone map[string]bool
-	wait chan struct{} // se non nil, ogni invio aspetta che venga chiuso
+	mu     sync.Mutex
+	sent   []string
+	gone   map[string]bool
+	wait   chan struct{} // se non nil, ogni invio aspetta che venga chiuso
+	before func(string)  // se non nil, chiamata all'inizio di ogni invio
 }
 
 func (p *fakePusher) Send(_ context.Context, s database.PushSubscription, _ []byte, _ bool) (bool, error) {
+	if p.before != nil {
+		p.before(s.Endpoint)
+	}
 	if p.wait != nil {
 		<-p.wait
 	}
@@ -230,5 +252,63 @@ func TestDispatcherDefersWhenAudienceUnknown(t *testing.T) {
 	d2.RunOnce(context.Background())
 	if !st2.marked[4] {
 		t.Fatal("oltre 10 minuti non si rimanda più")
+	}
+}
+
+// Il dispatcher registra l'esito di ogni invio (per la pagina Letture).
+func TestDispatcherRecordsDeliveries(t *testing.T) {
+	st := &fakeStore{
+		pending: []database.Alert{{ID: 1, Title: "x", Level: database.LevelNews, Notify: true}},
+		marked:  map[int64]bool{},
+		subs: []database.PushSubscription{
+			{Endpoint: "https://p/mrossi", Username: "mrossi"},
+			{Endpoint: "https://p/vecchio", Username: "mrossi"},
+		},
+	}
+	pu := &fakePusher{gone: map[string]bool{"https://p/vecchio": true}}
+	d := &Dispatcher{Store: st, Hub: NewHub(1), Pusher: pu, Now: time.Now, Visible: visibleTo("mrossi")}
+	if err := d.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if st.records["https://p/mrossi"] != database.DeliverySent || st.records["https://p/vecchio"] != database.DeliveryGone {
+		t.Fatalf("consegne registrate: %v", st.records)
+	}
+}
+
+func TestServiceName(t *testing.T) {
+	for in, want := range map[string]string{
+		"https://fcm.googleapis.com/fcm/send/x":           "Chrome/Edge",
+		"https://wns2-par02p.notify.windows.com/w/?t=1":   "Edge (Windows)",
+		"https://updates.push.services.mozilla.com/wpush": "Firefox",
+		"https://web.push.apple.com/abc":                  "Safari",
+		"https://altro.example/x":                         "altro",
+	} {
+		if got := ServiceName(in); got != want {
+			t.Errorf("ServiceName(%q) = %q, atteso %q", in, got, want)
+		}
+	}
+}
+
+// La riga di consegna esiste già quando parte l'invio: una ricevuta del
+// service worker più veloce della risposta del servizio push non si perde.
+func TestDispatcherRecordsBeforeSend(t *testing.T) {
+	st := &fakeStore{
+		pending: []database.Alert{{ID: 1, Title: "x", Level: database.LevelNews, Notify: true}},
+		marked:  map[int64]bool{},
+		subs:    []database.PushSubscription{{Endpoint: "https://p/mrossi", Username: "mrossi"}},
+	}
+	pu := &fakePusher{before: func(ep string) {
+		st.mu.Lock()
+		defer st.mu.Unlock()
+		if st.records[ep] == "" {
+			t.Errorf("consegna non registrata prima dell'invio a %s", ep)
+		}
+	}}
+	d := &Dispatcher{Store: st, Hub: NewHub(1), Pusher: pu, Now: time.Now, Visible: visibleTo("mrossi")}
+	if err := d.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if st.records["https://p/mrossi"] != database.DeliverySent {
+		t.Fatalf("esito finale: %v", st.records)
 	}
 }

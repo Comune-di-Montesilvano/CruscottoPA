@@ -17,6 +17,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV6Notifications,
 	migrateV7Guides,
 	migrateV8SupportAndHero,
+	migrateV9ReadsAndPresence,
 }
 
 func (db *DB) migrate() error {
@@ -244,6 +245,41 @@ CREATE INDEX idx_app_support_channel ON app_support(channel_id);
 ALTER TABLE audience_attributes ADD COLUMN hero INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE audience_attributes ADD COLUMN hero_kind TEXT NOT NULL DEFAULT 'text';
 ALTER TABLE apps ADD COLUMN icon_bg TEXT NOT NULL DEFAULT ''; -- sfondo del riquadro icona, '' = bianco
+`)
+	return err
+}
+
+// migrateV9ReadsAndPresence: letture degli avvisi, consegna delle notifiche,
+// presenza degli utenti (solo l'ultimo accesso, nessuna cronologia).
+func migrateV9ReadsAndPresence(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE alert_reads (
+	alert_id INTEGER NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
+	username TEXT    NOT NULL,
+	read_at  TEXT    NOT NULL,
+	how      TEXT    NOT NULL, -- conferma | apertura (validato in Go)
+	PRIMARY KEY (alert_id, username)
+);
+CREATE TABLE alert_deliveries (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	alert_id    INTEGER NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
+	username    TEXT    NOT NULL DEFAULT '',
+	endpoint    TEXT    NOT NULL,
+	service     TEXT    NOT NULL,
+	sent_at     TEXT    NOT NULL,
+	status      TEXT    NOT NULL, -- inviata | non_riuscita | scaduta
+	received_at TEXT,
+	UNIQUE (alert_id, endpoint)
+);
+CREATE INDEX idx_alert_deliveries_alert ON alert_deliveries(alert_id);
+CREATE TABLE user_presence (
+	username      TEXT PRIMARY KEY,
+	name          TEXT NOT NULL DEFAULT '',
+	last_seen_at  TEXT NOT NULL,
+	last_app_at   TEXT,
+	permission    TEXT NOT NULL DEFAULT '',
+	permission_at TEXT
+);
 `)
 	return err
 }

@@ -31,6 +31,9 @@ func (s *Server) handleAvviso(w http.ResponseWriter, r *http.Request) {
 		for _, a := range f.alertList(alerts) {
 			if a.ID == id {
 				view.Alert = &a
+				if user, _ := s.viewerName(r); user != "" {
+					s.markRead(user, a.ID, database.ReadOpen)
+				}
 				break
 			}
 		}

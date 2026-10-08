@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
@@ -196,5 +197,25 @@ func TestServiceWorkerRenotify(t *testing.T) {
 	sw, _ := os.ReadFile("../../web/static/sw.js")
 	if !strings.Contains(string(sw), "renotify: true") {
 		t.Fatal("sw.js: manca renotify: true")
+	}
+}
+
+// Il service worker conferma di aver mostrato la notifica di un avviso.
+func TestPushReceipt(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	id, _ := db.CreateAlert(database.Alert{Title: "A", Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	ep := "https://fcm.googleapis.com/fcm/send/abc"
+	db.RecordDelivery(id, "mrossi", ep, "Chrome/Edge", database.DeliverySent, fixedNow)
+	rec := postJSON(t, s, "/push/ricevuta", `{"tag":"avviso-`+itoa(id)+`","endpoint":"`+ep+`"}`, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"ok":true`) {
+		t.Fatalf("ricevuta: %d %s", rec.Code, rec.Body)
+	}
+	if ds, _ := db.DeliveriesFor(id); len(ds) != 1 || ds[0].ReceivedAt == nil {
+		t.Fatalf("ricevuta non registrata: %+v", ds)
+	}
+	for _, bad := range []string{`{"tag":"prova-1","endpoint":"` + ep + `"}`, `{"tag":"avviso-x","endpoint":"` + ep + `"}`, `{"tag":"avviso-1","endpoint":"https://evil.example/x"}`, `nonjson`} {
+		if rec := postJSON(t, s, "/push/ricevuta", bad, nil); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"ok":false`) {
+			t.Errorf("%s: %d %s", bad, rec.Code, rec.Body)
+		}
 	}
 }

@@ -66,6 +66,16 @@
 	// Popup ogni ASK_DAYS giorni finché le notifiche non sono attive: chiede il
 	// permesso (la richiesta del browser parte dal clic) o, se il browser le ha
 	// bloccate, spiega come sbloccarle.
+	// Guide illustrate: solo i passi del browser in uso (Chrome se non riconosciuto).
+	function browserName() {
+		const ua = navigator.userAgent;
+		if (/Edg\//.test(ua)) return "edge";
+		if (/Firefox\//.test(ua)) return "firefox";
+		return "chrome";
+	}
+	const browser = browserName();
+	document.querySelectorAll("[data-browser]").forEach((el) => { el.hidden = el.dataset.browser !== browser; });
+
 	const ask = document.querySelector("dialog.notify-ask:not(.notify-blocked)");
 	const blocked = document.querySelector("dialog.notify-blocked");
 	function notNow() { save(ASK_KEY, String(Date.now())); }

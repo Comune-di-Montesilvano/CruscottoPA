@@ -4,6 +4,22 @@
 (() => {
 	"use strict";
 
+	// Presenza e letture: contano solo per gli utenti riconosciuti (il server
+	// ignora gli altri). sendBeacon non blocca la pagina e sopravvive alla chiusura.
+	const beacon = (url, data) => {
+		try { navigator.sendBeacon(url, new URLSearchParams(data)); } catch (_) { /* best effort */ }
+	};
+	const sentReads = new Set();
+	function sendRead(id, how) {
+		if (!id || sentReads.has(id)) return;
+		sentReads.add(id);
+		beacon(`/avvisi/${id}/letto`, { come: how });
+	}
+	beacon("/presenza", {
+		app: window.matchMedia("(display-mode: standalone)").matches ? "1" : "0",
+		permesso: "Notification" in window ? Notification.permission : "",
+	});
+
 	// Stesse soglie di greeting() in internal/web/dashboard.go.
 	const greeting = (h) => (h >= 6 && h < 13) ? "Buongiorno" : (h >= 13 && h < 18) ? "Buon pomeriggio" : "Buonasera";
 
@@ -187,6 +203,8 @@
 			if (!more.open) track.style.height = `${track.offsetHeight}px`;
 			more.dataset.via = via;
 			more.open = true;
+			const card = more.closest(".news");
+			if (card) sendRead(card.dataset.alert, "apertura");
 		}
 		root.addEventListener("click", (e) => {
 			const summary = e.target.closest(".news-expand > summary");
@@ -259,6 +277,7 @@
 		next.addEventListener("cancel", (e) => e.preventDefault()); // si chiude solo con "Ho letto"
 		next.addEventListener("close", () => {
 			markRead(next);
+			sendRead(next.dataset.urgent, "conferma");
 			urgentOpen = false;
 			showUrgents();
 		}, { once: true });

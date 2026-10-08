@@ -22,6 +22,26 @@ import (
 // scelto da chiunque farebbe partire richieste verso host arbitrari.
 var pushHosts = []string{"fcm.googleapis.com", ".notify.windows.com", "updates.push.services.mozilla.com", ".push.apple.com"}
 
+// ServiceName: browser o servizio dell'iscrizione, dall'host dell'endpoint.
+func ServiceName(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "altro"
+	}
+	h := strings.ToLower(u.Hostname())
+	switch {
+	case h == "fcm.googleapis.com":
+		return "Chrome/Edge"
+	case strings.HasSuffix(h, ".notify.windows.com"):
+		return "Edge (Windows)"
+	case h == "updates.push.services.mozilla.com":
+		return "Firefox"
+	case strings.HasSuffix(h, ".push.apple.com"):
+		return "Safari"
+	}
+	return "altro"
+}
+
 // AllowedEndpoint: https, porta predefinita, host di un servizio push noto.
 func AllowedEndpoint(endpoint string) bool {
 	if len(endpoint) > 1024 {
