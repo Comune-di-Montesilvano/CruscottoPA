@@ -6,14 +6,22 @@ self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("push", (e) => {
 	let d = {};
 	try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: e.data && e.data.text() }; }
+	const tag = d.tag || "cruscottopa";
 	e.waitUntil(self.registration.showNotification(d.title || "CruscottoPA", {
 		body: d.body || "",
 		icon: "/static/img/icon-192.png",
 		badge: "/static/img/icon-192.png",
-		tag: d.tag || "cruscottopa",
+		tag,
 		renotify: true, // stesso tag di una notifica presente: torna a farsi notare
 		data: { url: d.url || "/" },
-	}));
+	}).then(() => (tag.startsWith("avviso-")
+		// Ricevuta: la notifica dell'avviso è comparsa su questo browser.
+		? self.registration.pushManager.getSubscription().then((sub) => sub && fetch("/push/ricevuta", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ tag, endpoint: sub.endpoint }),
+		})).catch(() => {})
+		: undefined)));
 });
 
 self.addEventListener("notificationclick", (e) => {

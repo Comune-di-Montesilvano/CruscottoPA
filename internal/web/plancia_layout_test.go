@@ -298,3 +298,19 @@ func TestNotifyOffAlert(t *testing.T) {
 		}
 	}
 }
+
+// Presenza e letture dal browser; ricevuta della notifica dal service worker.
+func TestPresenceAndReadJS(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`beacon("/presenza"`, `matchMedia("(display-mode: standalone)")`, "function sendRead(", `sendRead(next.dataset.urgent, "conferma")`, `sendRead(card.dataset.alert, "apertura")`, "navigator.sendBeacon("} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	sw, _ := os.ReadFile("../../web/static/sw.js")
+	for _, want := range []string{`"/push/ricevuta"`, "pushManager.getSubscription()", `startsWith("avviso-")`, "renotify: true"} {
+		if !strings.Contains(string(sw), want) {
+			t.Errorf("sw.js: manca %q", want)
+		}
+	}
+}
