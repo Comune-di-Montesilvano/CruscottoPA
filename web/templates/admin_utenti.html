@@ -1,0 +1,24 @@
+{{define "admin_utenti.html"}}{{template "admin_top" .}}
+<h1>Utenti</h1>
+{{with .Body}}
+<form class="inline-form" method="get" action="/admin/utenti">
+	<label>Cerca<input type="search" name="q" value="{{.Query}}" placeholder="Nome o username"></label>
+	<label class="inline"><input type="checkbox" name="attivi" value="1"{{if .OnlyActive}} checked{{end}}>Solo attivi</label>
+	<button type="submit">Filtra</button>
+</form>
+<table class="list">
+	<thead><tr><th>Utente</th><th>Stato</th><th>Ultimo accesso</th><th>App</th><th>Notifiche</th><th>Ultima notifica ricevuta</th></tr></thead>
+	<tbody>
+	{{range .Users}}<tr>
+		<td>{{if .Name}}{{.Name}}<br><small class="muted">{{.Username}}</small>{{else}}{{.Username}}{{end}}</td>
+		<td><span class="tag{{if not .Active}} warn{{end}}">{{if .Active}}attivo{{else}}inattivo{{end}}</span></td>
+		<td>{{fmtDate .LastSeen}}</td>
+		<td>{{with .LastApp}}{{fmtDatePtr .}}{{else}}<span class="muted">mai</span>{{end}}</td>
+		<td>{{.Notify}}{{with .Services}}<br><small class="muted">{{range $i, $s := .}}{{if $i}}, {{end}}{{$s}}{{end}}</small>{{end}}</td>
+		<td>{{with .LastReceived}}{{fmtDatePtr .}}{{else}}—{{end}}</td>
+	</tr>{{else}}<tr><td colspan="6" class="muted">Nessun utente.</td></tr>{{end}}
+	</tbody>
+</table>
+<p class="hint">Attivo = accesso negli ultimi 15 giorni. «App» = ultima apertura come app installata (il browser non dice se è ancora installata). Dati personali dei dipendenti: uso secondo l'informativa dell'ente. Nessuna cronologia: si conserva solo l'ultimo accesso. L'identità in plancia è dichiarata.</p>
+{{end}}
+{{template "admin_bottom" .}}{{end}}

@@ -48,8 +48,8 @@ func TestReadFromPlancia(t *testing.T) {
 		t.Fatalf("letto: %d", rec.Code)
 	}
 	do(t, s, "POST", "/avvisi/"+itoa(reserved)+"/letto", url.Values{"come": {"conferma"}}, mario, nil) // non visibile a lui
-	do(t, s, "GET", "/avvisi/"+itoa(reserved), nil, mario, nil)                                       // idem, dalla pagina
-	if rec := do(t, s, "POST", "/avvisi/abc/letto", nil, mario, nil); rec.Code != 200 {               // id non valido
+	do(t, s, "GET", "/avvisi/"+itoa(reserved), nil, mario, nil)                                        // idem, dalla pagina
+	if rec := do(t, s, "POST", "/avvisi/abc/letto", nil, mario, nil); rec.Code != 200 {                // id non valido
 		t.Fatalf("id non valido: %d", rec.Code)
 	}
 	do(t, s, "POST", "/avvisi/99999/letto", url.Values{"come": {"conferma"}}, mario, nil) // inesistente

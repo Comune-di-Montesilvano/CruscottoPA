@@ -1,0 +1,30 @@
+{{define "admin_letture.html"}}{{template "admin_top" .}}
+{{with .Body}}
+<p><a href="/admin/avvisi">← Avvisi</a></p>
+<h1>Letture di «{{.Alert.Title}}»</h1>
+<p class="hint">L'identità in plancia è dichiarata (NTLM non verificato): questi dati sono indicativi, non una prova di lettura. Dati personali dei dipendenti: uso secondo l'informativa dell'ente.</p>
+
+<div class="card">
+	<h2>Letto da ({{len .Reads}})</h2>
+	<table class="list"><thead><tr><th>Utente</th><th>Quando</th><th>Come</th></tr></thead><tbody>
+	{{range .Reads}}<tr><td>{{.Name}}{{if ne .Name .Username}} <small class="muted">{{.Username}}</small>{{end}}</td><td>{{fmtDate .At}}</td><td>{{.How}}</td></tr>
+	{{else}}<tr><td colspan="3" class="muted">Nessuna lettura registrata.</td></tr>{{end}}
+	</tbody></table>
+</div>
+
+<div class="card">
+	<h2>Notifiche</h2>
+	<table class="list"><thead><tr><th>Utente</th><th>Browser</th><th>Inviata</th><th>Esito</th><th>Ricevuta</th></tr></thead><tbody>
+	{{$names := .Names}}{{range .Deliveries}}<tr><td>{{with index $names .Username}}{{.}}{{else}}{{if .Username}}{{.Username}}{{else}}<span class="muted">anonimo</span>{{end}}{{end}}</td><td>{{.Service}}</td><td>{{fmtDate .SentAt}}</td><td>{{.Status}}</td><td>{{with .ReceivedAt}}{{fmtDatePtr .}}{{else}}<span class="muted">non confermata</span>{{end}}</td></tr>
+	{{else}}<tr><td colspan="5" class="muted">Nessuna notifica inviata per questo avviso.</td></tr>{{end}}
+	</tbody></table>
+</div>
+
+<div class="card">
+	<h2>Non ancora letto da ({{len .Unread}})</h2>
+	<p class="hint">Utenti attivi (accesso negli ultimi 15 giorni) che possono vedere l'avviso.</p>
+	{{if .UnreadUnsure}}<p class="flash error">Elenco incompleto: AD non raggiungibile per verificare chi può vedere l'avviso.</p>{{end}}
+	{{range .Unread}}<span class="chip chip-plain">{{.}}</span> {{else}}<p class="muted">Nessuno.</p>{{end}}
+</div>
+{{end}}
+{{template "admin_bottom" .}}{{end}}

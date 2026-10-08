@@ -233,6 +233,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/guide/{id}/aggiorna", s.requireAdmin(s.handleGuideRefresh))
 	s.mux.HandleFunc("GET /admin/avvisi", s.requireAdmin(s.handleAlertsPage))
 	s.mux.HandleFunc("GET /admin/avvisi/{id}/modifica", s.requireAdmin(s.handleAlertEdit))
+	s.mux.HandleFunc("GET /admin/avvisi/{id}/letture", s.requireAdmin(s.handleAlertReaders))
+	s.mux.HandleFunc("GET /admin/utenti", s.requireAdmin(s.handleUsers))
 	s.mux.HandleFunc("POST /admin/avvisi", s.requireAdmin(s.handleAlertSave))
 	s.mux.HandleFunc("POST /admin/notifiche/prova", s.requireAdmin(s.handlePushTest))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}", s.requireAdmin(s.handleAlertSave))
