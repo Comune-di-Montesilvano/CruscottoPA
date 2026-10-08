@@ -2,6 +2,8 @@ package web
 
 import (
 	"errors"
+	"html"
+	"html/template"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -24,13 +26,20 @@ type audienceSection struct {
 	Errors     formErrors
 }
 
+// groupEdit: le regole divise come le legge l'admin. Un utente è nel gruppo
+// se soddisfa una regola di Include, tutte quelle di Require e nessuna di
+// Exclude.
 type groupEdit struct {
 	Group      database.AudienceGroup
-	Rules      []ruleView
+	Include    []ruleView // "Chi entra": basta una
+	Require    []ruleView // "Requisiti": servono tutti
+	Exclude    []ruleView // "Esclusi"
+	Summary    template.HTML
 	Attributes []database.AudienceAttribute
 	Preview    *previewView
 	Errors     formErrors
 	Form       database.AudienceRule // valori da riproporre dopo un errore
+	FormBlock  string                // blocco del form con l'errore: include, require, exclude
 }
 
 type ruleView struct {
@@ -64,16 +73,36 @@ var ruleUserRe = regexp.MustCompile(`^[A-Za-z0-9._@-]{1,128}$`)
 
 const adUnavailable = "AD non disponibile."
 
+func attrLabel(name string, attrs []database.AudienceAttribute) string {
+	for _, a := range attrs {
+		if strings.EqualFold(a.Name, name) {
+			return a.Label
+		}
+	}
+	return name
+}
+
+// ruleBlock: in quale blocco dell'editor sta un tipo di regola.
+func ruleBlock(kind string) string {
+	switch {
+	case kind == "":
+		return ""
+	case kind == audience.KindExclude:
+		return "exclude"
+	case audience.IsRequirement(kind):
+		return "require"
+	}
+	return "include"
+}
+
 func ruleText(r database.AudienceRule, attrs []database.AudienceAttribute) string {
 	switch r.Kind {
 	case audience.KindAttr:
-		label := r.Attr
-		for _, a := range attrs {
-			if strings.EqualFold(a.Name, r.Attr) {
-				label = a.Label
-			}
-		}
-		return label + " = " + r.Value
+		return attrLabel(r.Attr, attrs) + " = " + r.Value
+	case audience.KindPresent:
+		return attrLabel(r.Attr, attrs) + " presente"
+	case audience.KindAbsent:
+		return attrLabel(r.Attr, attrs) + " assente"
 	case audience.KindADGroup:
 		if r.Label != "" {
 			return "Gruppo AD " + r.Label
@@ -82,8 +111,59 @@ func ruleText(r database.AudienceRule, attrs []database.AudienceAttribute) strin
 	case audience.KindUser:
 		return "Utente " + r.Value
 	default:
-		return "Escludi " + r.Value
+		return r.Value
 	}
+}
+
+// ruleSummary: le regole del gruppo in una frase, es. "Entra chi ha Ufficio =
+// TRIBUTI oppure Gruppo AD X, purché abbia Email; escluso mrossi."
+func ruleSummary(e *groupEdit) template.HTML {
+	if len(e.Include) == 0 {
+		return "Nessuna regola in «Chi entra»: il gruppo non ha membri."
+	}
+	strong := func(s string) string { return "<strong>" + html.EscapeString(s) + "</strong>" }
+	var b strings.Builder
+	b.WriteString("Entra chi ha ")
+	for i, r := range e.Include {
+		if i > 0 {
+			b.WriteString(" oppure ")
+		}
+		b.WriteString(strong(r.Text))
+	}
+	var has, hasNot []string
+	for _, r := range e.Require {
+		if r.Kind == audience.KindPresent {
+			has = append(has, strong(attrLabel(r.Attr, e.Attributes)))
+		} else {
+			hasNot = append(hasNot, strong(attrLabel(r.Attr, e.Attributes)))
+		}
+	}
+	if len(has)+len(hasNot) > 0 {
+		b.WriteString(", purché ")
+		if len(has) > 0 {
+			b.WriteString("abbia " + strings.Join(has, " e "))
+		}
+		if len(has) > 0 && len(hasNot) > 0 {
+			b.WriteString(" e ")
+		}
+		if len(hasNot) > 0 {
+			b.WriteString("non abbia " + strings.Join(hasNot, " né "))
+		}
+	}
+	if len(e.Exclude) > 0 {
+		names := make([]string, len(e.Exclude))
+		for i, r := range e.Exclude {
+			names[i] = strong(r.Value)
+		}
+		if len(names) == 1 {
+			b.WriteString("; escluso ")
+		} else {
+			b.WriteString("; esclusi ")
+		}
+		b.WriteString(strings.Join(names, ", "))
+	}
+	b.WriteString(".")
+	return template.HTML(b.String())
 }
 
 // audienceData carica la pagina; con editID != 0 anche il gruppo in modifica.
@@ -107,10 +187,19 @@ func (s *Server) audienceData(editID int64, errs, editErrs formErrors, ruleForm 
 	if err != nil {
 		return sec, err
 	}
-	e := &groupEdit{Group: g, Attributes: sec.Attributes, Errors: editErrs, Form: ruleForm}
+	e := &groupEdit{Group: g, Attributes: sec.Attributes, Errors: editErrs, Form: ruleForm, FormBlock: ruleBlock(ruleForm.Kind)}
 	for _, r := range rules {
-		e.Rules = append(e.Rules, ruleView{AudienceRule: r, Text: ruleText(r, sec.Attributes)})
+		v := ruleView{AudienceRule: r, Text: ruleText(r, sec.Attributes)}
+		switch ruleBlock(r.Kind) {
+		case "exclude":
+			e.Exclude = append(e.Exclude, v)
+		case "require":
+			e.Require = append(e.Require, v)
+		default:
+			e.Include = append(e.Include, v)
+		}
 	}
+	e.Summary = ruleSummary(e)
 	sec.Edit = e
 	return sec, nil
 }
@@ -314,7 +403,7 @@ func (s *Server) handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	errs := formErrors{}
 	switch rule.Kind {
-	case audience.KindAttr:
+	case audience.KindAttr, audience.KindPresent, audience.KindAbsent:
 		attrs, err := s.db.ListAudienceAttributes()
 		if err != nil {
 			s.serverError(w, err)
@@ -337,7 +426,11 @@ func (s *Server) handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	default:
 		errs.add("rule", "Tipo di regola non valido.")
 	}
-	checkText(errs, "rule", rule.Value, 512, true)
+	if audience.IsRequirement(rule.Kind) {
+		rule.Value = ""
+	} else {
+		checkText(errs, "rule", rule.Value, 512, true)
+	}
 	checkText(errs, "rule", rule.Label, 256, false)
 	if len(errs) == 0 {
 		if _, err := s.db.AddAudienceRule(rule); errors.Is(err, database.ErrDuplicate) {
@@ -377,6 +470,34 @@ func (s *Server) handleRuleDelete(w http.ResponseWriter, r *http.Request) {
 	s.renderAudience(w, http.StatusOK, id, nil, nil)
 }
 
+// handleMemberCount: numero dei membri per la colonna dell'elenco dei gruppi
+// (caricato a parte, così la pagina non aspetta AD).
+func (s *Server) handleMemberCount(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := s.db.GetAudienceGroup(id); errors.Is(err, database.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	all, err := s.db.AllAudienceRules()
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	text := "—"
+	if n, _, err := s.members(all[id], nil); err == nil {
+		text = strconv.Itoa(n)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(text))
+}
+
 func (s *Server) handleAudiencePreview(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -404,15 +525,13 @@ func (s *Server) handleAudiencePreview(w http.ResponseWriter, r *http.Request) {
 	for i, a := range pv.Attrs {
 		names[i] = a.Name
 	}
-	if s.directory == nil {
-		pv.Err = adUnavailable
-	} else if pv.Count, pv.People, err = s.directory.Members(all[id], names); err != nil {
+	if pv.Count, pv.People, err = s.members(all[id], names); err != nil {
 		pv.Err = adUnavailable
 	}
 	s.render(w, http.StatusOK, "group_preview", pv)
 }
 
-// ruleAttributes: attributi configurati usati dalle regole, per le colonne
+// ruleAttributes: attributi configurati usati dalle regole (anche dai requisiti), per le colonne
 // della tabella dell'anteprima.
 func (s *Server) ruleAttributes(rules []audience.Rule) ([]database.AudienceAttribute, error) {
 	attrs, err := s.db.ListAudienceAttributes()
@@ -422,7 +541,7 @@ func (s *Server) ruleAttributes(rules []audience.Rule) ([]database.AudienceAttri
 	out := []database.AudienceAttribute{}
 	for _, a := range attrs {
 		for _, r := range rules {
-			if r.Kind == audience.KindAttr && strings.EqualFold(r.Attr, a.Name) {
+			if r.Attr != "" && strings.EqualFold(r.Attr, a.Name) {
 				out = append(out, a)
 				break
 			}
@@ -456,7 +575,7 @@ func (s *Server) handleDraftPreview(w http.ResponseWriter, r *http.Request) {
 	draft := audience.Rule{Kind: r.FormValue("kind"), Attr: strings.TrimSpace(r.FormValue("attr")), Value: strings.TrimSpace(r.FormValue("value"))}
 	v := draftView{}
 	switch {
-	case draft.Value == "":
+	case draft.Value == "" && !audience.IsRequirement(draft.Kind):
 		v.Err = "Scrivi un valore per vedere l'anteprima."
 	case !audience.ValidKind(draft.Kind):
 		v.Err = "Tipo di regola non valido."
@@ -467,7 +586,7 @@ func (s *Server) handleDraftPreview(w http.ResponseWriter, r *http.Request) {
 			v.Err = "Scegli il gruppo dai suggerimenti (serve il DN completo)."
 		}
 	}
-	if v.Err == "" && draft.Kind == audience.KindAttr {
+	if v.Err == "" && (draft.Kind == audience.KindAttr || audience.IsRequirement(draft.Kind)) {
 		attrs, err := s.db.ListAudienceAttributes()
 		if err != nil {
 			s.serverError(w, err)
@@ -488,27 +607,24 @@ func (s *Server) handleDraftPreview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) draftCounts(groupID int64, draft audience.Rule) draftView {
-	if s.directory == nil {
-		return draftView{Err: adUnavailable}
-	}
 	all, err := s.db.AllAudienceRules()
 	if err != nil {
 		return draftView{Err: "Regole non disponibili."}
 	}
 	current := all[groupID]
 	v := draftView{}
-	if draft.Kind != audience.KindExclude {
-		n, _, err := s.directory.Members([]audience.Rule{draft}, nil)
+	if ruleBlock(draft.Kind) == "include" {
+		n, _, err := s.members([]audience.Rule{draft}, nil)
 		if err != nil {
 			return draftView{Err: adUnavailable}
 		}
 		v.Alone = "Questa regola: " + peopleCount(n)
 	}
-	before, _, err := s.directory.Members(current, nil)
+	before, _, err := s.members(current, nil)
 	if err != nil {
 		return draftView{Err: adUnavailable}
 	}
-	after, _, err := s.directory.Members(append(append([]audience.Rule{}, current...), draft), nil)
+	after, _, err := s.members(append(append([]audience.Rule{}, current...), draft), nil)
 	if err != nil {
 		return draftView{Err: adUnavailable}
 	}

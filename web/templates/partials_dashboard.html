@@ -6,13 +6,17 @@
 	</div>
 {{end}}
 
-{{/* Carosello: estratto in testo semplice, il resto in /avvisi/{id}. */}}
+{{/* Carosello: estratto in testo semplice; se non basta, il testo completo
+   si espande nella card stessa. */}}
 {{define "alert_card"}}
 <article class="news news-{{.Level}}" data-alert="{{.ID}}">
 	{{template "alert_head" .}}
 	<h3 class="news-title">{{.Title}}</h3>
-	{{if .Body}}<p class="news-body">{{excerpt .Body}}</p>{{end}}
-	{{if needsMore .Body}}<a class="news-more" href="/avvisi/{{.ID}}">Leggi tutto →</a>{{end}}
+	{{if .Body}}<p class="news-body news-short">{{excerpt .Body}}</p>{{end}}
+	{{if needsMore .Body}}<details class="news-expand">
+		<summary><span class="more-open">Continua a leggere<span class="material-icons" aria-hidden="true">expand_more</span></span><span class="more-close">Chiudi<span class="material-icons" aria-hidden="true">close</span></span></summary>
+		<div class="news-body md">{{md .Body}}</div>
+	</details>{{end}}
 </article>
 {{end}}
 
@@ -56,6 +60,7 @@
 
 {{define "app_tile"}}
 <div class="tile" style="background:{{tint .IconColor}}" data-search-item data-search="{{.Title}} {{.Description}}{{range .Guides}} {{.Title}}{{end}}">
+	<div class="tile-card">
 	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
 		{{template "tile_icon" .App}}
 		<span class="tile-text">
@@ -63,22 +68,20 @@
 			{{with .Description}}<span class="tile-desc">{{.}}</span>{{end}}
 		</span>
 	</a>
-	{{if .Guides}}<button type="button" class="tile-badge" data-flyout-toggle aria-expanded="false">{{len .Guides}} {{if eq (len .Guides) 1}}guida{{else}}guide{{end}}</button>{{end}}
-	<div class="tile-fly" aria-label="Dettagli {{.Title}}">
-		{{with .Description}}<p>{{.}}</p>{{end}}
-		{{if .Guides}}
-		<div class="fly-label">Guide</div>
+	{{if .Guides}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="guide-app-{{.ID}}">{{len .Guides}} {{if eq (len .Guides) 1}}guida{{else}}guide{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
+	<div class="tile-more" id="guide-app-{{.ID}}">
 		<ul>{{range .Guides}}<li>{{template "guide_link" .}}</li>{{end}}</ul>
-		{{end}}
-		<a class="fly-open" href="{{.URL}}" target="_blank" rel="noopener">Apri {{.Title}} ↗</a>
+	</div>{{end}}
 	</div>
 </div>
 {{end}}
 
-{{define "widget_oggi"}}
-<section class="widget today" aria-label="Oggi">
-	<div class="today-num">{{.Day}}</div>
-	<div><div class="today-wd">{{.Weekday}}</div><small>Settimana {{.Week}} · giorno {{.YearDay}} di {{.YearDays}}</small></div>
+{{/* Oggi: nella testata, accanto all'orologio. */}}
+{{define "hero_today"}}
+<section class="hero-today" aria-label="Oggi">
+	<div class="today-num">{{.Today.Day}}</div>
+	<div class="today-text"><div class="today-month">{{.Today.Month}}</div><div class="today-wd">{{.Today.Weekday}}</div><small>Settimana {{.Today.Week}} · giorno {{.Today.YearDay}} di {{.Today.YearDays}}</small></div>
+	<div class="clock" data-clock>{{.Clock}}</div>
 </section>
 {{end}}
 

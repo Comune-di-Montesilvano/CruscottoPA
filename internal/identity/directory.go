@@ -82,7 +82,8 @@ func searchFilter(q string, attrs ...string) string {
 }
 
 // membersFilter traduce le regole in un filtro sugli utenti attivi; false se
-// non c'è nessuna regola positiva (gruppo senza membri).
+// non c'è nessuna regola positiva (gruppo senza membri). I requisiti vanno in
+// AND con le esclusioni.
 func membersFilter(rules []audience.Rule) (string, bool) {
 	var or, not strings.Builder
 	for _, r := range rules {
@@ -98,6 +99,14 @@ func membersFilter(rules []audience.Rule) (string, bool) {
 			fmt.Fprintf(&or, "(sAMAccountName=%s)", v)
 		case audience.KindExclude:
 			fmt.Fprintf(&not, "(!(sAMAccountName=%s))", v)
+		case audience.KindPresent:
+			if ValidAttrName(r.Attr) {
+				fmt.Fprintf(&not, "(%s=*)", r.Attr)
+			}
+		case audience.KindAbsent:
+			if ValidAttrName(r.Attr) {
+				fmt.Fprintf(&not, "(!(%s=*))", r.Attr)
+			}
 		}
 	}
 	if or.Len() == 0 {

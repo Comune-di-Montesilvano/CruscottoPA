@@ -27,6 +27,7 @@ cruscottopa
 # Go
 /vendor/
 go.work
+/.devcache/
 
 # IDE / tool
 .vscode/

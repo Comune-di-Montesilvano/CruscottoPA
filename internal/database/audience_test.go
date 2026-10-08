@@ -175,3 +175,26 @@ func TestADGroupRuleNormalized(t *testing.T) {
 		t.Fatalf("DN non valido: atteso ErrInvalidDN, ottenuto %v", err)
 	}
 }
+
+func TestRequirementRules(t *testing.T) {
+	db := newTestDB(t)
+	g, _ := db.CreateAudienceGroup("G")
+	mail, _ := db.CreateAudienceAttribute("mail", "Email")
+	if _, err := db.AddAudienceRule(AudienceRule{GroupID: g, Kind: audience.KindPresent, Attr: "mail", Value: "ignorato"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.AddAudienceRule(AudienceRule{GroupID: g, Kind: audience.KindPresent, Attr: "mail"}); !errors.Is(err, ErrDuplicate) {
+		t.Fatalf("requisito doppio: %v", err)
+	}
+	if _, err := db.AddAudienceRule(AudienceRule{GroupID: g, Kind: audience.KindAbsent, Attr: "mail"}); err != nil {
+		t.Fatal(err)
+	}
+	all, _ := db.AllAudienceRules()
+	want := []audience.Rule{{Kind: audience.KindPresent, Attr: "mail"}, {Kind: audience.KindAbsent, Attr: "mail"}}
+	if !reflect.DeepEqual(all[g], want) {
+		t.Fatalf("AllAudienceRules: %v", all[g])
+	}
+	if err := db.DeleteAudienceAttribute(mail); !errors.Is(err, ErrInUse) {
+		t.Fatalf("attributo usato da un requisito: atteso ErrInUse, ottenuto %v", err)
+	}
+}

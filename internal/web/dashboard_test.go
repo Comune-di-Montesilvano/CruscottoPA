@@ -23,8 +23,8 @@ func TestDashboardFreshInstall(t *testing.T) {
 		t.Fatal("senza avvisi né guide generali: niente carosello né widget guide")
 	}
 	for _, want := range []string{
-		"Buongiorno", "martedì 6 ottobre 2026", "vtest",
-		"Settimana 41 · giorno 279 di 365", // widget Oggi
+		"Buongiorno", "martedì", "ottobre 2026", "vtest",
+		"Settimana 41 · giorno 279 di 365", // Oggi, nella testata
 		"Ottobre 2026",                     // widget Calendario
 		"Ognissanti",                       // prossimi: festività calcolate
 	} {
@@ -52,7 +52,7 @@ func TestDashboardTilesGuidesAlerts(t *testing.T) {
 	for _, want := range []string{
 		`href="https://rubrica.local"`, `href="https://mail.local"`,
 		`style="background:#dee8fc"`, // tinta di #2563eb (Rubrica)
-		`data-flyout-toggle`, "1 guida", "Cercare un interno",
+		`data-tile-toggle`, "1 guida", "Cercare un interno",
 		`class="widget guides"`, "VPN da casa",
 		"data-carousel", `class="news news-urgent"`, "CED",
 		`<a href="https://cert.local" target="_blank" rel="noopener noreferrer">`, // popup urgente in Markdown
@@ -64,7 +64,7 @@ func TestDashboardTilesGuidesAlerts(t *testing.T) {
 			t.Errorf("manca %q", want)
 		}
 	}
-	if n := strings.Count(body, "data-flyout-toggle"); n != 1 {
+	if n := strings.Count(body, "data-tile-toggle"); n != 1 {
 		t.Errorf("badge guide solo sulle app con guide: trovati %d", n)
 	}
 }
@@ -153,9 +153,6 @@ func TestTodayInfoAndGreeting(t *testing.T) {
 		if got := greeting(h); got != want {
 			t.Errorf("greeting(%d) = %q, atteso %q", h, got, want)
 		}
-	}
-	if got := italianDate(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)); got != "domenica 1 marzo 2026" {
-		t.Errorf("italianDate: %q", got)
 	}
 	ti := todayInfo(time.Date(2028, 12, 31, 10, 0, 0, 0, time.UTC))
 	if ti.Day != 31 || ti.Weekday != "domenica" || ti.YearDay != 366 || ti.YearDays != 366 || ti.Week != 52 {
