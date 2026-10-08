@@ -41,6 +41,7 @@ type dashboardView struct {
 	Hero        heroView      // contatti da AD sotto il saluto (attributi scelti dall'admin)
 	Recognize   bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
 	Anonymous   bool          // riconoscimento attivo ma utente non riconosciuto: aiuto per Firefox
+	RefreshPC   bool          // riconosciuto: dashboard.js rinnova il nome del PC una volta per sessione
 	Filter      *contentFilter
 	Admin       bool       // link al pannello admin nel footer
 	Ticket      ticketView // tile e dialog «Apri un ticket»
@@ -110,6 +111,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		User:        u,
 		Recognize:   !known && s.canRecognize(r),
 		Anonymous:   s.recognitionEnabled() && (!known || u.Anonymous),
+		RefreshPC:   known && !u.Anonymous && u.Username != "" && s.canRecognize(r),
 		Filter:      f,
 		Admin:       s.viewerIsAdmin(r),
 		Ticket:      s.ticketViewFor(r),
@@ -249,6 +251,7 @@ type ticketView struct {
 	Name     string
 	Email    string
 	Phone    string
+	PC       string
 	Fallback string
 }
 
@@ -257,5 +260,5 @@ func (s *Server) ticketViewFor(r *http.Request) ticketView {
 		return ticketView{}
 	}
 	req, problem := s.ticketRequester(r)
-	return ticketView{Enabled: true, Problem: problem, Name: req.Name, Email: req.Email, Phone: req.Phone, Fallback: s.cfg.OTRS.FallbackEmail}
+	return ticketView{Enabled: true, Problem: problem, Name: req.Name, Email: req.Email, Phone: req.Phone, PC: req.PC, Fallback: s.cfg.OTRS.FallbackEmail}
 }

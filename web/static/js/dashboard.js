@@ -491,6 +491,21 @@
 		firefoxHelp();
 	}
 
+	// Nome del PC: rinnovato una volta per sessione (chi cambia postazione con
+	// lo stesso profilo). Il server non declassa mai su questa chiamata.
+	if (document.body.hasAttribute("data-pc-aggiorna")) {
+		let due = true;
+		try { due = !sessionStorage.getItem("cruscotto-pc"); sessionStorage.setItem("cruscotto-pc", "1"); } catch (_) { due = false; }
+		if (due) fetch("/io?aggiorna=1", { credentials: "same-origin" }).catch(() => {});
+	}
+	const pcCopy = document.querySelector("[data-pc-copy]");
+	if (pcCopy) {
+		pcCopy.addEventListener("click", () => {
+			const done = () => { pcCopy.classList.add("copied"); setTimeout(() => pcCopy.classList.remove("copied"), 1500); };
+			if (navigator.clipboard) navigator.clipboard.writeText(pcCopy.dataset.pcCopy).then(done, () => {});
+		});
+	}
+
 	// "Mostra tutto": preferenza in un cookie letto dal server, poi ricarica.
 	const audienceToggle = document.querySelector("[data-mostra-tutto]");
 	if (audienceToggle) {

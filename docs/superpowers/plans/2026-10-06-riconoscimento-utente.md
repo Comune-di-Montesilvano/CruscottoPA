@@ -232,8 +232,8 @@ func TestChallengeIsRandom(t *testing.T) {
 }
 
 func TestParseAuthenticate(t *testing.T) {
-	got, err := ParseAuthenticate(ntlmtest.Authenticate("COMUNE-MS", "mirko.daddiego", "PC-LIV02-024"))
-	want := Login{Domain: "COMUNE-MS", User: "mirko.daddiego", Workstation: "PC-LIV02-024"}
+	got, err := ParseAuthenticate(ntlmtest.Authenticate("COMUNE-MS", "mrossi", "PC-PROVA-001"))
+	want := Login{Domain: "COMUNE-MS", User: "mrossi", Workstation: "PC-PROVA-001"}
 	if err != nil || got != want {
 		t.Fatalf("ParseAuthenticate = %+v, %v", got, err)
 	}
@@ -614,7 +614,7 @@ import (
 )
 
 func TestUserFilter(t *testing.T) {
-	f, err := userFilter("mirko.daddiego")
+	f, err := userFilter("mrossi")
 	if err != nil || !strings.Contains(f, "(sAMAccountName=mirko.daddiego)") || !strings.Contains(f, "userAccountControl:1.2.840.113556.1.4.803:=2") {
 		t.Fatalf("filtro: %q %v", f, err)
 	}

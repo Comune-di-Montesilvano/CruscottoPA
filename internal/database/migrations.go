@@ -20,6 +20,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV9ReadsAndPresence,
 	migrateV10WebSearch,
 	migrateV11TicketsSent,
+	migrateV12TicketPC,
 }
 
 func (db *DB) migrate() error {
@@ -318,5 +319,11 @@ CREATE TABLE tickets_sent (
 );
 CREATE INDEX idx_tickets_sent_user ON tickets_sent(username, created_at);
 `)
+	return err
+}
+
+// migrateV12TicketPC: nome del PC (workstation NTLM) di chi ha aperto il ticket.
+func migrateV12TicketPC(tx *sql.Tx) error {
+	_, err := tx.Exec(`ALTER TABLE tickets_sent ADD COLUMN pc TEXT NOT NULL DEFAULT ''`)
 	return err
 }

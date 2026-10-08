@@ -28,8 +28,8 @@ func TestChallengeIsRandom(t *testing.T) {
 }
 
 func TestParseAuthenticate(t *testing.T) {
-	got, err := ParseAuthenticate(ntlmtest.Authenticate("COMUNE-MS", "mirko.daddiego", "PC-LIV02-024"))
-	want := Login{Domain: "COMUNE-MS", User: "mirko.daddiego", Workstation: "PC-LIV02-024"}
+	got, err := ParseAuthenticate(ntlmtest.Authenticate("COMUNE-MS", "mrossi", "PC-PROVA-001"))
+	want := Login{Domain: "COMUNE-MS", User: "mrossi", Workstation: "PC-PROVA-001"}
 	if err != nil || got != want {
 		t.Fatalf("ParseAuthenticate = %+v, %v", got, err)
 	}

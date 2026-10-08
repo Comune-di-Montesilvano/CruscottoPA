@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
@@ -27,7 +28,31 @@ func (s *Server) ticketsEnabled() bool { return s.tickets != nil }
 
 // ticketRequester: chi apre il ticket, da AD (mai dal form). Identità
 // DICHIARATA: le risposte di OTRS vanno comunque alla mail vera.
-type ticketRequester struct{ Name, Email, Phone string }
+type ticketRequester struct{ Name, Email, Phone, PC string }
+
+// pcBlock: informazioni sul PC in fondo alla descrizione. Il nome viene dal
+// cookie (NTLM), browser, sistema e schermo dal browser: una riga ciascuno.
+func pcBlock(pc string, r *http.Request) string {
+	if pc == "" {
+		pc = "non rilevato"
+	}
+	b := "\n\n— Informazioni sul PC —\nPC: " + pc
+	for _, f := range []struct{ label, field string }{{"Browser", "browser"}, {"Sistema", "sistema"}, {"Schermo", "schermo"}} {
+		if v := oneLine(r.FormValue(f.field), 60); v != "" {
+			b += "\n" + f.label + ": " + v
+		}
+	}
+	return b
+}
+
+// oneLine: testo su una riga (spazi e caratteri di controllo compressi), max n rune.
+func oneLine(s string, n int) string {
+	s = strings.Join(strings.FieldsFunc(s, func(c rune) bool { return unicode.IsSpace(c) || unicode.IsControl(c) }), " ")
+	if r := []rune(s); len(r) > n {
+		s = string(r[:n])
+	}
+	return s
+}
 
 func firstAttr(p audience.Profile, name string) string {
 	for _, v := range p.Attrs[strings.ToLower(name)] {
@@ -51,7 +76,7 @@ func (s *Server) ticketRequester(r *http.Request) (ticketRequester, string) {
 	case !ok:
 		return ticketRequester{}, "anonimo"
 	}
-	req := ticketRequester{Name: u.Name, Email: firstAttr(p, "mail"), Phone: firstAttr(p, "telephoneNumber")}
+	req := ticketRequester{Name: u.Name, Email: firstAttr(p, "mail"), Phone: firstAttr(p, "telephoneNumber"), PC: u.PC}
 	if req.Name == "" {
 		req.Name = u.Username
 	}
@@ -133,7 +158,7 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), ticketSendTimeout)
 	defer cancel()
 	created, err := s.tickets.Create(ctx, otrs.NewTicket{Name: req.Name, Email: req.Email, Phone: phone,
-		Subject: subject, Body: body, Attachments: atts})
+		Subject: subject, Body: body + pcBlock(req.PC, r), Attachments: atts})
 	if err != nil {
 		s.releaseTicketFiles(ids) // lo stesso dialog può riprovare con gli stessi allegati
 		if !errors.Is(err, otrs.ErrOTRS) {
@@ -145,7 +170,7 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 	s.consumeTicketFiles(ids)
 	if err := s.db.RecordTicket(database.TicketSent{Username: user, Name: req.Name, Email: req.Email, Subject: subject,
 		TicketID: created.TicketID, TicketNumber: created.TicketNumber, CustomerSet: created.CustomerSet,
-		Attachments: len(atts), CreatedAt: s.now()}); err != nil {
+		Attachments: len(atts), PC: req.PC, CreatedAt: s.now()}); err != nil {
 		slog.Error("ticket: registro", "ticket", created.TicketNumber, "err", err) // il ticket esiste comunque
 	}
 	slog.Info("ticket aperto", "ticket", created.TicketNumber, "user", user, "allegati", len(atts))

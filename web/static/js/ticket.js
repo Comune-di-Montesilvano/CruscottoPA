@@ -113,6 +113,28 @@
 		Array.from(items).forEach(upload);
 	});
 
+	// Informazioni sul PC dal browser (il nome del PC lo mette il server).
+	const pcInfo = { browser: "", sistema: "", schermo: screen.width + "×" + screen.height };
+	(function () {
+		const ua = navigator.userAgent;
+		const m = ua.match(/Edg\/(\d+)/) || ua.match(/Firefox\/(\d+)/) || ua.match(/Chrome\/(\d+)/);
+		if (m) pcInfo.browser = (m[0].startsWith("Edg") ? "Edge " : m[0].startsWith("Firefox") ? "Firefox " : "Chrome ") + m[1];
+		pcInfo.sistema = /Windows NT 10/.test(ua) ? "Windows 10/11" : (navigator.platform || "");
+		const show = function () {
+			const el = dlg.querySelector("[data-pc-info]");
+			if (el) el.textContent = [pcInfo.browser, pcInfo.sistema, "schermo " + pcInfo.schermo].filter(Boolean).join(" · ");
+		};
+		show();
+		if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+			navigator.userAgentData.getHighEntropyValues(["platformVersion"]).then(function (v) {
+				if (navigator.userAgentData.platform === "Windows" && v.platformVersion) {
+					pcInfo.sistema = parseInt(v.platformVersion, 10) >= 13 ? "Windows 11" : "Windows 10";
+					show();
+				}
+			}).catch(function () {});
+		}
+	})();
+
 	const MSG = {
 		limite: "Hai aperto molti ticket nell'ultima ora: riprova più tardi",
 		otrs: "Il sistema di assistenza non risponde: riprova",
@@ -128,7 +150,8 @@
 		clearErrors();
 		const btn = dlg.querySelector("[data-ticket-submit]");
 		btn.disabled = true;
-		const body = new URLSearchParams({ oggetto: form.oggetto.value, descrizione: form.descrizione.value, telefono: form.telefono.value });
+		const body = new URLSearchParams({ oggetto: form.oggetto.value, descrizione: form.descrizione.value, telefono: form.telefono.value,
+			browser: pcInfo.browser, sistema: pcInfo.sistema, schermo: pcInfo.schermo });
 		files.forEach(function (f) { body.append("allegato", f.id); });
 		try {
 			const r = await post("/ticket", body);

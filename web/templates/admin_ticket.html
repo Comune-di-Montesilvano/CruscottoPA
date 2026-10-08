@@ -8,7 +8,7 @@
 	<tbody>
 	{{$base := .Base}}{{range .Tickets}}<tr>
 		<td>{{fmtDate .CreatedAt}}</td>
-		<td>{{.Name}}<br><small class="muted">{{.Username}}</small></td>
+		<td>{{.Name}}<br><small class="muted">{{.Username}}{{with .PC}} · PC {{.}}{{end}}</small></td>
 		<td>{{.Subject}}</td>
 		<td>{{if $base}}<a href="{{$base}}index.pl?Action=AgentTicketZoom;TicketID={{.TicketID}}" target="_blank" rel="noopener">{{.TicketNumber}}</a>{{else}}{{.TicketNumber}}{{end}}{{if not .CustomerSet}}<br><span class="tag warn">Cliente non impostato in OTRS</span>{{end}}</td>
 		<td>{{.Attachments}}</td>

@@ -339,3 +339,15 @@ dialog.ticket button:disabled { opacity: .6; cursor: progress; }
 dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; font-size: 1.2rem; }
 .ticket-done { text-align: center; }
 .ticket-done > .material-icons { font-size: 3rem; color: #2e7d32; }
+
+/* Nome del PC nella testata: per i collegamenti VNC dell'assistenza. */
+.hero-center { flex-direction: column; align-items: center; gap: .5rem; }
+.hero-pc { display: inline-flex; align-items: center; gap: .55rem; padding: .35rem .4rem .35rem .7rem; border: 1px solid rgba(255, 255, 255, .28); border-radius: 12px; background: rgba(255, 255, 255, .12); color: #fff; }
+.hero-pc-text { display: flex; flex-direction: column; line-height: 1.15; }
+.hero-pc-text small { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+.hero-pc-text strong { font-size: .95rem; letter-spacing: .03em; }
+.hero-pc button { border: 0; background: rgba(255, 255, 255, .16); color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.hero-pc button .material-icons { font-size: 1rem; }
+.hero-pc button.copied { background: #2e7d32; }
+.ticket-pc { display: flex; gap: .5rem; align-items: center; margin: 0 0 .4rem; color: var(--p-text-3); }
+.ticket-pc .material-icons { font-size: 1.1rem; }

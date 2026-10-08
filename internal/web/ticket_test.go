@@ -59,7 +59,7 @@ func TestTicketSendOK(t *testing.T) {
 		t.Fatalf("invio: %v", out)
 	}
 	sent := m.Sent[0]
-	if sent.Name != "Mario Rossi" || sent.Email != "mrossi@example.it" || sent.Phone != "0851234" || sent.Body != "Non stampa più.\nÈ urgente" {
+	if sent.Name != "Mario Rossi" || sent.Email != "mrossi@example.it" || sent.Phone != "0851234" || !strings.HasPrefix(sent.Body, "Non stampa più.\nÈ urgente\n\n— Informazioni sul PC —") {
 		t.Fatalf("ticket inviato: %+v", sent)
 	}
 	list, _ := s.db.ListTickets(10)

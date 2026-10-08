@@ -29,3 +29,15 @@ func TestTicketsRecordCountList(t *testing.T) {
 		t.Fatalf("riga: %+v", got)
 	}
 }
+
+func TestTicketsPC(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Date(2026, 10, 8, 10, 0, 0, 0, time.UTC)
+	if err := db.RecordTicket(TicketSent{Username: "mrossi", Name: "M", Email: "m@example.it", Subject: "s", TicketID: "1", TicketNumber: "N1", PC: "PC-PROVA-001", CreatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	list, err := db.ListTickets(1)
+	if err != nil || list[0].PC != "PC-PROVA-001" {
+		t.Fatalf("PC: %+v %v", list, err)
+	}
+}

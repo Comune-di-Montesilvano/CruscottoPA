@@ -55,10 +55,15 @@ func (s *Server) handleIo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	// aggiorna=1: chi è già riconosciuto rinnova il nome del PC (una volta per
+	// sessione). Un handshake non riuscito non tocca il cookie.
+	refresh := r.URL.Query().Get("aggiorna") == "1"
 	authz := r.Header.Get("Authorization")
 	if authz == "" {
 		// Se il browser non prosegue resta anonimo per 24 ore, senza ritentare.
-		s.setViewer(w, r, identity.User{Anonymous: true})
+		if !refresh {
+			s.setViewer(w, r, identity.User{Anonymous: true})
+		}
 		w.Header().Set("WWW-Authenticate", "NTLM")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -74,16 +79,20 @@ func (s *Server) handleIo(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", "NTLM "+base64.StdEncoding.EncodeToString(identity.Challenge()))
 		w.WriteHeader(http.StatusUnauthorized)
 	case 3:
-		s.finishRecognition(w, r, msg)
+		s.finishRecognition(w, r, msg, refresh)
 	default:
 		http.Error(w, "Messaggio NTLM non valido", http.StatusBadRequest)
 	}
 }
 
-func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg []byte) {
+func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg []byte, refresh bool) {
 	login, err := identity.ParseAuthenticate(msg)
 	if err != nil {
 		http.Error(w, "Messaggio NTLM non valido", http.StatusBadRequest)
+		return
+	}
+	if refresh {
+		s.refreshRecognition(w, r, login)
 		return
 	}
 	if !strings.EqualFold(login.Domain, s.cfg.NTLMDomain) {
@@ -103,8 +112,35 @@ func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg [
 			HttpOnly: true, Secure: s.secureRequest(r), SameSite: http.SameSiteLaxMode})
 		http.Error(w, "Directory non disponibile", http.StatusServiceUnavailable)
 	default:
-		s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name, GivenName: p.GivenName})
+		s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name, GivenName: p.GivenName, PC: cleanPC(login.Workstation)})
 	}
+}
+
+// refreshRecognition: come finishRecognition, ma ogni esito diverso dal
+// riconoscimento lascia il cookie com'è (AD giù, dominio o utente diversi).
+func (s *Server) refreshRecognition(w http.ResponseWriter, r *http.Request, login identity.Login) {
+	if strings.EqualFold(login.Domain, s.cfg.NTLMDomain) {
+		if p, err := s.directory.Lookup(login.User); err == nil {
+			s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name, GivenName: p.GivenName, PC: cleanPC(login.Workstation)})
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"riconosciuto":false}`))
+}
+
+// cleanPC: nome NetBIOS del PC, solo lettere, cifre, '.', '_' e '-', max 63.
+func cleanPC(ws string) string {
+	var b strings.Builder
+	for _, c := range ws {
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-' {
+			b.WriteRune(c)
+			if b.Len() == 63 {
+				break
+			}
+		}
+	}
+	return b.String()
 }
 
 func (s *Server) recognized(w http.ResponseWriter, r *http.Request, u identity.User) {

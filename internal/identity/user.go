@@ -14,8 +14,9 @@ type User struct {
 	Username  string
 	Name      string
 	GivenName string
-	Anonymous bool  // riconoscimento tentato e non riuscito
-	Expires   int64 // scadenza (Unix), verificata anche lato server
+	PC        string // nome del PC (workstation NTLM, dichiarato): etichetta per l'assistenza
+	Anonymous bool   // riconoscimento tentato e non riuscito
+	Expires   int64  // scadenza (Unix), verificata anche lato server
 }
 
 // FirstName è il nome di battesimo: givenName se c'è, altrimenti la prima
