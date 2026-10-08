@@ -11,6 +11,7 @@ self.addEventListener("push", (e) => {
 		icon: "/static/img/icon-192.png",
 		badge: "/static/img/icon-192.png",
 		tag: d.tag || "cruscottopa",
+		renotify: true, // stesso tag di una notifica presente: torna a farsi notare
 		data: { url: d.url || "/" },
 	}));
 });

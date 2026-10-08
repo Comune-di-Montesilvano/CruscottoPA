@@ -132,3 +132,14 @@ func TestPayloadPlainText(t *testing.T) {
 		t.Fatalf("payload: %v", p)
 	}
 }
+
+// Ogni prova ha un tag diverso: con lo stesso tag la notifica sostituirebbe in
+// silenzio quella precedente rimasta nel centro notifiche.
+func TestTestPayloadUniqueTag(t *testing.T) {
+	var a, b map[string]string
+	json.Unmarshal(ProbePayload(time.Unix(100, 0)), &a)
+	json.Unmarshal(ProbePayload(time.Unix(101, 0)), &b)
+	if a["title"] != "Notifica di prova" || a["url"] != "/" || a["tag"] == "" || a["tag"] == b["tag"] {
+		t.Fatalf("payload di prova: %v %v", a, b)
+	}
+}

@@ -189,3 +189,12 @@ func TestServiceWorkerClickSparesAdmin(t *testing.T) {
 		t.Fatal("sw.js: notificationclick deve saltare le schede /admin e ripiegare su openWindow")
 	}
 }
+
+// Una notifica con lo stesso tag di una già presente deve farsi notare di
+// nuovo (renotify), non sostituirla in silenzio.
+func TestServiceWorkerRenotify(t *testing.T) {
+	sw, _ := os.ReadFile("../../web/static/sw.js")
+	if !strings.Contains(string(sw), "renotify: true") {
+		t.Fatal("sw.js: manca renotify: true")
+	}
+}

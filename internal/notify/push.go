@@ -96,6 +96,19 @@ func (p *WebPusher) Send(ctx context.Context, sub database.PushSubscription, pay
 	return false, nil
 }
 
+// ProbePayload: notifica di prova dall'admin. Tag diverso a ogni prova: con
+// lo stesso tag sostituirebbe in silenzio quella precedente ancora presente
+// nel centro notifiche.
+func ProbePayload(now time.Time) []byte {
+	b, _ := json.Marshal(map[string]string{
+		"title": "Notifica di prova",
+		"body":  "Le notifiche di CruscottoPA funzionano.",
+		"url":   "/",
+		"tag":   fmt.Sprintf("prova-%d", now.UnixNano()),
+	})
+	return b
+}
+
 // Payload: contenuto della notifica (letto dal service worker).
 func Payload(a database.Alert) []byte {
 	b, _ := json.Marshal(map[string]string{
