@@ -19,6 +19,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV8SupportAndHero,
 	migrateV9ReadsAndPresence,
 	migrateV10WebSearch,
+	migrateV11TicketsSent,
 }
 
 func (db *DB) migrate() error {
@@ -297,4 +298,25 @@ func migrateV10WebSearch(tx *sql.Tx) error {
 		}
 	}
 	return nil
+}
+
+// migrateV11TicketsSent: registro dei ticket aperti dalla plancia (chi, quando,
+// numero OTRS). Il testo resta in OTRS.
+func migrateV11TicketsSent(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE tickets_sent (
+	id            INTEGER PRIMARY KEY AUTOINCREMENT,
+	username      TEXT    NOT NULL,
+	name          TEXT    NOT NULL,
+	email         TEXT    NOT NULL,
+	subject       TEXT    NOT NULL,
+	ticket_id     TEXT    NOT NULL,
+	ticket_number TEXT    NOT NULL,
+	customer_set  INTEGER NOT NULL,
+	attachments   INTEGER NOT NULL,
+	created_at    TEXT    NOT NULL
+);
+CREATE INDEX idx_tickets_sent_user ON tickets_sent(username, created_at);
+`)
+	return err
 }
