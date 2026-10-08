@@ -21,6 +21,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV10WebSearch,
 	migrateV11TicketsSent,
 	migrateV12TicketPC,
+	migrateV13TicketsPhase2,
 }
 
 func (db *DB) migrate() error {
@@ -325,5 +326,30 @@ CREATE INDEX idx_tickets_sent_user ON tickets_sent(username, created_at);
 // migrateV12TicketPC: nome del PC (workstation NTLM) di chi ha aperto il ticket.
 func migrateV12TicketPC(tx *sql.Tx) error {
 	_, err := tx.Exec(`ALTER TABLE tickets_sent ADD COLUMN pc TEXT NOT NULL DEFAULT ''`)
+	return err
+}
+
+// migrateV13TicketsPhase2: risposte nel registro, ticket visti, ultimo
+// articolo notificato e associazione mail → utente per le notifiche.
+func migrateV13TicketsPhase2(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+ALTER TABLE tickets_sent ADD COLUMN kind TEXT NOT NULL DEFAULT 'apertura';
+CREATE TABLE ticket_seen (
+	username  TEXT NOT NULL,
+	ticket_id TEXT NOT NULL,
+	seen_at   TEXT NOT NULL,
+	PRIMARY KEY (username, ticket_id)
+);
+CREATE TABLE ticket_notify_state (
+	ticket_id       TEXT PRIMARY KEY,
+	last_article_id INTEGER NOT NULL,
+	updated_at      TEXT NOT NULL
+);
+CREATE TABLE ticket_users (
+	email      TEXT PRIMARY KEY,
+	username   TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);
+`)
 	return err
 }

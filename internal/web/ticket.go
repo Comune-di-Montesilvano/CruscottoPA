@@ -135,7 +135,7 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.ticketSending.Delete(user)
-	n, err := s.db.CountTicketsSince(user, s.now().Add(-time.Hour))
+	n, err := s.db.CountTicketsSince(user, database.TicketOpen, s.now().Add(-time.Hour))
 	if err != nil {
 		slog.Error("ticket: conteggio", "err", err)
 		reply(map[string]any{"errore": "otrs"})
