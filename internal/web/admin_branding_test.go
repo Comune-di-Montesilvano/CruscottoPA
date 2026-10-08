@@ -176,3 +176,11 @@ func TestEnteWebSearch(t *testing.T) {
 		}
 	}
 }
+
+// Il testo della barra dice che si cerca anche sul web.
+func TestSearchPlaceholderMentionsWeb(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, `placeholder="Cerca in plancia o sul web…"`) {
+		t.Fatal("placeholder senza ricerca sul web")
+	}
+}
