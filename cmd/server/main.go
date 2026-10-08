@@ -104,7 +104,7 @@ func main() {
 
 	var tickets otrs.Client
 	if cfg.OTRS.Enabled() {
-		tickets = otrs.New(cfg.OTRS)
+		tickets = otrs.New(cfg.OTRS, cfg.Location)
 		if directory == nil || cfg.NTLMDomain == "" {
 			slog.Warn("OTRS_URL impostato ma riconoscimento utente spento: nessuno potrà aprire ticket dalla plancia")
 		}

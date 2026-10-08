@@ -36,6 +36,10 @@ const (
 
 type Client interface {
 	Create(ctx context.Context, t NewTicket) (Created, error)
+	Mine(ctx context.Context, email string) ([]Summary, error)
+	Get(ctx context.Context, email, ticketID string) (Ticket, error)
+	Changed(ctx context.Context, since time.Time) ([]Ticket, error)
+	Attachment(ctx context.Context, email, ticketID, articleID, fileID string) (Attachment, error)
 }
 
 type NewTicket struct {
@@ -55,18 +59,21 @@ type Created struct {
 }
 
 // New: client finto con OTRS_URL=mock, altrimenti HTTP.
-func New(c config.OTRS) Client {
+func New(c config.OTRS, loc *time.Location) Client {
 	if c.Mock() {
-		return &Mock{}
+		return NewMock()
 	}
-	return NewHTTPClient(c)
+	h := NewHTTPClient(c)
+	h.Loc = loc
+	return h
 }
 
 type HTTPClient struct {
 	Config        config.OTRS
 	HTTP          *http.Client
-	CreateTimeout time.Duration // 0 = CreateTimeout
-	UpdateTimeout time.Duration // 0 = UpdateTimeout
+	Loc           *time.Location // ora locale di OTRS (nil = time.Local)
+	CreateTimeout time.Duration  // 0 = CreateTimeout
+	UpdateTimeout time.Duration  // 0 = UpdateTimeout
 }
 
 func NewHTTPClient(c config.OTRS) *HTTPClient {
@@ -85,7 +92,14 @@ type otrsError struct {
 
 // call manda una richiesta JSON e decodifica la risposta in out. Errori
 // senza credenziali: la richiesta non compare mai nel messaggio.
-func (c *HTTPClient) call(ctx context.Context, method, route string, body map[string]any, out any) error {
+func (c *HTTPClient) loc() *time.Location {
+	if c.Loc != nil {
+		return c.Loc
+	}
+	return time.Local
+}
+
+func (c *HTTPClient) call(ctx context.Context, method, route string, body map[string]any, out any, maxBytes int64) error {
 	body["UserLogin"] = c.Config.User
 	body["Password"] = c.Config.Password
 	data, err := json.Marshal(body)
@@ -108,7 +122,7 @@ func (c *HTTPClient) call(ctx context.Context, method, route string, body map[st
 		return fmt.Errorf("%w: %v", ErrOTRS, err)
 	}
 	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes))
 	ct, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil || resp.StatusCode != http.StatusOK || ct != "application/json" {
 		slog.Warn("otrs: risposta non valida", "route", route, "status", resp.StatusCode, "content_type", ct)
@@ -152,7 +166,7 @@ func (c *HTTPClient) Create(ctx context.Context, t NewTicket) (Created, error) {
 	}
 	var created struct{ TicketID, TicketNumber string }
 	cctx, cancel := context.WithTimeout(ctx, orDefault(c.CreateTimeout, CreateTimeout))
-	err := c.call(cctx, http.MethodPost, c.Config.RouteCreate, req, &created)
+	err := c.call(cctx, http.MethodPost, c.Config.RouteCreate, req, &created, 1<<20)
 	cancel()
 	if err != nil {
 		return Created{}, err
@@ -169,7 +183,7 @@ func (c *HTTPClient) Create(ctx context.Context, t NewTicket) (Created, error) {
 	var ignored map[string]any
 	uctx, cancel := context.WithTimeout(ctx, orDefault(c.UpdateTimeout, UpdateTimeout))
 	defer cancel()
-	if err := c.call(uctx, http.MethodPatch, c.Config.RouteUpdate, upd, &ignored); err != nil {
+	if err := c.call(uctx, http.MethodPatch, c.Config.RouteUpdate, upd, &ignored, 1<<20); err != nil {
 		slog.Warn("otrs: cliente non impostato", "ticket", created.TicketNumber, "err", err)
 		out.CustomerSet = false
 	}

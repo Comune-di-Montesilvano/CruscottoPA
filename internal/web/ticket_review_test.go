@@ -16,7 +16,10 @@ import (
 )
 
 // blockingClient: Create resta in attesa finché il test non chiude release.
-type blockingClient struct{ entered, release chan struct{} }
+type blockingClient struct {
+	*otrs.Mock
+	entered, release chan struct{}
+}
 
 func (b *blockingClient) Create(context.Context, otrs.NewTicket) (otrs.Created, error) {
 	b.entered <- struct{}{}
@@ -43,7 +46,7 @@ func sendAsync(s *Server, c *http.Cookie, form url.Values) chan map[string]any {
 // Due invii contemporanei dello stesso utente: il secondo non deve partire
 // (il limite si conta sul registro, scritto solo dopo la risposta di OTRS).
 func TestTicketConcurrentSendRejected(t *testing.T) {
-	bc := &blockingClient{entered: make(chan struct{}, 4), release: make(chan struct{})}
+	bc := &blockingClient{Mock: otrs.NewMock(), entered: make(chan struct{}, 4), release: make(chan struct{})}
 	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Directory = ticketDirectory; o.Tickets = bc })
 	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"})
 	first := sendAsync(s, c, validTicket())
