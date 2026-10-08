@@ -22,6 +22,20 @@
 			{{with .Errors.logo}}<p class="field-error">{{.}}</p>{{end}}
 		</fieldset>
 
+		<fieldset>
+			<legend>Ricerca in plancia</legend>
+			<label>Motore di ricerca sul web<input name="web_search" value="{{.WebSearch}}" list="web-search-engines" maxlength="500" placeholder="https://www.google.com/search?q=%s"></label>
+			<datalist id="web-search-engines">
+				<option value="https://www.google.com/search?q=%s">Google</option>
+				<option value="https://www.bing.com/search?q=%s">Bing</option>
+				<option value="https://duckduckgo.com/?q=%s">DuckDuckGo</option>
+			</datalist>
+			{{with .Errors.web_search}}<p class="field-error">{{.}}</p>{{end}}
+			<label>Ricerca sul sito dell'ente <small class="muted">(facoltativa)</small><input name="site_search" value="{{.SiteSearch}}" maxlength="500" placeholder="https://www.comune.example.it/content/search?SearchText=%s"></label>
+			{{with .Errors.site_search}}<p class="field-error">{{.}}</p>{{end}}
+			<p class="hint">Indirizzi con <code>%s</code> al posto del testo cercato. In fondo ai risultati della barra di ricerca compaiono «Cerca … su Google» e, se impostata, «Cerca … sul sito dell'ente». Il testo va al sito scelto solo quando l'utente clicca.</p>
+		</fieldset>
+
 		<p class="hint">La favicon è quella di CruscottoPA e non si modifica.</p>
 		<div class="actions"><button class="primary" type="submit">Salva</button></div>
 	</form>

@@ -42,7 +42,7 @@
 		<label class="search">
 			<span class="material-icons" aria-hidden="true">search</span>
 			<input type="search" id="search" placeholder="Cerca un applicativo, una guida o l'assistenza…" autocomplete="off" aria-label="Cerca un applicativo, una guida o l'assistenza"
-				role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false">
+				role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false"{{with ente}} data-web="{{.WebSearch}}" data-web-name="{{webSearchName .WebSearch}}"{{with .SiteSearch}} data-site-search="{{.}}"{{end}}{{end}}>
 			<kbd>/</kbd>
 		</label>
 		<div class="search-results" id="search-results" role="listbox" aria-label="Risultati" hidden></div>

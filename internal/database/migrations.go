@@ -18,6 +18,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV7Guides,
 	migrateV8SupportAndHero,
 	migrateV9ReadsAndPresence,
+	migrateV10WebSearch,
 }
 
 func (db *DB) migrate() error {
@@ -282,4 +283,18 @@ CREATE TABLE user_presence (
 );
 `)
 	return err
+}
+
+// migrateV10WebSearch: ricerca sul web e sul sito dell'ente dalla barra della
+// plancia (URL con %s al posto del testo cercato).
+func migrateV10WebSearch(tx *sql.Tx) error {
+	for _, q := range []string{
+		`ALTER TABLE branding ADD COLUMN web_search TEXT NOT NULL DEFAULT 'https://www.google.com/search?q=%s'`,
+		`ALTER TABLE branding ADD COLUMN site_search TEXT NOT NULL DEFAULT ''`,
+	} {
+		if _, err := tx.Exec(q); err != nil {
+			return err
+		}
+	}
+	return nil
 }

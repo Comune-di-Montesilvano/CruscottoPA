@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ func (s *Server) funcs() template.FuncMap {
 		"ente":          s.ente,
 		"repoURL":       func() string { return repoURL },
 		"levelLabel":    levelLabel,
+		"webSearchName": webSearchName,
 		"deliveryLabel": deliveryLabel,
 		"readLabel":     readLabel,
 		"md":            func(src string) template.HTML { return markdown.Render(src, markdown.Options{}) },
@@ -219,4 +221,24 @@ func readLabel(how string) string {
 		return "testo aperto"
 	}
 	return how
+}
+
+// webSearchName: nome del motore per «Cerca … su Google».
+func webSearchName(tmpl string) string {
+	u, err := url.Parse(strings.Replace(tmpl, "%s", "x", 1))
+	if err != nil {
+		return "web"
+	}
+	h := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+	switch {
+	case strings.HasPrefix(h, "google."):
+		return "Google"
+	case strings.HasPrefix(h, "bing."):
+		return "Bing"
+	case strings.HasPrefix(h, "duckduckgo."):
+		return "DuckDuckGo"
+	case h == "":
+		return "web"
+	}
+	return h
 }

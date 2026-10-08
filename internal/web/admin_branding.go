@@ -11,13 +11,15 @@ import (
 type brandingSection struct {
 	Branding database.Branding // valori salvati (anteprima del logo attuale)
 	EnteName string            // valore del campo (in caso di errore, quello digitato)
-	Errors   formErrors
-	Saved    bool
+	// Ricerca dalla plancia (in caso di errore, quanto digitato).
+	WebSearch, SiteSearch string
+	Errors                formErrors
+	Saved                 bool
 }
 
 func (s *Server) handleBrandingPage(w http.ResponseWriter, r *http.Request) {
 	b := s.ente()
-	s.renderPage(w, r, "admin_ente.html", "ente", brandingSection{Branding: b, EnteName: b.EnteName})
+	s.renderPage(w, r, "admin_ente.html", "ente", brandingSection{Branding: b, EnteName: b.EnteName, WebSearch: b.WebSearch, SiteSearch: b.SiteSearch})
 }
 
 func (s *Server) renderBranding(w http.ResponseWriter, status int, sec brandingSection) {
@@ -31,7 +33,7 @@ func (s *Server) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxIconBytes + 64<<10); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
-			s.renderBranding(w, http.StatusUnprocessableEntity, brandingSection{EnteName: s.ente().EnteName, Errors: formErrors{"logo": errIconSize.Error()}})
+			s.renderBranding(w, http.StatusUnprocessableEntity, brandingSection{EnteName: s.ente().EnteName, WebSearch: s.ente().WebSearch, SiteSearch: s.ente().SiteSearch, Errors: formErrors{"logo": errIconSize.Error()}})
 			return
 		}
 		http.Error(w, "Richiesta non valida", http.StatusBadRequest)
@@ -43,6 +45,15 @@ func (s *Server) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 	next.EnteName = strings.TrimSpace(r.FormValue("ente_name"))
 	errs := formErrors{}
 	checkText(errs, "ente_name", next.EnteName, 120, false)
+	next.WebSearch = strings.TrimSpace(r.FormValue("web_search"))
+	if next.WebSearch == "" {
+		next.WebSearch = database.DefaultWebSearch
+	}
+	next.SiteSearch = strings.TrimSpace(r.FormValue("site_search"))
+	checkSearchURL(errs, "web_search", next.WebSearch)
+	if next.SiteSearch != "" {
+		checkSearchURL(errs, "site_search", next.SiteSearch)
+	}
 
 	// Il file si salva solo se il resto del form è valido: niente file orfani.
 	var uploaded string
@@ -68,7 +79,7 @@ func (s *Server) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(errs) > 0 {
-		s.renderBranding(w, http.StatusUnprocessableEntity, brandingSection{EnteName: next.EnteName, Errors: errs})
+		s.renderBranding(w, http.StatusUnprocessableEntity, brandingSection{EnteName: next.EnteName, WebSearch: next.WebSearch, SiteSearch: next.SiteSearch, Errors: errs})
 		return
 	}
 
@@ -89,5 +100,13 @@ func (s *Server) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 	if current.LogoFile != "" && current.LogoFile != next.LogoFile {
 		s.removeUpload(uploadBranding, current.LogoFile)
 	}
-	s.renderBranding(w, http.StatusOK, brandingSection{EnteName: next.EnteName, Saved: true})
+	s.renderBranding(w, http.StatusOK, brandingSection{EnteName: next.EnteName, WebSearch: next.WebSearch, SiteSearch: next.SiteSearch, Saved: true})
+}
+
+// checkSearchURL: indirizzo https con %s (una volta sola) al posto del testo.
+func checkSearchURL(e formErrors, field, value string) {
+	if len(value) > 500 || strings.Count(value, "%s") != 1 || !strings.HasPrefix(value, "https://") ||
+		!validURL(strings.Replace(value, "%s", "test", 1)) {
+		e.add(field, "Indirizzo https con %s al posto del testo cercato, es. https://www.google.com/search?q=%s")
+	}
 }
