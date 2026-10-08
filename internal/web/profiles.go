@@ -80,6 +80,8 @@ func (s *Server) profileFor(username string) (p audience.Profile, ok, down bool)
 	for i, a := range attrs {
 		names[i] = a.Name
 	}
+	// mail e telefono servono al modulo ticket anche se non sono attributi dei gruppi.
+	names = append(names, "mail", "telephoneNumber")
 	return s.profiles.get(username, func() (audience.Profile, error) { return s.directory.Profile(username, names) })
 }
 

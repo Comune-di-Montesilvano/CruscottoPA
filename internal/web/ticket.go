@@ -1,0 +1,142 @@
+package web
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
+)
+
+const (
+	ticketsPerHour = 5
+	maxSubject     = 120
+	maxBody        = 10000
+	maxPhone       = 40
+)
+
+func (s *Server) ticketsEnabled() bool { return s.tickets != nil }
+
+// ticketRequester: chi apre il ticket, da AD (mai dal form). Identità
+// DICHIARATA: le risposte di OTRS vanno comunque alla mail vera.
+type ticketRequester struct{ Name, Email, Phone string }
+
+func firstAttr(p audience.Profile, name string) string {
+	for _, v := range p.Attrs[strings.ToLower(name)] {
+		if v = strings.TrimSpace(v); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// ticketRequester: problem = "anonimo" | "ad" | "mail" se non si può aprire un ticket.
+func (s *Server) ticketRequester(r *http.Request) (ticketRequester, string) {
+	u, ok := s.viewer(r)
+	if !ok || u.Anonymous || u.Username == "" {
+		return ticketRequester{}, "anonimo"
+	}
+	p, ok, down := s.profileFor(u.Username)
+	switch {
+	case down:
+		return ticketRequester{}, "ad"
+	case !ok:
+		return ticketRequester{}, "anonimo"
+	}
+	req := ticketRequester{Name: u.Name, Email: firstAttr(p, "mail"), Phone: firstAttr(p, "telephoneNumber")}
+	if req.Name == "" {
+		req.Name = u.Username
+	}
+	if req.Email == "" {
+		return req, "mail"
+	}
+	return req, ""
+}
+
+func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
+	reply := func(v map[string]any) {
+		if v["ok"] != true {
+			v["ok"] = false
+			if c := s.cfg.OTRS.FallbackEmail; c != "" {
+				v["casella"] = c
+			}
+		}
+		mediaJSON(w, v)
+	}
+	if !s.ticketsEnabled() {
+		reply(map[string]any{"errore": "spento"})
+		return
+	}
+	req, problem := s.ticketRequester(r)
+	if problem != "" {
+		reply(map[string]any{"errore": problem})
+		return
+	}
+	subject := strings.TrimSpace(r.FormValue("oggetto"))
+	body := strings.TrimSpace(strings.ReplaceAll(r.FormValue("descrizione"), "\r\n", "\n"))
+	phone := strings.TrimSpace(r.FormValue("telefono"))
+	if phone == "" {
+		phone = req.Phone
+	}
+	fields := map[string]string{}
+	switch n := utf8.RuneCountInString(subject); {
+	case n == 0:
+		fields["oggetto"] = "Scrivi l'oggetto."
+	case n > maxSubject:
+		fields["oggetto"] = "Massimo 120 caratteri."
+	}
+	switch n := utf8.RuneCountInString(body); {
+	case n == 0:
+		fields["descrizione"] = "Descrivi il problema."
+	case n > maxBody:
+		fields["descrizione"] = "Massimo 10.000 caratteri."
+	}
+	if utf8.RuneCountInString(phone) > maxPhone {
+		fields["telefono"] = "Massimo 40 caratteri."
+	}
+	user := s.ticketUser(r)
+	n, err := s.db.CountTicketsSince(user, s.now().Add(-time.Hour))
+	if err != nil {
+		slog.Error("ticket: conteggio", "err", err)
+		reply(map[string]any{"errore": "otrs"})
+		return
+	}
+	if n >= ticketsPerHour {
+		reply(map[string]any{"errore": "limite"})
+		return
+	}
+	if len(fields) > 0 {
+		reply(map[string]any{"campi": fields})
+		return
+	}
+	atts, paths, err := s.takeTicketFiles(user, r.Form["allegato"])
+	if err != nil {
+		reply(map[string]any{"campi": map[string]string{"allegati": "Allegati non validi: ricaricali."}})
+		return
+	}
+	defer s.removeTicketFiles(paths)
+	ctx, cancel := context.WithTimeout(r.Context(), 70*time.Second)
+	defer cancel()
+	created, err := s.tickets.Create(ctx, otrs.NewTicket{Name: req.Name, Email: req.Email, Phone: phone,
+		Subject: subject, Body: body, Attachments: atts})
+	if err != nil {
+		if !errors.Is(err, otrs.ErrOTRS) {
+			slog.Error("ticket: invio", "err", err)
+		}
+		reply(map[string]any{"errore": "otrs"})
+		return
+	}
+	if err := s.db.RecordTicket(database.TicketSent{Username: user, Name: req.Name, Email: req.Email, Subject: subject,
+		TicketID: created.TicketID, TicketNumber: created.TicketNumber, CustomerSet: created.CustomerSet,
+		Attachments: len(atts), CreatedAt: s.now()}); err != nil {
+		slog.Error("ticket: registro", "ticket", created.TicketNumber, "err", err) // il ticket esiste comunque
+	}
+	slog.Info("ticket aperto", "ticket", created.TicketNumber, "user", user, "allegati", len(atts))
+	reply(map[string]any{"ok": true, "numero": created.TicketNumber, "mail": req.Email})
+}

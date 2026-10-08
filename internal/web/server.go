@@ -24,6 +24,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 )
 
 // repoURL: repository del progetto, linkato dal footer della plancia.
@@ -43,6 +44,8 @@ type Options struct {
 	Now          func() time.Time
 	// GuideFetch scarica un file raw da GitHub (nil = guidesrc.NewFetcher().Fetch).
 	GuideFetch func(ctx context.Context, rawURL string) (string, error)
+	// Tickets: invio dei ticket a OTRS (nil = modulo spento).
+	Tickets otrs.Client
 }
 
 type Server struct {
@@ -70,6 +73,7 @@ type Server struct {
 	pusher       notify.Pusher // nil = Web Push spento
 	vapidPublic  string
 	notifyDone   chan struct{} // chiuso quando il dispatcher è terminato
+	tickets      otrs.Client   // nil = modulo ticket spento
 }
 
 func New(o Options) (*Server, error) {
@@ -102,6 +106,7 @@ func New(o Options) (*Server, error) {
 		webDir:       o.WebDir,
 		now:          o.Now,
 		fetchGuide:   o.GuideFetch,
+		tickets:      o.Tickets,
 		mux:          http.NewServeMux(),
 	}
 	b, err := o.DB.GetBranding()
@@ -190,6 +195,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
+	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
 	s.mux.HandleFunc("POST /ticket/allegati", s.handleTicketFileStart)
 	s.mux.HandleFunc("POST /ticket/allegati/{id}/pezzo", s.handleTicketFileChunk)
 	s.mux.HandleFunc("POST /ticket/allegati/{id}/fine", s.handleTicketFileFinish)
