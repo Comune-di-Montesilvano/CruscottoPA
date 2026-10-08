@@ -37,6 +37,15 @@
 		if (it.nx.includes(q)) return 3;
 		return -1;
 	}
+	// L'indice è già filtrato dal server; in più, qui diventa href solo un URL
+	// http/https (i percorsi interni si risolvono sull'origine della pagina).
+	function safeHref(u) {
+		try {
+			const url = new URL(u, location.href);
+			if (url.protocol === "http:" || url.protocol === "https:") return url.href;
+		} catch (_) { /* URL non valido */ }
+		return "";
+	}
 	function el(tag, cls, text) {
 		const e = document.createElement(tag);
 		if (cls) e.className = cls;
@@ -83,9 +92,11 @@
 			group.append(head);
 			list.append(group);
 			hits.forEach(([, it]) => {
+				const href = safeHref(it.u);
+				if (!href) return;
 				const a = el("a", "search-option");
 				a.id = `search-opt-${options.length}`;
-				a.href = it.u;
+				a.href = href;
 				a.setAttribute("role", "option");
 				a.tabIndex = -1; // il focus resta sull'input (combobox)
 				if (it.n) { a.target = "_blank"; a.rel = "noopener"; }

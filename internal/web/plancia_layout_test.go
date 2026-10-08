@@ -244,3 +244,17 @@ func TestSearchAndTileA11y(t *testing.T) {
 		t.Error("manca la classe .visually-hidden")
 	}
 }
+
+// Difesa anche nel browser: un URL dell'indice diventa href solo se http/https
+// o percorso interno (CodeQL js/xss-through-dom).
+func TestSearchHrefCheckedInBrowser(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{"function safeHref(", `url.protocol === "https:"`, "a.href = href"} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	if strings.Contains(string(js), "a.href = it.u") {
+		t.Error("href preso dall'indice senza controllo")
+	}
+}
