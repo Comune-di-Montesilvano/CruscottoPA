@@ -74,3 +74,23 @@ func TestAlertsBesideWidgets(t *testing.T) {
 		}
 	}
 }
+
+// "Oggi" sta nella testata insieme all'orologio; nella colonna di destra
+// prima le guide generali, poi il calendario.
+func TestTodayInHeroAndWidgetOrder(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	db.CreateGuide(database.Guide{Title: "VPN da casa", Kind: "link", URL: "https://wiki/vpn", Enabled: true})
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	header := body[:strings.Index(body, "</header>")]
+	for _, want := range []string{`class="hero-today"`, "data-clock", "Settimana 41"} {
+		if !strings.Contains(header, want) {
+			t.Errorf("testata: manca %q", want)
+		}
+	}
+	if strings.Count(body, "data-clock") != 1 || strings.Contains(body, `class="widget today"`) {
+		t.Error("orologio e giorno solo nella testata")
+	}
+	if g, c := strings.Index(body, `class="widget guides"`), strings.Index(body, `id="widget-calendario"`); g < 0 || c < g {
+		t.Errorf("ordine dei widget: guide=%d calendario=%d", g, c)
+	}
+}

@@ -76,10 +76,12 @@
 </div>
 {{end}}
 
-{{define "widget_oggi"}}
-<section class="widget today" aria-label="Oggi">
-	<div class="today-num">{{.Day}}</div>
-	<div><div class="today-wd">{{.Weekday}}</div><small>Settimana {{.Week}} · giorno {{.YearDay}} di {{.YearDays}}</small></div>
+{{/* Oggi: nella testata, accanto all'orologio. */}}
+{{define "hero_today"}}
+<section class="hero-today" aria-label="Oggi">
+	<div class="today-num">{{.Today.Day}}</div>
+	<div class="today-text"><div class="today-wd">{{.Today.Weekday}}</div><small>Settimana {{.Today.Week}} · giorno {{.Today.YearDay}} di {{.Today.YearDays}}</small></div>
+	<div class="clock" data-clock>{{.Clock}}</div>
 </section>
 {{end}}
 

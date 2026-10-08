@@ -14,7 +14,13 @@ body.plancia {
 .hero::after { content: ""; position: absolute; right: -70px; top: -100px; width: 340px; height: 340px; border-radius: 50%; background: rgba(255, 255, 255, .07); pointer-events: none; }
 .hero-bar { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; opacity: .9; margin-bottom: .9rem; }
 .hero-bar .brand { font-weight: 600; text-decoration: none; }
-.hero .clock { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.hero-main { display: flex; justify-content: space-between; align-items: center; gap: 1rem 2rem; flex-wrap: wrap; position: relative; z-index: 1; }
+/* Oggi + orologio: riquadro chiaro nella testata. */
+.hero-today { display: flex; align-items: center; gap: .9rem; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .2); border-radius: 18px; padding: .7rem .8rem .7rem .7rem; }
+.hero-today .today-num { width: 58px; height: 58px; border-radius: 14px; background: #fff; color: var(--p-blue-2); display: grid; place-items: center; font-size: 1.8rem; font-weight: 700; }
+.hero-today .today-wd { font-weight: 700; font-size: 1.05rem; text-transform: capitalize; }
+.hero-today small { opacity: .8; font-size: .78rem; }
+.hero .clock { font-size: 1.9rem; font-weight: 300; font-variant-numeric: tabular-nums; padding-left: .95rem; margin-left: .15rem; border-left: 1px solid rgba(255, 255, 255, .25); }
 .hello { margin: 0; font-size: 2rem; font-weight: 600; letter-spacing: -.01em; }
 .hello-name { font-weight: 300; }
 .hero-date { margin: .2rem 0 0; opacity: .85; font-size: .92rem; }
@@ -160,10 +166,6 @@ dialog.urgent::backdrop { background: rgba(60, 8, 8, .72); }
 /* ── Widget ───────────────────────────────────────────── */
 .widgets { align-self: start; }
 .widget { background: #fff; border-radius: 16px; padding: 1rem 1.05rem; box-shadow: var(--p-shadow); margin-bottom: 1rem; }
-.today { display: flex; align-items: center; gap: .9rem; }
-.today-num { width: 62px; height: 62px; border-radius: 16px; background: #eff4ff; color: var(--p-blue-2); display: grid; place-items: center; font-size: 1.9rem; font-weight: 700; }
-.today-wd { font-weight: 700; font-size: 1.05rem; text-transform: capitalize; }
-.today small { color: var(--p-text-3); font-size: .78rem; }
 
 .cal-head { display: flex; justify-content: space-between; align-items: center; }
 .cal-head .widget-title { margin: 0; }

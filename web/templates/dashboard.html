@@ -21,9 +21,14 @@
 </head>
 <body class="plancia"{{if .Recognize}} data-riconosci{{end}}{{if .Anonymous}} data-anonimo{{end}}>
 	<header class="hero">
-		<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span><span class="clock" data-clock>{{.Clock}}</span></div>
-		<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span></h1>
-		<p class="hero-date" data-date>{{.DateLabel}}</p>
+		<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span></div>
+		<div class="hero-main">
+			<div>
+				<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span></h1>
+				<p class="hero-date" data-date>{{.DateLabel}}</p>
+			</div>
+			{{template "hero_today" .}}
+		</div>
 	</header>
 
 	<label class="search">
@@ -71,9 +76,8 @@
 		</div>
 
 		<aside class="widgets" aria-label="Oggi, calendario e guide">
-			{{template "widget_oggi" .Today}}
-			{{template "widget_calendario" .Calendar}}
 			{{template "widget_guide" .GeneralGuides}}
+			{{template "widget_calendario" .Calendar}}
 		</aside>
 	</main>
 
