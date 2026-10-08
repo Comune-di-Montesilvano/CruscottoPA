@@ -51,7 +51,7 @@ func TestTicketJS(t *testing.T) {
 		t.Error("sessionStorage senza try/catch")
 	}
 	// Correggendo un campo, il suo errore sparisce subito (non solo al prossimo invio).
-	if !strings.Contains(src, "showErr(e.target.name, \"\")") {
+	if !strings.Contains(src, "showErr(dlg, e.target.name, \"\")") {
 		t.Error("ticket.js: l'errore del campo non si toglie mentre si scrive")
 	}
 }

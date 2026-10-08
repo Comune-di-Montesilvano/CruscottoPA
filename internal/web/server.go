@@ -202,6 +202,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
 	s.mux.HandleFunc("GET /partials/ticket", s.handleTicketWidget)
 	s.mux.HandleFunc("GET /ticket/{id}", s.handleTicketPage)
+	s.mux.HandleFunc("POST /ticket/{id}/risposta", s.handleTicketReply)
 	s.mux.HandleFunc("GET /ticket/{id}/allegati/{art}/{file}", s.handleTicketAttachment)
 	s.mux.HandleFunc("POST /ticket/allegati", s.handleTicketFileStart)
 	s.mux.HandleFunc("POST /ticket/allegati/{id}/pezzo", s.handleTicketFileChunk)
