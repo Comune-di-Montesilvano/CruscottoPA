@@ -322,3 +322,39 @@ func TestPresenceAndReadJS(t *testing.T) {
 		}
 	}
 }
+
+// Guide illustrate per browser: notifiche bloccate (Chrome, Edge, Firefox) e
+// riconoscimento in Firefox. Il JS mostra solo i passi del browser in uso.
+func TestBrowserGuides(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Anonymous: true}), nil).Body.String()
+	for _, b := range []string{"chrome", "edge", "firefox"} {
+		if !strings.Contains(body, `<div class="guide-steps" data-browser="`+b+`" hidden>`) {
+			t.Errorf("passi per %s mancanti", b)
+		}
+		for _, n := range []string{"1", "2"} {
+			img := "/static/img/guida/notifiche-" + b + "-" + n + ".svg"
+			if !strings.Contains(body, `src="`+img+`"`) {
+				t.Errorf("manca %s nel popup", img)
+			}
+			if _, err := os.Stat("../../web" + strings.TrimPrefix(img, "")); err != nil {
+				t.Errorf("file %s: %v", img, err)
+			}
+		}
+	}
+	for _, n := range []string{"1", "2", "3"} {
+		img := "/static/img/guida/firefox-ntlm-" + n + ".svg"
+		if !strings.Contains(body, `src="`+img+`"`) {
+			t.Errorf("manca %s nel riquadro Firefox", img)
+		}
+		if _, err := os.Stat("../../web" + img); err != nil {
+			t.Errorf("file %s: %v", img, err)
+		}
+	}
+	js, _ := os.ReadFile("../../web/static/js/notifiche.js")
+	for _, want := range []string{"function browserName()", `/Edg\//`, `/Firefox\//`, `querySelectorAll("[data-browser]")`} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("notifiche.js: manca %q", want)
+		}
+	}
+}

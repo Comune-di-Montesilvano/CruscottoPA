@@ -54,11 +54,11 @@
 		<div>
 			<strong id="ff-help-title">Firefox non ti fa riconoscere dalla plancia</strong>
 			<p>Per il saluto per nome e i contenuti del tuo ufficio, autorizza questo sito una volta sola:</p>
-			<ol>
-				<li>scrivi <code>about:config</code> nella barra degli indirizzi e accetta l'avviso;</li>
-				<li>cerca <code>network.automatic-ntlm-auth.trusted-uris</code>;</li>
-				<li>modifica il valore e inserisci <code data-ff-host></code> (se c'è già qualcosa, aggiungilo dopo una virgola);</li>
-				<li>torna qui e premi <strong>Riprova</strong>.</li>
+			<ol class="guide-list">
+				<li><span>Apri una nuova scheda, scrivi <code>about:config</code> nella barra degli indirizzi e premi <strong>Accetta il rischio e continua</strong>.</span><img src="/static/img/guida/firefox-ntlm-1.svg" alt="" width="520" height="230" loading="lazy"></li>
+				<li><span>Nella ricerca scrivi <code>network.automatic-ntlm-auth.trusted-uris</code> e premi la <strong>matita</strong>.</span><img src="/static/img/guida/firefox-ntlm-2.svg" alt="" width="520" height="210" loading="lazy"></li>
+				<li><span>Scrivi <code data-ff-host></code> (se c'è già qualcosa, aggiungilo dopo una virgola) e conferma con la <strong>spunta</strong>.</span><img src="/static/img/guida/firefox-ntlm-3.svg" alt="" width="520" height="190" loading="lazy"></li>
+				<li><span>Torna qui e premi <strong>Riprova</strong>.</span></li>
 			</ol>
 			<p class="ff-help-status" data-ff-status hidden>Ancora non riconosciuto: controlla di aver scritto l'indirizzo esatto, poi riprova.</p>
 			<div class="ff-help-actions">
@@ -103,7 +103,28 @@
 	</dialog>
 	<dialog class="notify-ask notify-blocked" aria-labelledby="notify-blocked-title">
 		<h2 id="notify-blocked-title">Le notifiche sono bloccate</h2>
-		<p>Così non ti arrivano gli avvisi urgenti e le manutenzioni. Per riattivarle: clic sull'icona del lucchetto a sinistra dell'indirizzo → <strong>Notifiche</strong> → <strong>Consenti</strong>, poi ricarica la pagina.</p>
+		<p>Così non ti arrivano gli avvisi urgenti e le manutenzioni. Per riattivarle:</p>
+		<div class="guide-steps" data-browser="chrome" hidden>
+			<ol>
+				<li><span>Clic sull'icona <strong>Visualizza informazioni sul sito</strong>, a sinistra dell'indirizzo.</span><img src="/static/img/guida/notifiche-chrome-1.svg" alt="" width="520" height="120" loading="lazy"></li>
+				<li><span>Accendi l'interruttore <strong>Notifiche</strong>.</span><img src="/static/img/guida/notifiche-chrome-2.svg" alt="" width="520" height="230" loading="lazy"></li>
+				<li><span>Ricarica la pagina (<kbd>F5</kbd>).</span></li>
+			</ol>
+		</div>
+		<div class="guide-steps" data-browser="edge" hidden>
+			<ol>
+				<li><span>Clic sul <strong>lucchetto</strong>, a sinistra dell'indirizzo.</span><img src="/static/img/guida/notifiche-edge-1.svg" alt="" width="520" height="120" loading="lazy"></li>
+				<li><span>Alla voce <strong>Notifiche</strong> scegli <strong>Consenti</strong>.</span><img src="/static/img/guida/notifiche-edge-2.svg" alt="" width="520" height="230" loading="lazy"></li>
+				<li><span>Ricarica la pagina (<kbd>F5</kbd>).</span></li>
+			</ol>
+		</div>
+		<div class="guide-steps" data-browser="firefox" hidden>
+			<ol>
+				<li><span>Clic sulla <strong>campanella barrata</strong>, a sinistra dell'indirizzo.</span><img src="/static/img/guida/notifiche-firefox-1.svg" alt="" width="520" height="120" loading="lazy"></li>
+				<li><span>Togli il blocco di <strong>Invio notifiche</strong> con la <strong>X</strong>.</span><img src="/static/img/guida/notifiche-firefox-2.svg" alt="" width="520" height="210" loading="lazy"></li>
+				<li><span>Ricarica la pagina (<kbd>F5</kbd>) e premi <strong>Attiva</strong> nell'avviso rosso in alto.</span></li>
+			</ol>
+		</div>
 		<div class="notify-ask-actions">
 			<button type="button" class="primary" data-notify-no autofocus>Ho capito</button>
 		</div>

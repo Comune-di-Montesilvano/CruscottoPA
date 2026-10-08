@@ -283,6 +283,14 @@ dialog.notify-ask { border: 0; border-radius: 16px; padding: 1.3rem 1.4rem; widt
 dialog.notify-ask::backdrop { background: rgba(16, 24, 40, .45); }
 dialog.notify-ask h2 { margin: 0 0 .5rem; font-size: 1.15rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
 dialog.notify-ask p { margin: 0 0 1rem; color: var(--p-text-2); line-height: 1.5; }
+/* Guide illustrate per browser (notifiche bloccate, riconoscimento in Firefox). */
+dialog.notify-blocked { width: min(600px, 94vw); max-height: 90vh; overflow-y: auto; }
+.guide-steps[hidden] { display: none; }
+.guide-steps ol, .guide-list { margin: 0 0 1rem; padding-left: 1.3rem; }
+.guide-steps li, .guide-list li { margin-bottom: .9rem; color: var(--p-text-2); line-height: 1.5; }
+.guide-steps li::marker, .guide-list li::marker { font-weight: 700; color: var(--p-blue-2); }
+.guide-steps img, .guide-list img { display: block; width: 100%; max-width: 520px; height: auto; margin: .45rem 0 .2rem; border-radius: 10px; box-shadow: 0 4px 14px rgba(16, 24, 40, .12); }
+.guide-steps kbd { border: 1px solid var(--p-line); border-bottom-width: 2px; border-radius: 5px; padding: 0 .35rem; font-size: .85em; }
 .notify-ask-actions { display: flex; gap: .6rem; justify-content: flex-end; }
 .notify-ask-actions button { border: 1px solid var(--p-line); background: #fff; border-radius: 10px; padding: .55rem 1rem; font: inherit; cursor: pointer; }
 .notify-ask-actions .primary { background: var(--p-blue-2); border-color: var(--p-blue-2); color: #fff; font-weight: 600; }
