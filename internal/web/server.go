@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -53,7 +54,8 @@ type Server struct {
 	profiles     *profileCache
 	membersCache *membersCache
 	limiter      *auth.RateLimiter
-	media        mediaUploads // caricamenti a pezzi in corso (immagini e PDF)
+	media        mediaUploads  // caricamenti a pezzi in corso (immagini e PDF)
+	ticketFiles  ticketUploads // allegati dei ticket in caricamento
 	backup       *backup.Service
 	restoreDelay time.Duration
 	branding     atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
@@ -93,6 +95,7 @@ func New(o Options) (*Server, error) {
 		directory:    o.Directory,
 		limiter:      auth.NewRateLimiter(5, 15*time.Minute),
 		media:        mediaUploads{byID: map[string]*mediaUpload{}},
+		ticketFiles:  ticketUploads{byID: map[string]*ticketUpload{}},
 		backup:       o.Backup,
 		restoreDelay: o.RestoreDelay,
 		version:      strings.TrimPrefix(o.Version, "v"), // tag "v0.3.0": la "v" la aggiungono i template
@@ -125,6 +128,8 @@ func New(o Options) (*Server, error) {
 		s.pusher = &notify.WebPusher{Subject: o.Config.VAPIDSubject, PublicKey: pub, PrivateKey: priv}
 	}
 	s.routes()
+	// Allegati dei ticket lasciati a metà da un riavvio: nessuno li userà più.
+	os.RemoveAll(s.ticketTmpDir())
 	return s, nil
 }
 
@@ -185,6 +190,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
+	s.mux.HandleFunc("POST /ticket/allegati", s.handleTicketFileStart)
+	s.mux.HandleFunc("POST /ticket/allegati/{id}/pezzo", s.handleTicketFileChunk)
+	s.mux.HandleFunc("POST /ticket/allegati/{id}/fine", s.handleTicketFileFinish)
 	s.mux.HandleFunc("GET /guide/{id}", s.handleGuidePage)
 	s.mux.HandleFunc("GET /guide/{id}/pdf", s.handleGuidePDF)
 	s.mux.HandleFunc("GET /admin/login", s.handleLoginForm)
