@@ -128,7 +128,42 @@
 				group.append(a);
 			});
 		});
-		if (!options.length) list.append(el("div", "search-empty", `Nessun risultato per «${input.value.trim()}»`));
+		// In fondo: ricerca sul web e sul sito dell'ente (nuova scheda). Il testo
+		// esce dalla plancia solo se l'utente sceglie una di queste voci.
+		const typed = input.value.trim();
+		const web = [];
+		if (input.dataset.web) web.push(["public", `Cerca «${typed}» su ${input.dataset.webName || "web"}`, input.dataset.web]);
+		if (input.dataset.siteSearch) web.push(["account_balance", `Cerca «${typed}» sul sito dell'ente`, input.dataset.siteSearch]);
+		if (web.length) {
+			if (!options.length) list.append(el("div", "search-empty", "Nessun risultato in plancia."));
+			const group = el("div", "search-group-box");
+			group.setAttribute("role", "group");
+			const head = el("div", "search-group", "Web");
+			head.id = "search-group-web";
+			group.setAttribute("aria-labelledby", head.id);
+			group.append(head);
+			web.forEach(([icon, label, tmpl]) => {
+				const href = safeHref(tmpl.replace("%s", encodeURIComponent(typed)));
+				if (!href) return;
+				const a = el("a", "search-option");
+				a.id = `search-opt-${options.length}`;
+				a.href = href;
+				a.target = "_blank";
+				a.rel = "noopener";
+				a.setAttribute("role", "option");
+				a.tabIndex = -1;
+				const ic = el("span", "material-icons", icon);
+				ic.setAttribute("aria-hidden", "true");
+				const txt = el("span", "search-text");
+				txt.append(el("span", "search-title", label));
+				a.append(ic, txt);
+				a.addEventListener("mousemove", () => setActive(options.indexOf(a), false));
+				options.push(a);
+				group.append(a);
+			});
+			list.append(group);
+		}
+		if (!options.length) list.append(el("div", "search-empty", `Nessun risultato per «${typed}»`));
 		list.hidden = false;
 		input.setAttribute("aria-expanded", "true");
 		setActive(options.length ? 0 : -1, true);

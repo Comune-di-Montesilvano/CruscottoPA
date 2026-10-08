@@ -9,8 +9,8 @@ func TestBrandingDefaultsAndUpdate(t *testing.T) {
 	db := newTestDB(t)
 
 	b, err := db.GetBranding()
-	if err != nil || b != (Branding{}) {
-		t.Fatalf("branding iniziale: atteso vuoto, ottenuto %+v (%v)", b, err)
+	if err != nil || b != (Branding{WebSearch: DefaultWebSearch}) {
+		t.Fatalf("branding iniziale: atteso vuoto (con Google come ricerca web), ottenuto %+v (%v)", b, err)
 	}
 
 	want := Branding{
@@ -33,5 +33,22 @@ func TestBrandingDefaultsAndUpdate(t *testing.T) {
 	}
 	if _, err := db.Exec(`INSERT INTO branding (id) VALUES (2)`); err == nil {
 		t.Fatal("una seconda riga di branding non deve essere ammessa")
+	}
+}
+
+// Ricerca sul web dalla plancia: Google predefinito, sito dell'ente vuoto.
+func TestBrandingWebSearch(t *testing.T) {
+	db := newTestDB(t)
+	b, err := db.GetBranding()
+	if err != nil || b.WebSearch != DefaultWebSearch || b.SiteSearch != "" {
+		t.Fatalf("predefiniti: %+v %v", b, err)
+	}
+	b.WebSearch = "https://www.bing.com/search?q=%s"
+	b.SiteSearch = "https://www.comune.example.it/content/search?SearchText=%s"
+	if err := db.UpdateBranding(b); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := db.GetBranding(); got.WebSearch != b.WebSearch || got.SiteSearch != b.SiteSearch {
+		t.Fatalf("salvati: %+v", got)
 	}
 }

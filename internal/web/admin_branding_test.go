@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
 func postEnte(t *testing.T, s *Server, fields map[string]string, logo []byte, c *http.Cookie) *httptest.ResponseRecorder {
@@ -129,5 +131,48 @@ func TestEnteValidation(t *testing.T) {
 	}
 	if files := brandingFiles(t, s); len(files) != 0 {
 		t.Fatalf("file orfani dopo errori: %v", files)
+	}
+}
+
+// Motore di ricerca e sito dell'ente per la ricerca della plancia.
+func TestEnteWebSearch(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	if !strings.Contains(body, `data-web="https://www.google.com/search?q=%s"`) || !strings.Contains(body, `data-web-name="Google"`) || strings.Contains(body, "data-site-search=") {
+		t.Fatalf("predefiniti in plancia:\n%s", body)
+	}
+	rec := postMultipart(t, s, "/admin/ente", map[string]string{"ente_name": "Comune", "web_search": "https://www.bing.com/search?q=%s", "site_search": "https://www.comune.example.it/content/search?SearchText=%s"}, nil, c)
+	if rec.Code != 200 {
+		t.Fatalf("salva: %d\n%s", rec.Code, rec.Body)
+	}
+	if b, _ := db.GetBranding(); b.WebSearch != "https://www.bing.com/search?q=%s" || b.SiteSearch != "https://www.comune.example.it/content/search?SearchText=%s" {
+		t.Fatalf("salvati: %+v", b)
+	}
+	body = do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	if !strings.Contains(body, `data-web-name="Bing"`) || !strings.Contains(body, `data-site-search="https://www.comune.example.it/content/search?SearchText=%s"`) {
+		t.Fatalf("plancia dopo il salvataggio:\n%s", body)
+	}
+	for _, bad := range []map[string]string{
+		{"web_search": "https://www.google.com/search"},                                                             // manca %s
+		{"web_search": "javascript:alert('%s')"},                                                                    // non https
+		{"web_search": "https://x.example/?q=%s&r=%s"},                                                              // %s due volte
+		{"web_search": "https://www.google.com/search?q=%s", "site_search": "https://www.comune.example.it/search"}, // ricerca del sito senza %s
+	} {
+		bad["ente_name"] = "Comune"
+		if rec := postMultipart(t, s, "/admin/ente", bad, nil, c); rec.Code != 422 {
+			t.Errorf("%v: atteso 422, %d", bad, rec.Code)
+		}
+	}
+	// Campo assente (form vecchio): resta Google.
+	postMultipart(t, s, "/admin/ente", map[string]string{"ente_name": "Comune"}, nil, c)
+	if b, _ := db.GetBranding(); b.WebSearch != database.DefaultWebSearch {
+		t.Fatalf("senza campo: %q", b.WebSearch)
+	}
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{"input.dataset.web", "input.dataset.siteSearch", "encodeURIComponent(", "sul sito dell'ente"} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
 	}
 }
