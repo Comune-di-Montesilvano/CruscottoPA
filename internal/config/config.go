@@ -27,6 +27,46 @@ type LDAP struct {
 	AdminUsers     []string
 }
 
+// OTRS: invio dei ticket dalla plancia (GenericInterface REST). URL vuota = modulo spento.
+type OTRS struct {
+	URL           string // base del web service, senza "/" finale; "mock" = client finto (solo sviluppo)
+	RouteCreate   string // route POST di TicketCreate
+	RouteUpdate   string // route PATCH di TicketUpdate
+	User          string
+	Password      string
+	Queue         string
+	FallbackEmail string // casella mostrata se OTRS non risponde
+}
+
+func (o OTRS) Enabled() bool { return o.URL != "" }
+func (o OTRS) Mock() bool    { return o.URL == "mock" }
+
+func (o OTRS) validate(ldapMock bool) error {
+	if !o.Enabled() {
+		return nil
+	}
+	if o.Mock() {
+		if !ldapMock {
+			return errors.New("OTRS_URL=mock ammesso solo con LDAP_HOST=mock")
+		}
+		return nil
+	}
+	if !strings.HasPrefix(o.URL, "https://") {
+		return errors.New("OTRS_URL deve iniziare con https://")
+	}
+	for _, r := range []struct{ name, val string }{{"OTRS_ROUTE_CREATE", o.RouteCreate}, {"OTRS_ROUTE_UPDATE", o.RouteUpdate}} {
+		if !strings.HasPrefix(r.val, "/") {
+			return fmt.Errorf("%s deve iniziare con /", r.name)
+		}
+	}
+	for _, r := range []struct{ name, val string }{{"OTRS_USER", o.User}, {"OTRS_PASSWORD", o.Password}, {"OTRS_QUEUE", o.Queue}} {
+		if r.val == "" {
+			return fmt.Errorf("%s obbligatorio quando OTRS_URL è impostato", r.name)
+		}
+	}
+	return nil
+}
+
 // Config è la configurazione completa del server.
 type Config struct {
 	Port                string
@@ -44,6 +84,8 @@ type Config struct {
 	NTLMDomain string
 	// VAPIDSubject: contatto VAPID (mailto: o https:); vuoto = Web Push spento.
 	VAPIDSubject string
+	// OTRS: modulo ticket (vuoto = spento).
+	OTRS OTRS
 }
 
 // Load legge le variabili d'ambiente, applica i default e valida i valori.
@@ -65,6 +107,15 @@ func Load() (Config, error) {
 		},
 		NTLMDomain:   strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
 		VAPIDSubject: strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
+		OTRS: OTRS{
+			URL:           strings.TrimRight(strings.TrimSpace(os.Getenv("OTRS_URL")), "/"),
+			RouteCreate:   getEnv("OTRS_ROUTE_CREATE", "/TicketCreate"),
+			RouteUpdate:   getEnv("OTRS_ROUTE_UPDATE", "/TicketUpdate"),
+			User:          os.Getenv("OTRS_USER"),
+			Password:      os.Getenv("OTRS_PASSWORD"),
+			Queue:         strings.TrimSpace(os.Getenv("OTRS_QUEUE")),
+			FallbackEmail: strings.TrimSpace(os.Getenv("OTRS_FALLBACK_EMAIL")),
+		},
 	}
 
 	var err error
@@ -96,6 +147,9 @@ func Load() (Config, error) {
 	}
 	if cfg.LDAP.Host != "mock" && len(cfg.SessionSecret) < 32 {
 		return Config{}, errors.New("SESSION_SECRET obbligatorio (almeno 32 caratteri) quando LDAP_HOST non è mock")
+	}
+	if err := cfg.OTRS.validate(cfg.LDAP.Host == "mock"); err != nil {
+		return Config{}, err
 	}
 	if cfg.SessionSecret == "" {
 		b := make([]byte, 32)

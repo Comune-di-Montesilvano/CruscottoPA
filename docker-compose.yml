@@ -54,6 +54,13 @@ services:
       - ADMIN_USERS=${ADMIN_USERS}
       - NTLM_DOMAIN=${NTLM_DOMAIN}
       - VAPID_SUBJECT=${VAPID_SUBJECT}
+      - OTRS_URL=${OTRS_URL}
+      - OTRS_ROUTE_CREATE=${OTRS_ROUTE_CREATE:-/TicketCreate}
+      - OTRS_ROUTE_UPDATE=${OTRS_ROUTE_UPDATE:-/TicketUpdate}
+      - OTRS_USER=${OTRS_USER}
+      - OTRS_PASSWORD=${OTRS_PASSWORD}
+      - OTRS_QUEUE=${OTRS_QUEUE}
+      - OTRS_FALLBACK_EMAIL=${OTRS_FALLBACK_EMAIL}
     healthcheck:
       test: ["CMD", "/app/cruscottopa", "-healthcheck"]
       interval: 30s
