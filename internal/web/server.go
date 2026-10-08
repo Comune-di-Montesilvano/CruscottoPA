@@ -193,6 +193,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/gruppi", s.requireAdmin(s.handleAudienceGroupCreate))
 	s.mux.HandleFunc("POST /admin/gruppi/attributi", s.requireAdmin(s.handleAttributeAdd))
 	s.mux.HandleFunc("POST /admin/gruppi/attributi/{id}/elimina", s.requireAdmin(s.handleAttributeDelete))
+	s.mux.HandleFunc("POST /admin/gruppi/attributi/{id}/testata", s.requireAdmin(s.handleAttributeHero))
+	s.mux.HandleFunc("POST /admin/gruppi/attributi/{id}/sposta", s.requireAdmin(s.handleAttributeHeroMove))
 	s.mux.HandleFunc("GET /admin/gruppi/{id}/modifica", s.requireAdmin(s.handleAudienceGroupEdit))
 	s.mux.HandleFunc("POST /admin/gruppi/{id}", s.requireAdmin(s.handleAudienceGroupRename))
 	s.mux.HandleFunc("POST /admin/gruppi/{id}/elimina", s.requireAdmin(s.handleAudienceGroupDelete))

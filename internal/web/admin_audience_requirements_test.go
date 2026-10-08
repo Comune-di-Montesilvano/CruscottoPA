@@ -90,3 +90,29 @@ func TestGroupListMembers(t *testing.T) {
 func ruleUser(g int64, u string) database.AudienceRule {
 	return database.AudienceRule{GroupID: g, Kind: audience.KindUser, Value: u}
 }
+
+func TestAttributeHeroAdmin(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	tel, _ := db.CreateAudienceAttribute("telephoneNumber", "Interno")
+	off, _ := db.CreateAudienceAttribute("physicalDeliveryOfficeName", "Ufficio")
+	if rec := do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(off)+"/testata", url.Values{"hero_kind": {"text"}}, c, hx); rec.Code != 200 {
+		t.Fatalf("testata: %d", rec.Code)
+	}
+	do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(tel)+"/testata", url.Values{"hero_kind": {"phone"}}, c, hx)
+	if rec := do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(tel)+"/testata", url.Values{"hero_kind": {"boh"}}, c, hx); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("formato non valido: %d", rec.Code)
+	}
+	do(t, s, "POST", "/admin/gruppi/attributi/"+itoa(tel)+"/sposta", url.Values{"dir": {"up"}}, c, hx)
+	h, _ := db.HeroAttributes()
+	if len(h) != 2 || h[0].ID != tel || h[0].HeroKind != "phone" {
+		t.Fatalf("dopo lo spostamento: %+v", h)
+	}
+	page := do(t, s, "GET", "/admin/gruppi", nil, c, nil).Body.String()
+	if !strings.Contains(page, `<option value="phone" selected>`) || !strings.Contains(page, "Sotto il saluto") {
+		t.Fatalf("pagina gruppi:\n%s", page)
+	}
+	if rec := do(t, s, "POST", "/admin/gruppi/attributi/999/testata", url.Values{"hero_kind": {"text"}}, c, hx); rec.Code != http.StatusNotFound {
+		t.Fatalf("inesistente: %d", rec.Code)
+	}
+}

@@ -60,6 +60,7 @@
 		<label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Form.Enabled}} checked{{end}}>Visibile in plancia</label>
 		{{template "visibility_fieldset" .VisibilityField}}
 		{{with .Errors.visibilita}}<p class="field-error">{{.}}</p>{{end}}
+		{{if .Form.ID}}<p class="hint">Assistenza: {{range $i, $c := .Support}}{{if $i}}, {{end}}{{$c.Title}}{{else}}nessun canale{{end}} · <a href="/admin/assistenza">gestisci</a></p>{{end}}
 		<div class="actions">
 			<button class="primary" type="submit">Salva</button>
 			{{if .Form.ID}}<a class="button" href="/admin/app">Annulla</a>{{end}}

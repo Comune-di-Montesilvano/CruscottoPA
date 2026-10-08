@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
 func TestSupportAdmin(t *testing.T) {
@@ -53,5 +55,16 @@ func TestSupportAdmin(t *testing.T) {
 	body := do(t, s, "GET", "/admin", nil, c, nil).Body.String()
 	if !strings.Contains(body, `href="/admin/assistenza"`) || !strings.Contains(body, "canali di assistenza") {
 		t.Fatal("voce Assistenza nel menu e conteggio in panoramica")
+	}
+}
+
+func TestAppFormShowsSupport(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	apps, _ := db.ListApps()
+	db.CreateSupportChannel(database.SupportChannel{Title: "Portale Maggioli", URL: "https://x", Enabled: true, AppIDs: []int64{apps[0].ID}})
+	body := do(t, s, "GET", "/admin/app/"+itoa(apps[0].ID)+"/modifica", nil, c, hx).Body.String()
+	if !strings.Contains(body, "Assistenza:") || !strings.Contains(body, "Portale Maggioli") || !strings.Contains(body, `href="/admin/assistenza"`) {
+		t.Fatalf("scheda app senza assistenza:\n%s", body)
 	}
 }

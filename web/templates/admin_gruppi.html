@@ -11,7 +11,17 @@
 	<div class="card">
 		<h2>Attributi AD utilizzabili</h2>
 		<table class="list"><tbody>
-			{{range .Attributes}}<tr><td>{{.Label}}</td><td class="muted"><code>{{.Name}}</code></td><td class="actions">
+			{{range .Attributes}}<tr><td>{{.Label}}</td><td class="muted"><code>{{.Name}}</code></td>
+				<td><form class="hero-form" hx-post="/admin/gruppi/attributi/{{.ID}}/testata" hx-trigger="change" hx-target="#section" hx-swap="outerHTML">
+					<label>Sotto il saluto<select name="hero_kind">
+						<option value=""{{if eq .Hero 0}} selected{{end}}>—</option>
+						<option value="text"{{if and .Hero (eq .HeroKind "text")}} selected{{end}}>Testo</option>
+						<option value="phone"{{if and .Hero (eq .HeroKind "phone")}} selected{{end}}>Interno</option>
+						<option value="mail"{{if and .Hero (eq .HeroKind "mail")}} selected{{end}}>Email</option>
+					</select></label></form></td>
+				<td class="actions">
+				{{if .Hero}}<button class="icon" type="button" title="Prima nella testata" hx-post="/admin/gruppi/attributi/{{.ID}}/sposta" hx-vals='{"dir":"up"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_upward</span></button>
+				<button class="icon" type="button" title="Dopo nella testata" hx-post="/admin/gruppi/attributi/{{.ID}}/sposta" hx-vals='{"dir":"down"}' hx-target="#section" hx-swap="outerHTML"><span class="material-icons" aria-hidden="true">arrow_downward</span></button>{{end}}
 				<button class="danger" type="button" hx-post="/admin/gruppi/attributi/{{.ID}}/elimina" hx-confirm="Togliere l'attributo «{{.Label}}»?" hx-target="#section" hx-swap="outerHTML">Togli</button></td></tr>
 			{{else}}<tr><td class="muted">Nessun attributo: aggiungine uno (es. physicalDeliveryOfficeName → Ufficio).</td></tr>{{end}}
 		</tbody></table>
@@ -22,6 +32,7 @@
 			<button class="primary" type="submit">Aggiungi</button>
 			<div class="suggestions wide" id="attr-suggestions"></div>
 		</form>
+		<p class="hint">«Sotto il saluto»: il valore compare in plancia sotto «Buongiorno, …», nell'ordine delle frecce (es. Ufficio come Testo, <code>telephoneNumber</code> come Interno, <code>mail</code> come Email).</p>
 		<p class="hint">Mentre scrivi, i suggerimenti mostrano gli attributi compilati sugli utenti di AD, quanti li hanno e qualche valore.</p>
 		{{with .Errors.attr}}<p class="field-error">{{.}}</p>{{end}}
 	</div>
