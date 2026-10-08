@@ -1,0 +1,20 @@
+{{define "admin_ticket.html"}}{{template "admin_top" .}}
+<h1>Ticket</h1>
+{{with .Body}}
+{{if .Enabled}}<p class="flash">Modulo attivo{{if .Mock}} (OTRS finto: solo sviluppo){{end}}{{with .Queue}} · coda <strong>{{.}}</strong>{{end}}.</p>
+{{else}}<p class="flash error">Modulo spento: imposta OTRS_URL, OTRS_USER, OTRS_PASSWORD e OTRS_QUEUE per mostrare la tile «Apri un ticket» in plancia.</p>{{end}}
+<table class="list">
+	<thead><tr><th>Data</th><th>Utente</th><th>Oggetto</th><th>Ticket</th><th>Allegati</th></tr></thead>
+	<tbody>
+	{{$base := .Base}}{{range .Tickets}}<tr>
+		<td>{{fmtDate .CreatedAt}}</td>
+		<td>{{.Name}}<br><small class="muted">{{.Username}}</small></td>
+		<td>{{.Subject}}</td>
+		<td>{{if $base}}<a href="{{$base}}index.pl?Action=AgentTicketZoom;TicketID={{.TicketID}}" target="_blank" rel="noopener">{{.TicketNumber}}</a>{{else}}{{.TicketNumber}}{{end}}{{if not .CustomerSet}}<br><span class="tag warn">Cliente non impostato in OTRS</span>{{end}}</td>
+		<td>{{.Attachments}}</td>
+	</tr>{{else}}<tr><td colspan="5" class="muted">Nessun ticket aperto dalla plancia.</td></tr>{{end}}
+	</tbody>
+</table>
+<p class="hint">Ultimi 200 ticket aperti dalla plancia. L'identità è dichiarata (riconoscimento NTLM): le risposte di OTRS vanno comunque alla mail dell'utente in AD. Nessun bottone di prova: ogni invio crea un ticket vero.</p>
+{{end}}
+{{template "admin_bottom" .}}{{end}}
