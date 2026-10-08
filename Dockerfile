@@ -1,8 +1,10 @@
 # ── Stage 0: Editor dell'admin (Node solo qui) ───────────────────────────────
-FROM node:24-alpine AS editor
+FROM node:26-alpine AS editor
 WORKDIR /w
 COPY web/editor/package.json web/editor/pnpm-lock.yaml web/editor/pnpm-workspace.yaml ./
-RUN corepack enable && CI=true pnpm install --frozen-lockfile
+# pnpm alla versione di packageManager: da Node 25 corepack non è più incluso.
+RUN npm install -g --no-fund --no-audit "$(node -p "require('./package.json').packageManager")" \
+ && CI=true pnpm install --frozen-lockfile
 COPY web/editor/ ./
 RUN OUT_DIR=/out pnpm build
 
