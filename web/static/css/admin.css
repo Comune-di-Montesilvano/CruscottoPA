@@ -136,3 +136,9 @@ ul.preview { columns: 2; padding-left: 1.1rem; }
 .preview { border: 1px dashed #94a3b8; border-radius: 8px; padding: .8rem 1rem; background: #fff; margin: .3rem 0 .6rem; }
 .kind-choice { border: 0; padding: 0; margin: .4rem 0; display: flex; gap: 1rem; flex-wrap: wrap; }
 .kind-choice legend { font-weight: 600; margin-bottom: .2rem; }
+
+/* Assistenza: caselle degli applicativi raggruppate per categoria. */
+.support-apps { border: 1px solid var(--line); border-radius: 8px; padding: .6rem .8rem; display: grid; gap: .5rem; }
+.support-cat { display: flex; flex-wrap: wrap; gap: .2rem 1rem; align-items: center; }
+.support-cat strong { flex-basis: 100%; font-size: .85rem; color: var(--muted); }
+.chip-plain { padding-right: .7rem; }
