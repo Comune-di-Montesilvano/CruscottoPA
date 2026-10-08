@@ -149,9 +149,6 @@ func TestTicketOTRSDown(t *testing.T) {
 	if list, _ := s.db.ListTickets(10); len(list) != 0 {
 		t.Fatal("riga nel registro con OTRS giù")
 	}
-	if _, _, err := s.takeTicketFiles("mrossi", []string{id}); err == nil {
-		t.Fatal("allegato ancora disponibile dopo l'invio fallito")
-	}
 }
 
 func TestTicketWithAttachmentAndCustomerNotSet(t *testing.T) {

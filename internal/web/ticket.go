@@ -19,6 +19,8 @@ const (
 	maxSubject     = 120
 	maxBody        = 10000
 	maxPhone       = 40
+	// ticketSendTimeout: sotto i 60 s del reverse proxy.
+	ticketSendTimeout = 40 * time.Second
 )
 
 func (s *Server) ticketsEnabled() bool { return s.tickets != nil }
@@ -101,6 +103,13 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 		fields["telefono"] = "Massimo 40 caratteri."
 	}
 	user := s.ticketUser(r)
+	// Un invio alla volta per utente: il registro si scrive solo dopo la
+	// risposta di OTRS, quindi invii paralleli passerebbero tutti il limite.
+	if _, busy := s.ticketSending.LoadOrStore(user, true); busy {
+		reply(map[string]any{"errore": "in_corso"})
+		return
+	}
+	defer s.ticketSending.Delete(user)
 	n, err := s.db.CountTicketsSince(user, s.now().Add(-time.Hour))
 	if err != nil {
 		slog.Error("ticket: conteggio", "err", err)
@@ -115,23 +124,25 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 		reply(map[string]any{"campi": fields})
 		return
 	}
-	atts, paths, err := s.takeTicketFiles(user, r.Form["allegato"])
+	ids := r.Form["allegato"]
+	atts, _, err := s.takeTicketFiles(user, ids)
 	if err != nil {
 		reply(map[string]any{"campi": map[string]string{"allegati": "Allegati non validi: ricaricali."}})
 		return
 	}
-	defer s.removeTicketFiles(paths)
-	ctx, cancel := context.WithTimeout(r.Context(), 70*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), ticketSendTimeout)
 	defer cancel()
 	created, err := s.tickets.Create(ctx, otrs.NewTicket{Name: req.Name, Email: req.Email, Phone: phone,
 		Subject: subject, Body: body, Attachments: atts})
 	if err != nil {
+		s.releaseTicketFiles(ids) // lo stesso dialog può riprovare con gli stessi allegati
 		if !errors.Is(err, otrs.ErrOTRS) {
 			slog.Error("ticket: invio", "err", err)
 		}
 		reply(map[string]any{"errore": "otrs"})
 		return
 	}
+	s.consumeTicketFiles(ids)
 	if err := s.db.RecordTicket(database.TicketSent{Username: user, Name: req.Name, Email: req.Email, Subject: subject,
 		TicketID: created.TicketID, TicketNumber: created.TicketNumber, CustomerSet: created.CustomerSet,
 		Attachments: len(atts), CreatedAt: s.now()}); err != nil {

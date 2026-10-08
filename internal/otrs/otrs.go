@@ -26,6 +26,14 @@ import (
 // come la pagina di cortesia del proxy, oppure {"Error":…}).
 var ErrOTRS = errors.New("OTRS non disponibile")
 
+// Tempi massimi delle due chiamate: insieme restano sotto il timeout del
+// reverse proxy (60 s), altrimenti l'utente vede un errore per un ticket
+// che esiste già e lo riapre.
+const (
+	CreateTimeout = 25 * time.Second
+	UpdateTimeout = 10 * time.Second
+)
+
 type Client interface {
 	Create(ctx context.Context, t NewTicket) (Created, error)
 }
@@ -55,8 +63,10 @@ func New(c config.OTRS) Client {
 }
 
 type HTTPClient struct {
-	Config config.OTRS
-	HTTP   *http.Client
+	Config        config.OTRS
+	HTTP          *http.Client
+	CreateTimeout time.Duration // 0 = CreateTimeout
+	UpdateTimeout time.Duration // 0 = UpdateTimeout
 }
 
 func NewHTTPClient(c config.OTRS) *HTTPClient {
@@ -141,7 +151,10 @@ func (c *HTTPClient) Create(ctx context.Context, t NewTicket) (Created, error) {
 		req["Attachment"] = atts
 	}
 	var created struct{ TicketID, TicketNumber string }
-	if err := c.call(ctx, http.MethodPost, c.Config.RouteCreate, req, &created); err != nil {
+	cctx, cancel := context.WithTimeout(ctx, orDefault(c.CreateTimeout, CreateTimeout))
+	err := c.call(cctx, http.MethodPost, c.Config.RouteCreate, req, &created)
+	cancel()
+	if err != nil {
 		return Created{}, err
 	}
 	if created.TicketID == "" || created.TicketNumber == "" {
@@ -154,11 +167,20 @@ func (c *HTTPClient) Create(ctx context.Context, t NewTicket) (Created, error) {
 	upd := map[string]any{"TicketID": created.TicketID,
 		"Ticket": map[string]any{"CustomerUser": t.Email, "CustomerID": t.Email}}
 	var ignored map[string]any
-	if err := c.call(ctx, http.MethodPatch, c.Config.RouteUpdate, upd, &ignored); err != nil {
+	uctx, cancel := context.WithTimeout(ctx, orDefault(c.UpdateTimeout, UpdateTimeout))
+	defer cancel()
+	if err := c.call(uctx, http.MethodPatch, c.Config.RouteUpdate, upd, &ignored); err != nil {
 		slog.Warn("otrs: cliente non impostato", "ticket", created.TicketNumber, "err", err)
 		out.CustomerSet = false
 	}
 	return out, nil
+}
+
+func orDefault(d, def time.Duration) time.Duration {
+	if d > 0 {
+		return d
+	}
+	return def
 }
 
 // safeFilename: solo il nome base (anche da percorsi Windows), max 100 byte.

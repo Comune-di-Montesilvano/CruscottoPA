@@ -120,6 +120,7 @@
 		anonimo: "Il Cruscotto non ti riconosce più: ricarica la pagina",
 		mail: "Nella rete del Comune manca la mail del tuo account",
 		spento: "L'apertura dei ticket non è attiva",
+		in_corso: "Stai già inviando un ticket: attendi la risposta",
 	};
 
 	form.addEventListener("submit", async function (e) {

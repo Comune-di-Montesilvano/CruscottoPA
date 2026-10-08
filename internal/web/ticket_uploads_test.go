@@ -93,6 +93,7 @@ func TestTicketFilesOtherUserAndLimits(t *testing.T) {
 	if _, _, err := s.takeTicketFiles("mrossi", []string{mine, "nonesiste"}); err == nil {
 		t.Fatal("id inesistente accettato")
 	}
+	s.consumeTicketFiles(append(ids, mine)) // tetto per utente: libera i posti
 	// total: 3 file da 4 MB = 12 MB > 10 MB
 	four := append(append([]byte{}, pngBytes...), make([]byte, 4<<20)...)
 	var big []string

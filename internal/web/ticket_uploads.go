@@ -23,7 +23,8 @@ const (
 	ticketMaxFile    = 5 << 20
 	ticketMaxFiles   = 3
 	ticketMaxTotal   = 10 << 20
-	ticketMaxPending = 50 // caricamenti aperti in tutto il server
+	ticketMaxPending = 100 // caricamenti aperti in tutto il server
+	ticketMaxPerUser = 6   // caricamenti aperti per utente
 	ticketUploadTTL  = time.Hour
 )
 
@@ -36,6 +37,8 @@ type ticketUpload struct {
 	next        int
 	size        int64
 	done        bool
+	writing     bool // un pezzo è in scrittura (fuori dal lock)
+	taken       bool // in uso da un invio in corso
 	contentType string
 	started     time.Time
 }
@@ -84,6 +87,16 @@ func (s *Server) handleTicketFileStart(w http.ResponseWriter, r *http.Request) {
 		mediaFail(w, "Troppi caricamenti in corso, riprova fra poco.")
 		return
 	}
+	mine := 0
+	for _, u := range s.ticketFiles.byID {
+		if u.username == user {
+			mine++
+		}
+	}
+	if mine >= ticketMaxPerUser {
+		mediaFail(w, "Troppi allegati caricati: togline qualcuno o invia il ticket.")
+		return
+	}
 	if err := os.MkdirAll(s.ticketTmpDir(), 0o750); err != nil {
 		slog.Error("ticket: cartella temporanea", "err", err)
 		mediaFail(w, "Caricamento non riuscito.")
@@ -94,31 +107,38 @@ func (s *Server) handleTicketFileStart(w http.ResponseWriter, r *http.Request) {
 	mediaJSON(w, map[string]any{"ok": true, "id": id, "chunk": mediaChunk})
 }
 
+// handleTicketFileChunk: il corpo si legge e si scrive fuori dal lock, così un
+// client lento non ferma gli altri caricamenti (né gli invii con allegati).
 func (s *Server) handleTicketFileChunk(w http.ResponseWriter, r *http.Request) {
 	user := s.ticketUser(r)
-	n, err := strconv.Atoi(r.URL.Query().Get("n"))
+	n, nerr := strconv.Atoi(r.URL.Query().Get("n"))
 	id := r.PathValue("id")
+	data, rerr := io.ReadAll(io.LimitReader(r.Body, mediaChunk+1))
+
 	s.ticketFiles.mu.Lock()
-	defer s.ticketFiles.mu.Unlock()
 	u := s.ticketFiles.byID[id]
-	if u == nil || u.username != user || u.done {
+	if u == nil || u.username != user || u.done || u.writing {
+		s.ticketFiles.mu.Unlock()
 		mediaFail(w, "Caricamento scaduto, riprova.")
 		return
 	}
-	abort := func(msg string) {
+	abort := func(msg string) { // con il lock preso
 		delete(s.ticketFiles.byID, id)
 		os.Remove(u.path)
+		s.ticketFiles.mu.Unlock()
 		mediaFail(w, msg)
 	}
-	if err != nil || n != u.next {
+	if nerr != nil || n != u.next {
 		abort("Caricamento interrotto, riprova.")
 		return
 	}
-	data, err := io.ReadAll(io.LimitReader(r.Body, mediaChunk+1))
-	if err != nil || len(data) > mediaChunk || u.size+int64(len(data)) > ticketMaxFile {
+	if rerr != nil || len(data) > mediaChunk || u.size+int64(len(data)) > ticketMaxFile {
 		abort("File troppo grande (massimo 5 MB).")
 		return
 	}
+	u.writing = true
+	s.ticketFiles.mu.Unlock()
+
 	f, err := os.OpenFile(u.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640)
 	if err == nil {
 		_, err = f.Write(data)
@@ -126,6 +146,9 @@ func (s *Server) handleTicketFileChunk(w http.ResponseWriter, r *http.Request) {
 			err = cerr
 		}
 	}
+
+	s.ticketFiles.mu.Lock()
+	u.writing = false
 	if err != nil {
 		slog.Error("ticket: scrittura pezzo", "err", err)
 		abort("Caricamento non riuscito.")
@@ -133,6 +156,7 @@ func (s *Server) handleTicketFileChunk(w http.ResponseWriter, r *http.Request) {
 	}
 	u.next++
 	u.size += int64(len(data))
+	s.ticketFiles.mu.Unlock()
 	mediaJSON(w, map[string]any{"ok": true})
 }
 
@@ -142,7 +166,7 @@ func (s *Server) handleTicketFileFinish(w http.ResponseWriter, r *http.Request) 
 	s.ticketFiles.mu.Lock()
 	defer s.ticketFiles.mu.Unlock()
 	u := s.ticketFiles.byID[id]
-	if u == nil || u.username != user || u.done {
+	if u == nil || u.username != user || u.done || u.writing {
 		mediaFail(w, "Caricamento scaduto, riprova.")
 		return
 	}
@@ -176,8 +200,8 @@ func ticketContentType(head []byte) string {
 }
 
 // takeTicketFiles prende gli allegati di username per l'invio: tutti validi o
-// nessuno. Gli id escono dalla mappa (monouso); i file vanno cancellati con
-// removeTicketFiles dopo l'invio, riuscito o no.
+// nessuno. Restano in uso (taken) finché l'invio non finisce: riuscito →
+// consumeTicketFiles (monouso), fallito → releaseTicketFiles (si può riprovare).
 func (s *Server) takeTicketFiles(username string, ids []string) ([]otrs.Attachment, []string, error) {
 	if len(ids) == 0 {
 		return nil, nil, nil
@@ -191,7 +215,7 @@ func (s *Server) takeTicketFiles(username string, ids []string) ([]otrs.Attachme
 	seen := map[string]bool{}
 	for _, id := range ids {
 		u := s.ticketFiles.byID[id]
-		if u == nil || seen[id] || !u.done || u.username != username {
+		if u == nil || seen[id] || !u.done || u.taken || u.username != username {
 			s.ticketFiles.mu.Unlock()
 			return nil, nil, errTicketFiles
 		}
@@ -203,8 +227,8 @@ func (s *Server) takeTicketFiles(username string, ids []string) ([]otrs.Attachme
 		s.ticketFiles.mu.Unlock()
 		return nil, nil, errTicketFiles
 	}
-	for _, id := range ids {
-		delete(s.ticketFiles.byID, id)
+	for _, u := range ups {
+		u.taken = true
 	}
 	s.ticketFiles.mu.Unlock()
 
@@ -217,12 +241,37 @@ func (s *Server) takeTicketFiles(username string, ids []string) ([]otrs.Attachme
 		data, err := os.ReadFile(u.path)
 		if err != nil {
 			slog.Error("ticket: lettura allegato", "err", err)
-			s.removeTicketFiles(paths)
+			s.consumeTicketFiles(ids)
 			return nil, nil, errTicketFiles
 		}
 		atts = append(atts, otrs.Attachment{Filename: u.name, ContentType: u.contentType, Content: data})
 	}
 	return atts, paths, nil
+}
+
+// consumeTicketFiles: invio riuscito, gli allegati non servono più.
+func (s *Server) consumeTicketFiles(ids []string) {
+	var paths []string
+	s.ticketFiles.mu.Lock()
+	for _, id := range ids {
+		if u := s.ticketFiles.byID[id]; u != nil {
+			paths = append(paths, u.path)
+			delete(s.ticketFiles.byID, id)
+		}
+	}
+	s.ticketFiles.mu.Unlock()
+	s.removeTicketFiles(paths)
+}
+
+// releaseTicketFiles: invio fallito, gli allegati tornano disponibili.
+func (s *Server) releaseTicketFiles(ids []string) {
+	s.ticketFiles.mu.Lock()
+	for _, id := range ids {
+		if u := s.ticketFiles.byID[id]; u != nil {
+			u.taken = false
+		}
+	}
+	s.ticketFiles.mu.Unlock()
 }
 
 func (s *Server) removeTicketFiles(paths []string) {

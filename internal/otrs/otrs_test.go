@@ -201,3 +201,20 @@ func TestSafeFilename(t *testing.T) {
 		}
 	}
 }
+
+// Un update lento non deve far superare il tempo totale: il ticket esiste già.
+func TestUpdateTimeoutIndependent(t *testing.T) {
+	slowUpdate := func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(2 * time.Second):
+		case <-r.Context().Done():
+		}
+	}
+	c, _ := fakeOTRS(t, okCreate, slowUpdate)
+	c.UpdateTimeout = 50 * time.Millisecond
+	start := time.Now()
+	got, err := c.Create(context.Background(), sample())
+	if err != nil || got.CustomerSet || time.Since(start) > time.Second {
+		t.Fatalf("update lento: %+v %v in %v", got, err, time.Since(start))
+	}
+}

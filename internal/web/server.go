@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -49,31 +50,32 @@ type Options struct {
 }
 
 type Server struct {
-	db           *database.DB
-	cfg          config.Config
-	auth         auth.Authenticator
-	directory    identity.Directory
-	cookies      *identity.CookieCodec
-	profiles     *profileCache
-	membersCache *membersCache
-	limiter      *auth.RateLimiter
-	media        mediaUploads  // caricamenti a pezzi in corso (immagini e PDF)
-	ticketFiles  ticketUploads // allegati dei ticket in caricamento
-	backup       *backup.Service
-	restoreDelay time.Duration
-	branding     atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
-	tmpl         *template.Template
-	store        *sessions.CookieStore
-	version      string
-	webDir       string
-	now          func() time.Time
-	fetchGuide   func(ctx context.Context, rawURL string) (string, error)
-	mux          *http.ServeMux
-	hub          *notify.Hub   // plance collegate a /eventi
-	pusher       notify.Pusher // nil = Web Push spento
-	vapidPublic  string
-	notifyDone   chan struct{} // chiuso quando il dispatcher è terminato
-	tickets      otrs.Client   // nil = modulo ticket spento
+	db            *database.DB
+	cfg           config.Config
+	auth          auth.Authenticator
+	directory     identity.Directory
+	cookies       *identity.CookieCodec
+	profiles      *profileCache
+	membersCache  *membersCache
+	limiter       *auth.RateLimiter
+	media         mediaUploads  // caricamenti a pezzi in corso (immagini e PDF)
+	ticketFiles   ticketUploads // allegati dei ticket in caricamento
+	backup        *backup.Service
+	restoreDelay  time.Duration
+	branding      atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
+	tmpl          *template.Template
+	store         *sessions.CookieStore
+	version       string
+	webDir        string
+	now           func() time.Time
+	fetchGuide    func(ctx context.Context, rawURL string) (string, error)
+	mux           *http.ServeMux
+	hub           *notify.Hub   // plance collegate a /eventi
+	pusher        notify.Pusher // nil = Web Push spento
+	vapidPublic   string
+	notifyDone    chan struct{} // chiuso quando il dispatcher è terminato
+	tickets       otrs.Client   // nil = modulo ticket spento
+	ticketSending sync.Map      // username → invio a OTRS in corso
 }
 
 func New(o Options) (*Server, error) {
