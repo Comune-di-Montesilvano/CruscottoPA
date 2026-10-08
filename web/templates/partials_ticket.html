@@ -50,3 +50,19 @@
 	{{end}}
 </dialog>
 {{end}}{{end}}
+
+{{define "widget_ticket"}}
+<h2 class="widget-title">I miei ticket</h2>
+{{if .Down}}<p class="muted">Assistenza non raggiungibile, riprova più tardi.</p>
+{{else}}
+{{if .Open}}<ul class="ticket-list">{{range .Open}}{{template "ticket_row" .}}{{end}}</ul>
+{{else}}<p class="muted">Nessun ticket aperto. <button type="button" class="linklike" data-ticket-open>Apri un ticket</button></p>{{end}}
+{{with .Closed}}<details class="ticket-closed"><summary>Chiusi di recente ({{len .}})</summary><ul class="ticket-list">{{range .}}{{template "ticket_row" .}}{{end}}</ul></details>{{end}}
+{{end}}
+{{end}}
+
+{{define "ticket_row"}}<li><a href="/ticket/{{.TicketID}}" class="ticket-link">
+	{{if .Unread}}<span class="ticket-unread" title="Nuova risposta"></span>{{end}}
+	<span class="ticket-title">{{.Title}}</span>
+	<small>{{ticketState .StateType}} · {{shortDay .Changed}} · n. {{.TicketNumber}}</small>
+</a></li>{{end}}

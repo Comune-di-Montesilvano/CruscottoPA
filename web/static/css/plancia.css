@@ -351,3 +351,13 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 .hero-pc button.copied { background: #2e7d32; }
 .ticket-pc { display: flex; gap: .5rem; align-items: center; margin: 0 0 .4rem; color: var(--p-text-3); }
 .ticket-pc .material-icons { font-size: 1.1rem; }
+
+/* Widget «I miei ticket». */
+.ticket-list { list-style: none; margin: .4rem 0 0; padding: 0; }
+.ticket-link { display: grid; grid-template-columns: auto 1fr; column-gap: .45rem; padding: .45rem .3rem; border-radius: 8px; color: inherit; text-decoration: none; }
+.ticket-link:hover { background: var(--p-page); }
+.ticket-link .ticket-title { grid-column: 2; font-weight: 600; }
+.ticket-link small { grid-column: 2; color: var(--p-text-3); }
+.ticket-unread { grid-row: 1; width: .55rem; height: .55rem; margin-top: .4rem; border-radius: 50%; background: var(--p-blue-2); }
+.ticket-closed summary { cursor: pointer; color: var(--p-text-3); margin-top: .5rem; font-size: .85rem; }
+.linklike { border: 0; background: none; padding: 0; color: var(--p-blue-2); font: inherit; cursor: pointer; text-decoration: underline; }

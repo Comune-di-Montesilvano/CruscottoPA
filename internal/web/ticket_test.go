@@ -21,7 +21,7 @@ var ticketDirectory = fakeDirectory{
 	},
 }
 
-func ticketTestServer(t *testing.T, m *otrs.Mock) (*Server, *http.Cookie) {
+func ticketTestServer(t *testing.T, m otrs.Client) (*Server, *http.Cookie) {
 	t.Helper()
 	s, _ := newTestServerWith(t, nil, func(o *Options) {
 		o.Directory = ticketDirectory

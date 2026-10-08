@@ -35,6 +35,7 @@ func (s *Server) funcs() template.FuncMap {
 		"md":            func(src string) template.HTML { return markdown.Render(src, markdown.Options{}) },
 		"excerpt":       func(src string) string { return markdown.Plain(src, excerptRunes) },
 		"needsMore":     needsMore,
+		"ticketState":   stateLabel,
 		"humanSize":     humanSize,
 		"tint":          tint,
 		"alertVersion":  alertVersion,

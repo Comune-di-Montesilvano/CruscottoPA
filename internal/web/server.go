@@ -76,6 +76,7 @@ type Server struct {
 	notifyDone    chan struct{} // chiuso quando il dispatcher è terminato
 	tickets       otrs.Client   // nil = modulo ticket spento
 	ticketSending sync.Map      // username → invio a OTRS in corso
+	ticketCache   *ticketCache  // letture da OTRS (60 s)
 }
 
 func New(o Options) (*Server, error) {
@@ -124,6 +125,7 @@ func New(o Options) (*Server, error) {
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.profiles = newProfileCache(o.Now)
+	s.ticketCache = newTicketCache(o.Now)
 	s.membersCache = newMembersCache(o.Now)
 	s.hub = notify.NewHub(2000)
 	if o.Config.VAPIDSubject != "" {
@@ -198,6 +200,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
 	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
+	s.mux.HandleFunc("GET /partials/ticket", s.handleTicketWidget)
 	s.mux.HandleFunc("POST /ticket/allegati", s.handleTicketFileStart)
 	s.mux.HandleFunc("POST /ticket/allegati/{id}/pezzo", s.handleTicketFileChunk)
 	s.mux.HandleFunc("POST /ticket/allegati/{id}/fine", s.handleTicketFileFinish)

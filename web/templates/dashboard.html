@@ -94,6 +94,7 @@
 		</div>
 
 		<aside class="widgets" aria-label="Oggi, calendario e guide">
+{{if and .Ticket.Enabled (eq .Ticket.Problem "")}}<section class="widget" id="widget-ticket" aria-label="I miei ticket" hx-get="/partials/ticket" hx-trigger="load, every 120s, ticket from:body" hx-swap="innerHTML"><h2 class="widget-title">I miei ticket</h2></section>{{end}}
 			{{template "widget_guide" .GeneralGuides}}
 			{{template "widget_calendario" .Calendar}}
 		</aside>

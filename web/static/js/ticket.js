@@ -3,8 +3,7 @@
 (function () {
 	"use strict";
 	const dlg = document.querySelector("dialog.ticket");
-	const opener = document.querySelector("[data-ticket-open]");
-	if (!dlg || !opener) return;
+	if (!dlg) return;
 	const form = dlg.querySelector("[data-ticket-form]");
 	const DRAFT = "cruscotto-ticket-bozza";
 	const files = []; // {id, nome, li}
@@ -82,7 +81,9 @@
 		dlg.querySelector("[data-ticket-done]").hidden = true;
 	}
 
-	opener.addEventListener("click", function () {
+	// Delegato: anche i bottoni del widget «I miei ticket», caricato da HTMX.
+	document.addEventListener("click", function (e) {
+		if (!e.target.closest("[data-ticket-open]")) return;
 		if (form) {
 			const d = readDraft();
 			if (d.oggetto) form.oggetto.value = d.oggetto;
