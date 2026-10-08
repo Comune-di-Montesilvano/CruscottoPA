@@ -12,7 +12,9 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 )
 
-const ticketCacheTTL = 60 * time.Second
+// ticketCacheTTL: più lungo del refresh del widget. La freschezza la danno
+// forget dopo apertura e risposta e il watcher su ogni ticket cambiato.
+const ticketCacheTTL = 5 * time.Minute
 
 type cachedMine struct {
 	list    []otrs.Summary

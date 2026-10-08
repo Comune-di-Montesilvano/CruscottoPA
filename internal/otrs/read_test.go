@@ -187,3 +187,15 @@ func TestMockRead(t *testing.T) {
 		t.Fatal("mock Get: proprietà non controllata")
 	}
 }
+
+// Un ticket che OTRS non riesce a leggere non blocca gli altri.
+func TestChangedSkipsFailingTicket(t *testing.T) {
+	c, _ := otrsRead(t, func(map[string]any) string { return `{"TicketID":["5","6"]}` }, map[string]string{
+		"5": ticketJSON("5", "mrossi@example.it", "Coda prova", "open"),
+		"6": `<html>errore</html>`,
+	})
+	got, err := c.Changed(context.Background(), time.Now())
+	if !errors.Is(err, ErrOTRS) || len(got) != 1 || got[0].TicketID != "5" {
+		t.Fatalf("parziale: %+v %v", got, err)
+	}
+}

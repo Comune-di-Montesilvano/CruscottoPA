@@ -17,9 +17,13 @@ const (
 	ticketWatchSlack = time.Minute // tolleranza sugli orologi
 )
 
+// ticketWatcher: since = inizio del giro precedente completo (meno la
+// tolleranza); floor = primo giro tentato. Per un ticket senza stato si
+// notificano solo le risposte scritte dopo max(since, floor): mai quelle
+// vecchie (ticket fuori dal primo giro, stato pulito dopo 30 giorni, avvio).
 type ticketWatcher struct {
-	since  time.Time
-	primed bool
+	since time.Time
+	floor time.Time
 }
 
 // StartTicketWatch: ogni 2 minuti cerca risposte degli operatori e le notifica.
@@ -49,22 +53,30 @@ func articleNum(id string) int64 {
 	return n
 }
 
-// ticketWatchOnce: un giro. Il primo registra lo stato senza notificare.
-// Con OTRS giù since non avanza: il giro dopo rilegge lo stesso intervallo.
+// ticketWatchOnce: un giro. Ogni chiamata a OTRS ha il suo timeout (15 s);
+// un ticket illeggibile non ferma gli altri ma il giro non conta come
+// completo: since non avanza e il giro dopo rilegge lo stesso intervallo
+// (lo stato per ticket evita i doppioni).
 func (s *Server) ticketWatchOnce(ctx context.Context, w *ticketWatcher) error {
 	start := s.now()
+	if w.floor.IsZero() {
+		w.floor = start
+	}
 	since := w.since
-	if !w.primed {
+	if since.IsZero() {
 		since = start.AddDate(0, 0, -7)
 	}
-	cctx, cancel := context.WithTimeout(ctx, 4*otrs.ReadTimeout)
-	defer cancel()
-	tickets, err := s.tickets.Changed(cctx, since)
-	if err != nil {
-		return err
+	threshold := since
+	if threshold.Before(w.floor) {
+		threshold = w.floor
+	}
+	tickets, changedErr := s.tickets.Changed(ctx, since)
+	if changedErr != nil && len(tickets) == 0 {
+		return changedErr
 	}
 	for _, t := range tickets {
-		last, _, err := s.db.TicketNotifyState(t.TicketID)
+		s.ticketCache.forget(t.CustomerUserID) // il widget rilegge il ticket cambiato
+		last, known, err := s.db.TicketNotifyState(t.TicketID)
 		if err != nil {
 			return err
 		}
@@ -75,9 +87,13 @@ func (s *Server) ticketWatchOnce(ctx context.Context, w *ticketWatcher) error {
 			if n > newest {
 				newest = n
 			}
-			if a.FromAgent && n > last {
-				fresh = append(fresh, a)
+			if !a.FromAgent || n <= last {
+				continue
 			}
+			if !known && a.Created.Before(threshold) {
+				continue // risposta vecchia di un ticket mai visto dal watcher
+			}
+			fresh = append(fresh, a)
 		}
 		if newest <= last {
 			continue
@@ -86,17 +102,18 @@ func (s *Server) ticketWatchOnce(ctx context.Context, w *ticketWatcher) error {
 		if err := s.db.SetTicketNotifyState(t.TicketID, newest, start); err != nil {
 			return err
 		}
-		if !w.primed || len(fresh) == 0 {
+		if len(fresh) == 0 {
 			continue
 		}
 		user, err := s.db.TicketUserFor(t.CustomerUserID)
 		if err != nil || user == "" {
 			continue
 		}
-		s.ticketCache.forget(t.CustomerUserID)
 		s.notifyTicketReply(ctx, user, t, fresh[len(fresh)-1])
 	}
-	w.primed = true
+	if changedErr != nil {
+		return changedErr
+	}
 	w.since = start.Add(-ticketWatchSlack)
 	return nil
 }

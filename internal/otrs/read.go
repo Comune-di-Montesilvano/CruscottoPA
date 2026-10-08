@@ -241,21 +241,27 @@ func (c *HTTPClient) Changed(ctx context.Context, since time.Time) ([]Ticket, er
 	if err != nil {
 		return nil, err
 	}
+	// Un ticket illeggibile non blocca gli altri: si restituiscono quelli letti
+	// insieme al primo errore (chi chiama non deve considerare il giro completo).
 	out := []Ticket{}
+	var firstErr error
 	for _, id := range ids {
 		r, err := c.getRaw(ctx, id, false)
 		if errors.Is(err, ErrNotYours) {
 			continue
 		}
 		if err != nil {
-			return nil, err
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 		if string(r.Queue) != c.Config.Queue {
 			continue
 		}
 		out = append(out, c.convert(r))
 	}
-	return out, nil
+	return out, firstErr
 }
 
 func (c *HTTPClient) Attachment(ctx context.Context, email, id, articleID, fileID string) (Attachment, error) {
