@@ -115,3 +115,46 @@ func TestHeroShowsOffice(t *testing.T) {
 		t.Errorf("profilo vuoto: %q", got)
 	}
 }
+
+func TestTileSupport(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	apps, _ := db.ListApps()
+	a := apps[0]
+	a.URL = "https://rubrica.local"
+	db.UpdateApp(a)
+	db.CreateSupportChannel(database.SupportChannel{Title: "Portale Maggioli", URL: "https://assistenza.example", Note: "serve l'utenza", Enabled: true, AppIDs: []int64{a.ID}})
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	for _, want := range []string{
+		`class="tile-support-flag`,
+		`Problemi con ` + a.Title + `?`,
+		`<a href="https://assistenza.example" target="_blank" rel="noopener">Portale Maggioli ↗</a>`,
+		`serve l&#39;utenza`,
+		`aria-controls="guide-app-` + itoa(a.ID) + `"`, // si apre anche senza guide
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("manca %q", want)
+		}
+	}
+}
+
+// Canale di un'app nascosta al visitatore: non compare.
+func TestTileSupportFollowsAppVisibility(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	seedVisibility(t, db) // Webmail riservata al gruppo Tributi
+	var webmail int64
+	apps, _ := db.ListApps()
+	for _, a := range apps {
+		if a.Title == "Webmail" {
+			webmail = a.ID
+		}
+	}
+	db.CreateSupportChannel(database.SupportChannel{Title: "Canale riservato", URL: "https://r.example", Enabled: true, AppIDs: []int64{webmail}})
+	body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Anonymous: true}), nil).Body.String()
+	if strings.Contains(body, "Canale riservato") {
+		t.Fatal("canale di un'app nascosta visibile")
+	}
+	member := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"}), nil).Body.String()
+	if !strings.Contains(member, "Canale riservato") {
+		t.Fatal("chi vede l'app deve vederne l'assistenza")
+	}
+}

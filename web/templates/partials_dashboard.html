@@ -59,7 +59,7 @@
 {{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"><img src="/uploads/icons/{{.IconValue}}" alt=""></span>{{else if eq .IconKind "url"}}<span class="tile-icon"><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
 {{define "app_tile"}}
-<div class="tile" style="background:{{tint .IconColor}}" data-search-item data-search="{{.Title}} {{.Description}}{{range .Guides}} {{.Title}}{{end}}">
+<div class="tile" style="background:{{tint .IconColor}}" data-search-item data-search="{{.Title}} {{.Description}}{{range .Guides}} {{.Title}}{{end}}{{range .Support}} {{.Title}}{{end}}">
 	<div class="tile-card">
 	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
 		{{template "tile_icon" .App}}
@@ -68,9 +68,15 @@
 			{{with .Description}}<span class="tile-desc">{{.}}</span>{{end}}
 		</span>
 	</a>
-	{{if .Guides}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="guide-app-{{.ID}}">{{len .Guides}} {{if eq (len .Guides) 1}}guida{{else}}guide{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
+	{{if or .Guides .Support}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="guide-app-{{.ID}}">{{if .Support}}<span class="tile-support-flag material-icons" title="Assistenza disponibile" aria-label="Assistenza disponibile">support_agent</span>{{end}}{{with .Guides}}{{len .}} {{if eq (len .) 1}}guida{{else}}guide{{end}}{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
 	<div class="tile-more" id="guide-app-{{.ID}}">
-		<ul>{{range .Guides}}<li>{{template "guide_link" .}}</li>{{end}}</ul>
+		{{with .Guides}}<ul>{{range .}}<li>{{template "guide_link" .}}</li>{{end}}</ul>{{end}}
+		{{$app := .Title}}{{range .Support}}<div class="tile-support">
+			<span class="material-icons" aria-hidden="true">support_agent</span>
+			<div><div class="tile-support-q">Problemi con {{$app}}?</div>
+			<a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}} ↗</a>
+			{{with .Note}}<small>{{.}}</small>{{end}}</div>
+		</div>{{end}}
 	</div>{{end}}
 	</div>
 </div>

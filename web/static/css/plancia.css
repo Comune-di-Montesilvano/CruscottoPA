@@ -167,6 +167,14 @@ dialog.urgent::backdrop { background: rgba(60, 8, 8, .72); }
 .tile-more li a { display: block; font-size: .88rem; font-weight: 600; color: var(--p-blue-2); padding: .22rem 0; text-decoration: none; }
 .tile-more li a::before { content: "› "; }
 .tile-more li a:hover { text-decoration: underline; }
+/* Assistenza: icona sul badge, riquadro "Problemi con …?" nell'apertura. */
+.tile-badge .tile-support-flag, .tile.open .tile-badge .tile-support-flag { font-size: 16px; margin-right: .2rem; color: #b54708; transform: none; }
+.tile-support { display: flex; gap: .55rem; align-items: flex-start; margin-top: .6rem; padding: .55rem .7rem; border-radius: 10px; background: rgba(255, 255, 255, .75); border-left: 4px solid #f79009; }
+.tile-support > .material-icons { color: #b54708; font-size: 20px; }
+.tile-support-q { font-size: .8rem; color: var(--p-text-2); }
+.tile-support a { font-weight: 700; color: var(--p-blue-2); text-decoration: none; }
+.tile-support a:hover { text-decoration: underline; }
+.tile-support small { display: block; color: var(--p-text-3); font-size: .76rem; margin-top: .1rem; }
 
 /* ── Widget ───────────────────────────────────────────── */
 .widgets { align-self: start; }
