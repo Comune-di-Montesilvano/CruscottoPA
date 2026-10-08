@@ -24,12 +24,13 @@ type App struct {
 	IconKind    string
 	IconValue   string
 	IconColor   string
+	IconBg      string // sfondo del riquadro dell'icona; "" = bianco (loghi chiari)
 	SortOrder   int
 	Enabled     bool
 }
 
 const appCols = `a.id, a.category_id, a.title, a.description, a.url,
-	a.icon_kind, a.icon_value, a.icon_color, a.sort_order, a.enabled`
+	a.icon_kind, a.icon_value, a.icon_color, a.icon_bg, a.sort_order, a.enabled`
 
 const appOrder = `a.sort_order, a.title COLLATE NOCASE, a.id`
 
@@ -39,7 +40,7 @@ type scanner interface{ Scan(dest ...any) error }
 func scanApp(s scanner, extra ...any) (App, error) {
 	var a App
 	dest := append(extra, &a.ID, &a.CategoryID, &a.Title, &a.Description, &a.URL,
-		&a.IconKind, &a.IconValue, &a.IconColor, &a.SortOrder, &a.Enabled)
+		&a.IconKind, &a.IconValue, &a.IconColor, &a.IconBg, &a.SortOrder, &a.Enabled)
 	err := s.Scan(dest...)
 	return a, err
 }
@@ -75,10 +76,10 @@ func (db *DB) CreateApp(a App) (int64, error) { return createApp(db, a) }
 
 func createApp(q execer, a App) (int64, error) {
 	res, err := q.Exec(`
-INSERT INTO apps (category_id, title, description, url, icon_kind, icon_value, icon_color, enabled, sort_order)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+INSERT INTO apps (category_id, title, description, url, icon_kind, icon_value, icon_color, icon_bg, enabled, sort_order)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
 	(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM apps WHERE category_id = ?))`,
-		a.CategoryID, a.Title, a.Description, a.URL, a.IconKind, a.IconValue, a.IconColor, a.Enabled, a.CategoryID)
+		a.CategoryID, a.Title, a.Description, a.URL, a.IconKind, a.IconValue, a.IconColor, a.IconBg, a.Enabled, a.CategoryID)
 	if err != nil {
 		return 0, err
 	}
@@ -95,11 +96,11 @@ UPDATE apps SET
 	sort_order  = CASE WHEN category_id = ? THEN sort_order
 	                   ELSE (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM apps WHERE category_id = ?) END,
 	category_id = ?, title = ?, description = ?, url = ?,
-	icon_kind = ?, icon_value = ?, icon_color = ?, enabled = ?
+	icon_kind = ?, icon_value = ?, icon_color = ?, icon_bg = ?, enabled = ?
 WHERE id = ?`,
 		a.CategoryID, a.CategoryID,
 		a.CategoryID, a.Title, a.Description, a.URL,
-		a.IconKind, a.IconValue, a.IconColor, a.Enabled, a.ID))
+		a.IconKind, a.IconValue, a.IconColor, a.IconBg, a.Enabled, a.ID))
 }
 
 func (db *DB) DeleteApp(id int64) error {

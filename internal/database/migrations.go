@@ -224,7 +224,7 @@ func migrateV7Guides(tx *sql.Tx) error {
 }
 
 // migrateV8SupportAndHero: canali di assistenza collegati agli applicativi e
-// attributi AD mostrati sotto il saluto.
+// attributi AD mostrati sotto il saluto, sfondo del riquadro dell'icona.
 func migrateV8SupportAndHero(tx *sql.Tx) error {
 	_, err := tx.Exec(`
 CREATE TABLE support_channels (
@@ -243,6 +243,7 @@ CREATE TABLE app_support (
 CREATE INDEX idx_app_support_channel ON app_support(channel_id);
 ALTER TABLE audience_attributes ADD COLUMN hero INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE audience_attributes ADD COLUMN hero_kind TEXT NOT NULL DEFAULT 'text';
+ALTER TABLE apps ADD COLUMN icon_bg TEXT NOT NULL DEFAULT ''; -- sfondo del riquadro icona, '' = bianco
 `)
 	return err
 }

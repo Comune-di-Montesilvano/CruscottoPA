@@ -21,6 +21,7 @@ type appForm struct {
 	IconKind    string
 	IconValue   string
 	IconColor   string
+	IconBg      string // "" = riquadro bianco
 	Enabled     bool
 	Visibility  database.ContentAudience
 }
@@ -48,7 +49,7 @@ func newAppForm() appForm {
 
 func formFromApp(a database.App) appForm {
 	return appForm{ID: a.ID, CategoryID: a.CategoryID, Title: a.Title, Description: a.Description,
-		URL: a.URL, IconKind: a.IconKind, IconValue: a.IconValue, IconColor: a.IconColor, Enabled: a.Enabled}
+		URL: a.URL, IconKind: a.IconKind, IconValue: a.IconValue, IconColor: a.IconColor, IconBg: a.IconBg, Enabled: a.Enabled}
 }
 
 func (s *Server) appsData(form appForm, errs formErrors) (appsSection, error) {
@@ -184,12 +185,18 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 	if form.IconColor == "" {
 		form.IconColor = defaultIconColor
 	}
+	if r.FormValue("icon_bg_on") == "1" {
+		form.IconBg = strings.ToLower(strings.TrimSpace(r.FormValue("icon_bg")))
+	}
 
 	errs := formErrors{}
 	checkText(errs, "title", form.Title, 120, true)
 	checkText(errs, "description", form.Description, 200, false)
 	checkURL(errs, "url", form.URL, false)
 	checkColor(errs, "icon", form.IconColor)
+	if form.IconBg != "" {
+		checkColor(errs, "icon", form.IconBg)
+	}
 	if _, err := s.db.GetCategory(form.CategoryID); errors.Is(err, database.ErrNotFound) {
 		errs.add("category", "Scegli una categoria.")
 	} else if err != nil {
@@ -257,7 +264,7 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a := database.App{ID: id, CategoryID: form.CategoryID, Title: form.Title, Description: form.Description,
-		URL: form.URL, IconKind: form.IconKind, IconValue: form.IconValue, IconColor: form.IconColor, Enabled: form.Enabled}
+		URL: form.URL, IconKind: form.IconKind, IconValue: form.IconValue, IconColor: form.IconColor, IconBg: form.IconBg, Enabled: form.Enabled}
 	if id == 0 {
 		id, err = s.db.CreateAppWithAudience(a, form.Visibility)
 	} else {

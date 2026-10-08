@@ -189,3 +189,32 @@ func TestAppIconURLMustBeHTTPS(t *testing.T) {
 		t.Fatalf("icona http: atteso 422, ottenuto %d", rec.Code)
 	}
 }
+
+// Riquadro dell'icona colorato: serve per i loghi bianchi (es. PagoPA).
+func TestAppIconBackground(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	rec := postMultipart(t, s, "/admin/app", appFields(db, map[string]string{"icon_bg_on": "1", "icon_bg": "#0066CC"}), nil, c)
+	if rec.Code != 200 {
+		t.Fatalf("create: %d\n%s", rec.Code, rec.Body)
+	}
+	apps, _ := db.ListApps()
+	a := apps[len(apps)-1]
+	if a.IconBg != "#0066cc" {
+		t.Fatalf("sfondo del riquadro: %q", a.IconBg)
+	}
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, `class="tile-icon" style="background:#0066cc`) {
+		t.Fatalf("riquadro colorato in plancia:\n%s", body)
+	}
+	if body := do(t, s, "GET", "/admin/app/"+itoa(a.ID)+"/modifica", nil, c, hx).Body.String(); !strings.Contains(body, `name="icon_bg_on" value="1" checked`) || !strings.Contains(body, `name="icon_bg" value="#0066cc"`) {
+		t.Fatalf("form di modifica:\n%s", body)
+	}
+	// Casella tolta: torna il riquadro bianco predefinito.
+	postMultipart(t, s, "/admin/app/"+itoa(a.ID), appFields(db, map[string]string{"icon_bg": "#0066cc"}), nil, c)
+	if got, _ := db.GetApp(a.ID); got.IconBg != "" {
+		t.Fatalf("senza casella: %q", got.IconBg)
+	}
+	if rec := postMultipart(t, s, "/admin/app", appFields(db, map[string]string{"icon_bg_on": "1", "icon_bg": "rosso"}), nil, c); rec.Code != 422 {
+		t.Fatalf("colore non valido: %d", rec.Code)
+	}
+}
