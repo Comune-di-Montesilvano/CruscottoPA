@@ -16,27 +16,96 @@
 	tick();
 	setInterval(tick, 15000);
 
-	// ── Ricerca ──────────────────────────────────────────
+	// ── Ricerca a tendina: indice JSON scritto dal server (già filtrato) ──
 	const input = document.getElementById("search");
-	const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+	const list = document.getElementById("search-results");
+	const norm = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+	let index = [];
+	try { index = JSON.parse(document.getElementById("search-index")?.textContent || "[]") || []; } catch (_) { index = []; }
+	index.forEach((it) => { it.nt = norm(it.t); it.nx = norm(`${it.s || ""} ${it.x || ""}`); });
+	const GROUPS = [["app", "Applicativi", "apps"], ["guide", "Guide", "menu_book"], ["support", "Assistenza", "support_agent"]];
+	const MAX_PER_GROUP = 8;
+	let options = [];
+	let active = -1;
 
-	function filter() {
-		const q = norm(input.value.trim());
-		let any = false;
-		document.querySelectorAll("[data-search-item]").forEach((el) => {
-			const hit = q === "" || norm(el.dataset.search || "").includes(q);
-			el.hidden = !hit;
-			any = any || hit;
-		});
-		document.querySelectorAll("[data-category]").forEach((c) => {
-			c.hidden = !c.querySelector("[data-search-item]:not([hidden])");
-		});
-		const guides = document.querySelector(".widget.guides");
-		if (guides) guides.hidden = !guides.querySelector("[data-search-item]:not([hidden])");
-		const none = document.getElementById("no-results");
-		if (none) none.hidden = any || document.querySelectorAll("[data-search-item]").length === 0;
+	// 0 inizio del titolo, 1 inizio di una parola del titolo, 2 dentro il
+	// titolo, 3 nel resto (categoria, descrizione, app coperte); -1 nessuno.
+	function score(it, q) {
+		if (it.nt.startsWith(q)) return 0;
+		if (it.nt.split(/\s+/).some((w) => w.startsWith(q))) return 1;
+		if (it.nt.includes(q)) return 2;
+		if (it.nx.includes(q)) return 3;
+		return -1;
 	}
-	if (input) input.addEventListener("input", filter);
+	function el(tag, cls, text) {
+		const e = document.createElement(tag);
+		if (cls) e.className = cls;
+		if (text) e.textContent = text;
+		return e;
+	}
+	function closeResults() {
+		if (!list) return;
+		list.hidden = true;
+		list.replaceChildren();
+		input.setAttribute("aria-expanded", "false");
+		input.removeAttribute("aria-activedescendant");
+		options = [];
+		active = -1;
+	}
+	function setActive(i) {
+		options.forEach((o, k) => o.classList.toggle("active", k === i));
+		active = i;
+		if (i >= 0) {
+			input.setAttribute("aria-activedescendant", options[i].id);
+			options[i].scrollIntoView({ block: "nearest" });
+		} else {
+			input.removeAttribute("aria-activedescendant");
+		}
+	}
+	function render() {
+		const q = norm(input.value.trim());
+		if (!q || !list) { closeResults(); return; }
+		list.replaceChildren();
+		options = [];
+		GROUPS.forEach(([kind, label, icon]) => {
+			const hits = index.map((it) => [score(it, q), it]).filter(([sc, it]) => sc >= 0 && it.k === kind)
+				.sort((a, b) => a[0] - b[0] || a[1].t.localeCompare(b[1].t, "it")).slice(0, MAX_PER_GROUP);
+			if (!hits.length) return;
+			list.append(el("div", "search-group", label));
+			hits.forEach(([, it]) => {
+				const a = el("a", "search-option");
+				a.id = `search-opt-${options.length}`;
+				a.href = it.u;
+				a.setAttribute("role", "option");
+				if (it.n) { a.target = "_blank"; a.rel = "noopener"; }
+				const ic = el("span", "material-icons", it.k === "app" && it.i ? it.i : icon);
+				ic.setAttribute("aria-hidden", "true");
+				if (it.k === "app" && it.c) ic.style.color = it.c;
+				const txt = el("span", "search-text");
+				txt.append(el("span", "search-title", it.t));
+				if (it.s) txt.append(el("span", "search-sub", it.k === "support" ? `Assistenza per ${it.s}` : it.s));
+				a.append(ic, txt);
+				a.addEventListener("mousemove", () => setActive(options.indexOf(a)));
+				options.push(a);
+				list.append(a);
+			});
+		});
+		if (!options.length) list.append(el("div", "search-empty", `Nessun risultato per «${input.value.trim()}»`));
+		list.hidden = false;
+		input.setAttribute("aria-expanded", "true");
+		setActive(options.length ? 0 : -1);
+	}
+	if (input && list) {
+		input.addEventListener("input", render);
+		input.addEventListener("focus", () => { if (input.value.trim()) render(); });
+		input.addEventListener("keydown", (e) => {
+			if (list.hidden) return;
+			if (e.key === "ArrowDown" && options.length) { e.preventDefault(); setActive((active + 1) % options.length); }
+			else if (e.key === "ArrowUp" && options.length) { e.preventDefault(); setActive((active - 1 + options.length) % options.length); }
+			else if (e.key === "Enter" && active >= 0) { e.preventDefault(); options[active].click(); }
+		});
+		document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) closeResults(); });
+	}
 
 	// ── Carosello avvisi ─────────────────────────────────
 	const ROTATE_MS = 12000;
@@ -251,7 +320,7 @@
 		} else if (e.key === "Escape") {
 			if (input && e.target === input) {
 				input.value = "";
-				filter();
+				closeResults();
 				input.blur();
 			}
 			const open = document.querySelector(".tile.open");

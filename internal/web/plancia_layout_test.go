@@ -185,3 +185,25 @@ func TestTileSupportFollowsAppVisibility(t *testing.T) {
 		t.Fatal("chi vede l'app deve vederne l'assistenza")
 	}
 }
+
+func TestSearchDropdownMarkup(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
+	for _, want := range []string{`role="combobox"`, `aria-controls="search-results"`, `aria-expanded="false"`, `id="search-results" role="listbox"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("manca %q", want)
+		}
+	}
+	if strings.Contains(body, "data-search-item") || strings.Contains(body, `id="no-results"`) {
+		t.Error("il vecchio filtro delle tile va tolto")
+	}
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`getElementById("search-index")`, `"ArrowDown"`, `"ArrowUp"`, `"Enter"`, "aria-activedescendant", `normalize("NFD")`} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+	if strings.Contains(string(js), "data-search-item") {
+		t.Error("dashboard.js filtra ancora le tile")
+	}
+}

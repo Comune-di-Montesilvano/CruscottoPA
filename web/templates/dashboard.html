@@ -31,11 +31,15 @@
 		</div>
 	</header>
 
-	<label class="search">
-		<span class="material-icons" aria-hidden="true">search</span>
-		<input type="search" id="search" placeholder="Cerca un applicativo o una guida…" autocomplete="off" aria-label="Cerca un applicativo o una guida">
-		<kbd>/</kbd>
-	</label>
+	<div class="search-wrap">
+		<label class="search">
+			<span class="material-icons" aria-hidden="true">search</span>
+			<input type="search" id="search" placeholder="Cerca un applicativo, una guida o l'assistenza…" autocomplete="off" aria-label="Cerca un applicativo, una guida o l'assistenza"
+				role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false">
+			<kbd>/</kbd>
+		</label>
+		<div class="search-results" id="search-results" role="listbox" aria-label="Risultati" hidden></div>
+	</div>
 	<script type="application/json" id="search-index">{{.SearchIndex}}</script>
 
 	{{if .Anonymous}}<aside class="ff-help" data-ff-help hidden aria-labelledby="ff-help-title">
@@ -71,7 +75,6 @@
 			{{else}}
 			<p class="empty">Nessun applicativo configurato. Gli amministratori possono aggiungerli dal <a href="/admin">pannello di amministrazione</a>.</p>
 			{{end}}
-			<p class="empty" id="no-results" hidden>Nessun risultato.</p>
 			{{with .Filter}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}
 		</section>
 		</div>

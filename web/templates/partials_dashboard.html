@@ -59,7 +59,7 @@
 {{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"><img src="/uploads/icons/{{.IconValue}}" alt=""></span>{{else if eq .IconKind "url"}}<span class="tile-icon"><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
 {{define "app_tile"}}
-<div class="tile" style="background:{{tint .IconColor}}" data-search-item data-search="{{.Title}} {{.Description}}{{range .Guides}} {{.Title}}{{end}}{{range .Support}} {{.Title}}{{end}}">
+<div class="tile" style="background:{{tint .IconColor}}">
 	<div class="tile-card">
 	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
 		{{template "tile_icon" .App}}
@@ -120,6 +120,6 @@
 {{define "widget_guide"}}{{if .}}
 <section class="widget guides" aria-label="Guide generali">
 	<h2 class="widget-title">Guide generali</h2>
-	<ul>{{range .}}<li data-search-item data-search="{{.Title}}">{{template "guide_link" .}}</li>{{end}}</ul>
+	<ul>{{range .}}<li>{{template "guide_link" .}}</li>{{end}}</ul>
 </section>
 {{end}}{{end}}
