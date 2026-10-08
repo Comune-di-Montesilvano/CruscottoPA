@@ -44,6 +44,14 @@ func (db *DB) MarkRead(alertID int64, username, how string, now time.Time) error
 	return err
 }
 
+// HasRead: l'utente ha già una lettura registrata (evita scritture inutili).
+func (db *DB) HasRead(alertID int64, username string) (bool, error) {
+	var n int
+	err := db.QueryRow(`SELECT COUNT(*) FROM alert_reads WHERE alert_id = ? AND username = ?`,
+		alertID, strings.ToLower(strings.TrimSpace(username))).Scan(&n)
+	return n > 0, err
+}
+
 func (db *DB) ReadsFor(alertID int64) ([]AlertRead, error) {
 	rows, err := db.Query(`SELECT username, read_at, how FROM alert_reads WHERE alert_id = ? ORDER BY read_at, username`, alertID)
 	if err != nil {

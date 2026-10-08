@@ -1,9 +1,14 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
+
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
 // Presenza e letture dalla plancia. Rispondono sempre 200: il reverse proxy
@@ -30,7 +35,15 @@ func (s *Server) handlePresence(w http.ResponseWriter, r *http.Request) {
 
 // markRead registra la lettura se l'avviso esiste ed è visibile all'utente.
 func (s *Server) markRead(username string, alertID int64, how string) {
-	if _, err := s.db.GetAlert(alertID); err != nil {
+	a, err := s.db.GetAlert(alertID)
+	if err != nil {
+		return
+	}
+	now := s.now()
+	if a.StartsAt.After(now) || (a.EndsAt != nil && !now.Before(*a.EndsAt)) {
+		return // programmato o scaduto: non è in plancia
+	}
+	if done, err := s.db.HasRead(alertID, username); err != nil || done {
 		return
 	}
 	if visible, _ := s.alertVisibleTo(username, alertID); !visible {
@@ -48,4 +61,47 @@ func (s *Server) handleAlertRead(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// presenceCleanupEvery: controllo degli utenti non più attivi nel dominio.
+const presenceCleanupEvery = 24 * time.Hour
+
+// CleanupPresence toglie dalla presenza gli utenti che AD non conosce più
+// (disattivati o cancellati). Con AD non raggiungibile non cancella nulla.
+func (s *Server) CleanupPresence() {
+	if s.directory == nil {
+		return
+	}
+	ps, err := s.db.ListPresence()
+	if err != nil {
+		slog.Warn("pulizia presenza", "err", err)
+		return
+	}
+	for _, p := range ps {
+		_, err := s.directory.Lookup(p.Username)
+		switch {
+		case errors.Is(err, identity.ErrUnknownUser):
+			if err := s.db.DeletePresence(p.Username); err != nil {
+				slog.Warn("pulizia presenza", "err", err)
+			}
+		case err != nil:
+			return // AD non raggiungibile: si riprova al prossimo giro
+		}
+	}
+}
+
+// StartPresenceCleanup: pulizia all'avvio e poi una volta al giorno.
+func (s *Server) StartPresenceCleanup(ctx context.Context) {
+	go func() {
+		t := time.NewTicker(presenceCleanupEvery)
+		defer t.Stop()
+		for {
+			s.CleanupPresence()
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+		}
+	}()
 }

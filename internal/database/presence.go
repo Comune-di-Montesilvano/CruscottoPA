@@ -42,17 +42,26 @@ func (db *DB) SetPresenceClient(username string, app bool, permission string, no
 	if u == "" {
 		return nil
 	}
+	// Il browser lo manda a ogni caricamento: si scrive solo se serve.
 	if app {
-		if _, err := db.Exec(`UPDATE user_presence SET last_app_at = ? WHERE username = ?`, formatTime(now), u); err != nil {
+		if _, err := db.Exec(`UPDATE user_presence SET last_app_at = ?
+WHERE username = ? AND (last_app_at IS NULL OR last_app_at < ?)`, formatTime(now), u, formatTime(now.Add(-PresenceEvery))); err != nil {
 			return err
 		}
 	}
 	switch permission {
 	case "granted", "denied", "default":
-		_, err := db.Exec(`UPDATE user_presence SET permission = ?, permission_at = ? WHERE username = ?`, permission, formatTime(now), u)
+		_, err := db.Exec(`UPDATE user_presence SET permission = ?, permission_at = ? WHERE username = ? AND permission <> ?`,
+			permission, formatTime(now), u, permission)
 		return err
 	}
 	return nil
+}
+
+// DeletePresence toglie un utente (es. non più attivo nel dominio).
+func (db *DB) DeletePresence(username string) error {
+	_, err := db.Exec(`DELETE FROM user_presence WHERE username = ?`, strings.ToLower(strings.TrimSpace(username)))
+	return err
 }
 
 func (db *DB) ListPresence() ([]Presence, error) {

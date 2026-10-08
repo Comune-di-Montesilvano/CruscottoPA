@@ -153,6 +153,7 @@ type utentiView struct {
 	Users      []userRow
 	OnlyActive bool
 	Query      string
+	PushOff    bool // Web Push spento (VAPID_SUBJECT vuota): nessuna iscrizione possibile
 }
 
 func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
@@ -178,7 +179,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 			services[u] = append(services[u], name)
 		}
 	}
-	v := utentiView{OnlyActive: r.FormValue("attivi") == "1", Query: strings.TrimSpace(r.FormValue("q"))}
+	v := utentiView{OnlyActive: r.FormValue("attivi") == "1", Query: strings.TrimSpace(r.FormValue("q")), PushOff: s.pusher == nil}
 	q := strings.ToLower(v.Query)
 	cutoff := s.now().Add(-database.ActiveWindow)
 	for _, p := range pres {
@@ -190,10 +191,10 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		switch {
+		case p.Permission == "denied": // bloccate dopo l'iscrizione: l'iscrizione resta ma non arriva nulla
+			row.Notify = "bloccate"
 		case len(row.Services) > 0:
 			row.Notify = "attive"
-		case p.Permission == "denied":
-			row.Notify = "bloccate"
 		case p.Permission == "granted":
 			row.Notify = "senza iscrizione"
 		default:

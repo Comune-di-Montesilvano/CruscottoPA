@@ -7,7 +7,7 @@
 <div class="card">
 	<h2>Letto da ({{len .Reads}})</h2>
 	<table class="list"><thead><tr><th>Utente</th><th>Quando</th><th>Come</th></tr></thead><tbody>
-	{{range .Reads}}<tr><td>{{.Name}}{{if ne .Name .Username}} <small class="muted">{{.Username}}</small>{{end}}</td><td>{{fmtDate .At}}</td><td>{{.How}}</td></tr>
+	{{range .Reads}}<tr><td>{{.Name}}{{if ne .Name .Username}} <small class="muted">{{.Username}}</small>{{end}}</td><td>{{fmtDate .At}}</td><td>{{readLabel .How}}</td></tr>
 	{{else}}<tr><td colspan="3" class="muted">Nessuna lettura registrata.</td></tr>{{end}}
 	</tbody></table>
 </div>
@@ -15,7 +15,7 @@
 <div class="card">
 	<h2>Notifiche</h2>
 	<table class="list"><thead><tr><th>Utente</th><th>Browser</th><th>Inviata</th><th>Esito</th><th>Ricevuta</th></tr></thead><tbody>
-	{{$names := .Names}}{{range .Deliveries}}<tr><td>{{with index $names .Username}}{{.}}{{else}}{{if .Username}}{{.Username}}{{else}}<span class="muted">anonimo</span>{{end}}{{end}}</td><td>{{.Service}}</td><td>{{fmtDate .SentAt}}</td><td>{{.Status}}</td><td>{{with .ReceivedAt}}{{fmtDatePtr .}}{{else}}<span class="muted">non confermata</span>{{end}}</td></tr>
+	{{$names := .Names}}{{range .Deliveries}}<tr><td>{{with index $names .Username}}{{.}}{{else}}{{if .Username}}{{.Username}}{{else}}<span class="muted">anonimo</span>{{end}}{{end}}</td><td>{{.Service}}</td><td>{{fmtDate .SentAt}}</td><td>{{deliveryLabel .Status}}</td><td>{{with .ReceivedAt}}{{fmtDatePtr .}}{{else}}<span class="muted">non confermata</span>{{end}}</td></tr>
 	{{else}}<tr><td colspan="5" class="muted">Nessuna notifica inviata per questo avviso.</td></tr>{{end}}
 	</tbody></table>
 </div>

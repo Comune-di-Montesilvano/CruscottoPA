@@ -1,6 +1,7 @@
 {{define "admin_utenti.html"}}{{template "admin_top" .}}
 <h1>Utenti</h1>
 {{with .Body}}
+{{if .PushOff}}<p class="flash error">Web Push spento (VAPID_SUBJECT vuota): nessuno può iscriversi alle notifiche, chi ha concesso il permesso risulta «senza iscrizione».</p>{{end}}
 <form class="inline-form" method="get" action="/admin/utenti">
 	<label>Cerca<input type="search" name="q" value="{{.Query}}" placeholder="Nome o username"></label>
 	<label class="inline"><input type="checkbox" name="attivi" value="1"{{if .OnlyActive}} checked{{end}}>Solo attivi</label>

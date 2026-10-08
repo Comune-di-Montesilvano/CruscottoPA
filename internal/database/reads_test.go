@@ -18,6 +18,12 @@ func TestReadsAndDeliveries(t *testing.T) {
 	if len(rs) != 1 || rs[0].Username != "mario.rossi" || rs[0].How != ReadOpen || !rs[0].ReadAt.Equal(t0) {
 		t.Fatalf("letture: %+v", rs)
 	}
+	if ok, _ := db.HasRead(id, "MARIO.ROSSI"); !ok {
+		t.Fatal("HasRead")
+	}
+	if ok, _ := db.HasRead(id, "anna"); ok {
+		t.Fatal("HasRead senza lettura")
+	}
 	if c, _ := db.ReadCounts(); c[id] != 1 {
 		t.Fatalf("conteggio letture: %v", c)
 	}

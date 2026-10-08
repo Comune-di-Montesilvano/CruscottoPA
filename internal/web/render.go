@@ -24,24 +24,26 @@ const inputTimeLayout = "2006-01-02T15:04" // <input type="datetime-local">
 
 func (s *Server) funcs() template.FuncMap {
 	return template.FuncMap{
-		"monogram":     monogram,
-		"ente":         s.ente,
-		"repoURL":      func() string { return repoURL },
-		"levelLabel":   levelLabel,
-		"md":           func(src string) template.HTML { return markdown.Render(src, markdown.Options{}) },
-		"excerpt":      func(src string) string { return markdown.Plain(src, excerptRunes) },
-		"needsMore":    needsMore,
-		"humanSize":    humanSize,
-		"tint":         tint,
-		"alertVersion": alertVersion,
-		"alertSource":  alertSource,
-		"shortDay":     shortDay,
-		"occRange":     occRange,
-		"kindLabel":    kindLabel,
-		"guideKind":    guideKindLabel,
-		"guideHref":    guideHref,
-		"guideNewTab":  guideNewTab,
-		"fmtDate":      func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
+		"monogram":      monogram,
+		"ente":          s.ente,
+		"repoURL":       func() string { return repoURL },
+		"levelLabel":    levelLabel,
+		"deliveryLabel": deliveryLabel,
+		"readLabel":     readLabel,
+		"md":            func(src string) template.HTML { return markdown.Render(src, markdown.Options{}) },
+		"excerpt":       func(src string) string { return markdown.Plain(src, excerptRunes) },
+		"needsMore":     needsMore,
+		"humanSize":     humanSize,
+		"tint":          tint,
+		"alertVersion":  alertVersion,
+		"alertSource":   alertSource,
+		"shortDay":      shortDay,
+		"occRange":      occRange,
+		"kindLabel":     kindLabel,
+		"guideKind":     guideKindLabel,
+		"guideHref":     guideHref,
+		"guideNewTab":   guideNewTab,
+		"fmtDate":       func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
 		"fmtDatePtr": func(t *time.Time) string {
 			if t == nil {
 				return ""
@@ -193,4 +195,28 @@ func occRange(o calendar.Occurrence) string {
 		return shortDay(o.Start)
 	}
 	return shortDay(o.Start) + " – " + shortDay(o.End)
+}
+
+// deliveryLabel: esito di una consegna push in italiano.
+func deliveryLabel(status string) string {
+	switch status {
+	case database.DeliverySent:
+		return "inviata"
+	case database.DeliveryFailed:
+		return "non riuscita"
+	case database.DeliveryGone:
+		return "iscrizione scaduta"
+	}
+	return status
+}
+
+// readLabel: come è stato letto un avviso.
+func readLabel(how string) string {
+	switch how {
+	case database.ReadConfirm:
+		return "«Ho letto»"
+	case database.ReadOpen:
+		return "testo aperto"
+	}
+	return how
 }

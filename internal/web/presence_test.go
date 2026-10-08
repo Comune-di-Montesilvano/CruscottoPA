@@ -3,6 +3,7 @@ package web
 import (
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
@@ -64,5 +65,20 @@ func TestReadFromPlancia(t *testing.T) {
 	do(t, s, "GET", "/avvisi/"+itoa(public), nil, anna, nil)
 	if rs, _ := db.ReadsFor(public); len(rs) != 2 || rs[1].Username != "senzanome" || rs[1].How != database.ReadOpen {
 		t.Fatalf("apertura dalla pagina: %+v", rs)
+	}
+}
+
+// Una POST costruita a mano non segna letto un avviso programmato o scaduto.
+func TestReadOnlyActiveAlerts(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	future, _ := db.CreateAlert(database.Alert{Title: "Futuro", Level: database.LevelNews, StartsAt: fixedNow.Add(time.Hour), CreatedAt: fixedNow})
+	end := fixedNow.Add(-time.Minute)
+	past, _ := db.CreateAlert(database.Alert{Title: "Passato", Level: database.LevelNews, StartsAt: fixedNow.Add(-2 * time.Hour), EndsAt: &end, CreatedAt: fixedNow})
+	mario := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"})
+	for _, id := range []int64{future, past} {
+		do(t, s, "POST", "/avvisi/"+itoa(id)+"/letto", url.Values{"come": {"conferma"}}, mario, nil)
+		if rs, _ := db.ReadsFor(id); len(rs) != 0 {
+			t.Errorf("avviso %d non attivo segnato letto: %+v", id, rs)
+		}
 	}
 }

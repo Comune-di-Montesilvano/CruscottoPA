@@ -24,7 +24,7 @@ func TestAlertReadersPage(t *testing.T) {
 		t.Fatalf("lista avvisi:\n%s", list)
 	}
 	page := do(t, s, "GET", "/admin/avvisi/"+itoa(id)+"/letture", nil, c, nil).Body.String()
-	for _, want := range []string{"Sciopero", "Mario Rossi", "conferma", "Chrome/Edge", "Non ancora letto da", "senzanome", "non una prova"} {
+	for _, want := range []string{"Sciopero", "Mario Rossi", "«Ho letto»", "Chrome/Edge", "Non ancora letto da", "senzanome", "non una prova"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("letture: manca %q", want)
 		}
@@ -110,5 +110,49 @@ func TestReadersShortAlertNotTrackable(t *testing.T) {
 	}
 	if list := do(t, s, "GET", "/admin/avvisi", nil, c, nil).Body.String(); !strings.Contains(list, "lettura non rilevabile") {
 		t.Fatal("lista: avviso breve senza indicazione")
+	}
+}
+
+// Utenti non più attivi nel dominio: tolti dalla presenza. AD giù: nulla.
+func TestPresenceCleanup(t *testing.T) {
+	s, db := newTestServer(t, nil) // testDirectory conosce mrossi e senzanome
+	db.TouchPresence("mrossi", "Mario Rossi", fixedNow)
+	db.TouchPresence("cessato", "Ex Dipendente", fixedNow)
+	s.CleanupPresence()
+	ps, _ := db.ListPresence()
+	if len(ps) != 1 || ps[0].Username != "mrossi" {
+		t.Fatalf("dopo la pulizia: %+v", ps)
+	}
+
+	down, db2 := newTestServerWith(t, nil, func(o *Options) { o.Directory = fakeDirectory{err: errors.New("giù")} })
+	db2.TouchPresence("cessato", "", fixedNow)
+	down.CleanupPresence()
+	if ps, _ := db2.ListPresence(); len(ps) != 1 {
+		t.Fatalf("con AD giù non si cancella nulla: %+v", ps)
+	}
+}
+
+// Notifiche bloccate anche con un'iscrizione rimasta; nota con Web Push spento;
+// stati e modi leggibili.
+func TestUsersPanelNotifyStates(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	db.TouchPresence("mrossi", "Mario Rossi", fixedNow)
+	db.SetPresenceClient("mrossi", false, "denied", fixedNow)
+	db.SavePushSubscription(database.PushSubscription{Endpoint: "https://fcm.googleapis.com/m", P256dh: "k", Auth: "a", Username: "mrossi", CreatedAt: fixedNow}, 100)
+	page := do(t, s, "GET", "/admin/utenti", nil, c, nil).Body.String()
+	if !strings.Contains(page, "bloccate") || strings.Contains(page, ">attive<") {
+		t.Fatalf("permesso bloccato con iscrizione rimasta:\n%s", page)
+	}
+	if !strings.Contains(page, "Web Push spento") {
+		t.Error("manca la nota con Web Push spento (VAPID_SUBJECT vuota nei test)")
+	}
+
+	id, _ := db.CreateAlert(database.Alert{Title: "A", Body: strings.Repeat("parola ", 60), Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
+	db.MarkRead(id, "mrossi", database.ReadConfirm, fixedNow)
+	db.RecordDelivery(id, "mrossi", "https://fcm.googleapis.com/m", "Chrome/Edge", database.DeliveryFailed, fixedNow)
+	letture := do(t, s, "GET", "/admin/avvisi/"+itoa(id)+"/letture", nil, c, nil).Body.String()
+	if !strings.Contains(letture, "non riuscita") || strings.Contains(letture, "non_riuscita") || !strings.Contains(letture, "«Ho letto»") {
+		t.Fatalf("etichette:\n%s", letture)
 	}
 }
