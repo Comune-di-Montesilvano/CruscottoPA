@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
@@ -19,10 +20,21 @@ var ErrInvalidDN = audience.ErrInvalidDN
 type AudienceAttribute struct {
 	ID          int64
 	Name, Label string
+	Hero        int    // 0 = non sotto il saluto, altrimenti posizione 1..n
+	HeroKind    string // HeroText | HeroPhone | HeroMail
 }
 
+// Formati degli attributi mostrati sotto il saluto.
+const (
+	HeroText  = "text"
+	HeroPhone = "phone"
+	HeroMail  = "mail"
+)
+
+func ValidHeroKind(k string) bool { return k == HeroText || k == HeroPhone || k == HeroMail }
+
 func (db *DB) ListAudienceAttributes() ([]AudienceAttribute, error) {
-	rows, err := db.Query(`SELECT id, name, label FROM audience_attributes ORDER BY label COLLATE NOCASE, id`)
+	rows, err := db.Query(`SELECT id, name, label, hero, hero_kind FROM audience_attributes ORDER BY label COLLATE NOCASE, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -30,12 +42,97 @@ func (db *DB) ListAudienceAttributes() ([]AudienceAttribute, error) {
 	out := []AudienceAttribute{}
 	for rows.Next() {
 		var a AudienceAttribute
-		if err := rows.Scan(&a.ID, &a.Name, &a.Label); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.Label, &a.Hero, &a.HeroKind); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// HeroAttributes: attributi mostrati sotto il saluto, nell'ordine scelto.
+func (db *DB) HeroAttributes() ([]AudienceAttribute, error) {
+	all, err := db.ListAudienceAttributes()
+	if err != nil {
+		return nil, err
+	}
+	out := []AudienceAttribute{}
+	for _, a := range all {
+		if a.Hero > 0 {
+			out = append(out, a)
+		}
+	}
+	slices.SortFunc(out, func(a, b AudienceAttribute) int { return a.Hero - b.Hero })
+	return out, nil
+}
+
+// SetAttributeHero: kind "" toglie l'attributo dalla testata, altrimenti lo
+// mostra con quel formato (in coda se non c'era).
+func (db *DB) SetAttributeHero(id int64, kind string) error {
+	if kind != "" && !ValidHeroKind(kind) {
+		return fmt.Errorf("formato della testata non valido: %q", kind)
+	}
+	return db.inTx(func(tx *sql.Tx) error {
+		var hero int
+		if err := tx.QueryRow(`SELECT hero FROM audience_attributes WHERE id = ?`, id).Scan(&hero); errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		} else if err != nil {
+			return err
+		}
+		switch {
+		case kind == "":
+			hero, kind = 0, HeroText
+		case hero == 0:
+			if err := tx.QueryRow(`SELECT COALESCE(MAX(hero), 0) + 1 FROM audience_attributes`).Scan(&hero); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.Exec(`UPDATE audience_attributes SET hero = ?, hero_kind = ? WHERE id = ?`, hero, kind, id); err != nil {
+			return err
+		}
+		return renumberHero(tx, 0, 0)
+	})
+}
+
+// MoveAttributeHero sposta un attributo mostrato di una posizione (dir ±1).
+func (db *DB) MoveAttributeHero(id int64, dir int) error {
+	return db.inTx(func(tx *sql.Tx) error { return renumberHero(tx, id, dir) })
+}
+
+// renumberHero rinumera 1..n gli attributi mostrati, spostando id di dir.
+func renumberHero(tx *sql.Tx, id int64, dir int) error {
+	rows, err := tx.Query(`SELECT id FROM audience_attributes WHERE hero > 0 ORDER BY hero, id`)
+	if err != nil {
+		return err
+	}
+	var ids []int64
+	for rows.Next() {
+		var r int64
+		if err := rows.Scan(&r); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, r)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if id != 0 {
+		i := slices.Index(ids, id)
+		if i < 0 {
+			return ErrNotFound
+		}
+		if j := i + dir; j >= 0 && j < len(ids) {
+			ids[i], ids[j] = ids[j], ids[i]
+		}
+	}
+	for pos, r := range ids {
+		if _, err := tx.Exec(`UPDATE audience_attributes SET hero = ? WHERE id = ?`, pos+1, r); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (db *DB) CreateAudienceAttribute(name, label string) (int64, error) {
