@@ -85,7 +85,7 @@ func (s *Server) handlePushTest(w http.ResponseWriter, r *http.Request) {
 	case len(subs) == 0:
 		msg = "Nessuna iscrizione per il tuo utente: apri la plancia da questo PC e attiva le notifiche."
 	default:
-		payload := notify.Payload(database.Alert{ID: 0, Title: "Notifica di prova", Body: "Le notifiche di CruscottoPA funzionano."})
+		payload := notify.ProbePayload(s.now())
 		sent, failed := 0, 0
 		for _, sub := range subs {
 			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
