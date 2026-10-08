@@ -314,3 +314,23 @@ dialog.notify-blocked { width: min(600px, 94vw); max-height: 90vh; overflow-y: a
 .guida-body a { color: var(--p-blue-2); }
 .guida-fonte { margin-top: .8rem; font-size: .88rem; color: var(--p-text-2); word-break: break-all; }
 .guida-fonte a { color: inherit; }
+
+/* Ticket: tile dedicata e dialog. */
+.ticket-row { margin-bottom: 1rem; }
+.tile-ticket { background: #e8f0fe; }
+.tile-ticket .tile-main { border: 0; background: none; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+.tile-ticket .tile-icon { background: #1565c0; color: #fff; }
+dialog.ticket { border: 0; border-radius: 16px; padding: 1.3rem 1.4rem; width: min(560px, 94vw); max-height: 92vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); color: var(--p-text); }
+dialog.ticket::backdrop { background: rgba(16, 24, 40, .45); }
+dialog.ticket h2 { margin: 0 0 .8rem; font-size: 1.15rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
+dialog.ticket label { display: block; margin: .7rem 0 .2rem; font-weight: 600; }
+dialog.ticket input:not([type=file]), dialog.ticket textarea { display: block; width: 100%; box-sizing: border-box; margin-top: .25rem; font: inherit; padding: .5rem .6rem; border: 1px solid #c5ccd6; border-radius: 8px; }
+.ticket-who { display: flex; gap: .6rem; align-items: center; margin: 0 0 .4rem; color: var(--p-text-2); }
+.ticket-err { color: #b3261e; display: block; margin-top: .2rem; }
+.ticket-files { margin-top: .9rem; }
+.ticket-files ul { list-style: none; padding: 0; margin: .4rem 0 0; }
+.ticket-files li { display: flex; align-items: center; gap: .4rem; }
+.ticket-remove { border: 0; background: none; font-size: 1.2rem; cursor: pointer; }
+.ticket-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.1rem; }
+.ticket-done { text-align: center; }
+.ticket-done > .material-icons { font-size: 3rem; color: #2e7d32; }

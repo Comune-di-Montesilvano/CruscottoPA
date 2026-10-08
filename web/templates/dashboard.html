@@ -11,6 +11,7 @@
 	<script src="/static/js/htmx.min.js" defer></script>
 	<script src="/static/js/dashboard.js" defer></script>
 	<script src="/static/js/notifiche.js" defer></script>
+	<script src="/static/js/ticket.js" defer></script>
 {{end}}
 
 {{define "dashboard.html"}}<!doctype html>
@@ -72,6 +73,7 @@
 		<div class="main-col">
 		<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
 		<section class="apps" aria-label="Applicativi">
+			{{if .Ticket.Enabled}}<div class="category ticket-row"><div class="grid">{{template "ticket_tile" .Ticket}}</div></div>{{end}}
 			{{range .Categories}}
 			<div class="category" data-category>
 				<h2 class="section-title">{{.Name}} <span>{{len .Apps}}</span></h2>
@@ -129,5 +131,6 @@
 			<button type="button" class="primary" data-notify-no autofocus>Ho capito</button>
 		</div>
 	</dialog>
+{{template "ticket_dialog" .Ticket}}
 </body>
 </html>{{end}}

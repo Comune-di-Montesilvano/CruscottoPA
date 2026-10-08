@@ -42,7 +42,8 @@ type dashboardView struct {
 	Recognize   bool          // senza cookie e con riconoscimento attivo: dashboard.js chiama /io
 	Anonymous   bool          // riconoscimento attivo ma utente non riconosciuto: aiuto per Firefox
 	Filter      *contentFilter
-	Admin       bool // link al pannello admin nel footer
+	Admin       bool       // link al pannello admin nel footer
+	Ticket      ticketView // tile e dialog «Apri un ticket»
 }
 
 type avvisiView struct {
@@ -111,6 +112,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Anonymous:   s.recognitionEnabled() && (!known || u.Anonymous),
 		Filter:      f,
 		Admin:       s.viewerIsAdmin(r),
+		Ticket:      s.ticketViewFor(r),
 	})
 }
 
@@ -239,4 +241,21 @@ func readable(s string) string {
 	}
 	r, n := utf8.DecodeRuneInString(s)
 	return string(unicode.ToUpper(r)) + strings.ToLower(s[n:])
+}
+
+type ticketView struct {
+	Enabled  bool
+	Problem  string // "" | anonimo | ad | mail
+	Name     string
+	Email    string
+	Phone    string
+	Fallback string
+}
+
+func (s *Server) ticketViewFor(r *http.Request) ticketView {
+	if !s.ticketsEnabled() {
+		return ticketView{}
+	}
+	req, problem := s.ticketRequester(r)
+	return ticketView{Enabled: true, Problem: problem, Name: req.Name, Email: req.Email, Phone: req.Phone, Fallback: s.cfg.OTRS.FallbackEmail}
 }
