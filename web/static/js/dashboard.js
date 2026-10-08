@@ -77,6 +77,7 @@
 				a.id = `search-opt-${options.length}`;
 				a.href = it.u;
 				a.setAttribute("role", "option");
+				a.tabIndex = -1; // il focus resta sull'input (combobox)
 				if (it.n) { a.target = "_blank"; a.rel = "noopener"; }
 				const ic = el("span", "material-icons", it.k === "app" && it.i ? it.i : icon);
 				ic.setAttribute("aria-hidden", "true");
@@ -105,6 +106,9 @@
 			else if (e.key === "Enter" && active >= 0) { e.preventDefault(); options[active].click(); }
 		});
 		document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) closeResults(); });
+		// Uscendo dalla ricerca (Tab, clic altrove) la tendina si chiude.
+		const wrap = input.closest(".search-wrap");
+		wrap?.addEventListener("focusout", (e) => { if (!wrap.contains(e.relatedTarget)) closeResults(); });
 	}
 
 	// ── Carosello avvisi ─────────────────────────────────

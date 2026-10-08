@@ -207,3 +207,14 @@ func TestSearchDropdownMarkup(t *testing.T) {
 		t.Error("dashboard.js filtra ancora le tile")
 	}
 }
+
+// Uscendo dalla ricerca con Tab (blur) la tendina si chiude; le opzioni non
+// prendono il focus (pattern combobox: il focus resta sull'input).
+func TestSearchDropdownClosesOnBlur(t *testing.T) {
+	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	for _, want := range []string{`"focusout"`, "!wrap.contains(e.relatedTarget)", "a.tabIndex = -1"} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+}
