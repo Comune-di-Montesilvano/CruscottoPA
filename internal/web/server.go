@@ -149,8 +149,9 @@ func New(o Options) (*Server, error) {
 		s.pusher = &notify.WebPusher{Subject: o.Config.VAPIDSubject, PublicKey: pub, PrivateKey: priv}
 	}
 	s.routes()
-	// Allegati dei ticket lasciati a metà da un riavvio: nessuno li userà più.
-	os.RemoveAll(s.ticketTmpDir())
+	// Caricamenti (media e allegati dei ticket) lasciati a metà da un riavvio:
+	// nessuno li completerà più.
+	os.RemoveAll(filepath.Join(o.Config.UploadDir, ".tmp"))
 	return s, nil
 }
 
