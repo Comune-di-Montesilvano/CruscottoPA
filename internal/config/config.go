@@ -33,7 +33,7 @@ type OTRS struct {
 	RouteCreate   string // route POST di TicketCreate
 	RouteUpdate   string // route PATCH di TicketUpdate
 	RouteSearch   string // route POST di TicketSearch
-	RouteGet      string // route GET di TicketGet, con :TicketID
+	RouteGet      string // route GET di TicketGet: con :TicketID nel percorso, oppure senza (ID nel corpo)
 	User          string
 	Password      string
 	Queue         string
@@ -61,9 +61,6 @@ func (o OTRS) validate(ldapMock bool) error {
 		if !strings.HasPrefix(r.val, "/") {
 			return fmt.Errorf("%s deve iniziare con /", r.name)
 		}
-	}
-	if !strings.Contains(o.RouteGet, ":TicketID") {
-		return errors.New("OTRS_ROUTE_GET deve contenere :TicketID")
 	}
 	for _, r := range []struct{ name, val string }{{"OTRS_USER", o.User}, {"OTRS_PASSWORD", o.Password}, {"OTRS_QUEUE", o.Queue}} {
 		if r.val == "" {

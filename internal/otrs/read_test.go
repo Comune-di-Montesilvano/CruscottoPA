@@ -243,3 +243,23 @@ func TestGetTooLargeDropsAttachments(t *testing.T) {
 		t.Fatalf("degrado: %+v %v", tk, err)
 	}
 }
+
+// Route di TicketGet senza :TicketID: l'ID viaggia nel corpo JSON.
+func TestGetRouteWithoutParam(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method != "GET" || r.URL.Path != "/ws/TicketGet" || body["TicketID"] != "5" {
+			http.Error(w, "<html>cortesia</html>", 500)
+			return
+		}
+		io.WriteString(w, ticketJSON("5", "mrossi@example.it", "Coda prova", "open"))
+	}))
+	defer srv.Close()
+	c := &HTTPClient{Config: config.OTRS{URL: srv.URL + "/ws", RouteGet: "/TicketGet", User: "a", Password: "b", Queue: "Coda prova"},
+		HTTP: srv.Client(), Loc: rome}
+	if tk, err := c.Get(context.Background(), "mrossi@example.it", "5"); err != nil || tk.TicketID != "5" {
+		t.Fatalf("TicketGet senza parametro nella route: %+v %v", tk, err)
+	}
+}

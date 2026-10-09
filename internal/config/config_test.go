@@ -52,7 +52,6 @@ func TestLoadOTRSValidation(t *testing.T) {
 		{"OTRS_ROUTE_CREATE", "TicketCreate", "OTRS_ROUTE_CREATE"},
 		{"OTRS_ROUTE_UPDATE", "x", "OTRS_ROUTE_UPDATE"},
 		{"OTRS_ROUTE_SEARCH", "TicketSearch", "OTRS_ROUTE_SEARCH"},
-		{"OTRS_ROUTE_GET", "/Ticket", ":TicketID"},
 		{"OTRS_ROUTE_GET", "Ticket/:TicketID", "OTRS_ROUTE_GET"},
 		{"OTRS_URL", "mock", "mock"}, // mock solo con LDAP_HOST=mock
 	} {
@@ -244,5 +243,19 @@ func TestLoadGuideRefresh(t *testing.T) {
 	t.Setenv("GUIDE_REFRESH_HOURS", "-1")
 	if _, err := Load(); err == nil {
 		t.Error("GUIDE_REFRESH_HOURS=-1: atteso errore")
+	}
+}
+
+// TicketGet su una route senza parametro (es. /TicketGet): il TicketID va nel corpo.
+func TestLoadOTRSRouteGetWithoutParam(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("OTRS_URL", "https://otrs.example.it/ws/Prova")
+	t.Setenv("OTRS_USER", "a")
+	t.Setenv("OTRS_PASSWORD", "b")
+	t.Setenv("OTRS_QUEUE", "c")
+	t.Setenv("OTRS_ROUTE_GET", "/TicketGet")
+	if cfg, err := Load(); err != nil || cfg.OTRS.RouteGet != "/TicketGet" {
+		t.Fatalf("route senza parametro: %v %+v", err, cfg.OTRS)
 	}
 }

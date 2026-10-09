@@ -142,7 +142,14 @@ func (c *HTTPClient) getRaw(ctx context.Context, id string, attachments bool) (r
 	var out struct{ Ticket []rawTicket }
 	cctx, cancel := context.WithTimeout(ctx, ReadTimeout)
 	defer cancel()
-	route := strings.Replace(c.Config.RouteGet, ":TicketID", id, 1)
+	// Route con :TicketID (es. /Ticket/:TicketID) oppure senza (es. /TicketGet):
+	// in quel caso l'ID viaggia nel corpo, come le credenziali.
+	route := c.Config.RouteGet
+	if strings.Contains(route, ":TicketID") {
+		route = strings.Replace(route, ":TicketID", id, 1)
+	} else {
+		body["TicketID"] = id
+	}
 	if err := c.call(cctx, http.MethodGet, route, body, &out, maxGetBytes); err != nil {
 		if !errors.Is(err, errTooLarge) && strings.Contains(err.Error(), "TicketGet.") { // es. TicketGet.AccessDenied o ticket inesistente
 			return rawTicket{}, ErrNotYours
