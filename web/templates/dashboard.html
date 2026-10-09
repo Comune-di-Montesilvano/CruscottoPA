@@ -31,7 +31,7 @@
 			<div class="hero-center">
 				{{with .User.PC}}<div class="hero-pc" data-pc title="Nome di questo PC: comunicalo all'assistenza">
 					<span class="material-icons" aria-hidden="true">computer</span>
-					<span class="hero-pc-text"><small>Questo PC</small><strong>{{.}}</strong>{{with $.PCIP}}<span class="hero-pc-ip">{{.}}</span>{{end}}</span>
+					<span class="hero-pc-text"><small>Questo PC</small><strong>{{.}}</strong>{{with $.PCIP}}<span class="hero-pc-ip">Indirizzo IP: {{.}}</span>{{end}}</span>
 					<button type="button" data-pc-copy="{{.}}" aria-label="Copia il nome del PC"><span class="material-icons" aria-hidden="true">content_copy</span></button>
 				</div>{{end}}
 				<button type="button" class="notify-off" data-notify-off hidden>
