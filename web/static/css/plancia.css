@@ -352,28 +352,112 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 .ticket-pc { display: flex; gap: .5rem; align-items: center; margin: 0 0 .4rem; color: var(--p-text-3); }
 .ticket-pc .material-icons { font-size: 1.1rem; }
 
-/* Widget «I miei ticket». */
-.ticket-list { list-style: none; margin: .4rem 0 0; padding: 0; }
-.ticket-link { display: grid; grid-template-columns: auto 1fr; column-gap: .45rem; padding: .45rem .3rem; border-radius: 8px; color: inherit; text-decoration: none; }
-.ticket-link:hover { background: var(--p-page); }
-.ticket-link .ticket-title { grid-column: 2; font-weight: 600; }
-.ticket-link small { grid-column: 2; color: var(--p-text-3); }
-.ticket-unread { grid-row: 1; width: .55rem; height: .55rem; margin-top: .4rem; border-radius: 50%; background: var(--p-blue-2); }
-.ticket-closed summary { cursor: pointer; color: var(--p-text-3); margin-top: .5rem; font-size: .85rem; }
-.linklike { border: 0; background: none; padding: 0; color: var(--p-blue-2); font: inherit; cursor: pointer; text-decoration: underline; }
+/* ── Ticket: stati, widget, elenco, conversazione ───────────────────────── */
+/* Ogni stato ha un colore: barra a sinistra delle righe ed etichetta. */
+.st-new { --st: #1570ef; --st-bg: #eff8ff; }
+.st-open { --st: #0e9384; --st-bg: #f0fdf9; }
+.st-pending { --st: #b54708; --st-bg: #fef0c7; }
+.st-closed { --st: #667085; --st-bg: #f2f4f7; }
 
-/* Pagina del ticket. */
-.ticket-main { max-width: 760px; margin: 0 auto; padding: 1.5rem 16px 3rem; }
-.ticket-head h1 { margin: .3rem 0; font-size: 1.4rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
-.ticket-thread { list-style: none; padding: 0; margin: 1.2rem 0; display: flex; flex-direction: column; gap: .8rem; }
-.ticket-msg { background: #fff; border: 1px solid var(--p-line); border-radius: 12px; padding: .8rem 1rem; max-width: 85%; align-self: flex-end; }
-.ticket-msg.from-agent { align-self: flex-start; background: #e8f0fe; border-color: #c6d8fb; }
-.ticket-msg-head small { color: var(--p-text-3); margin-left: .4rem; }
-.ticket-msg-body { white-space: pre-wrap; margin-top: .35rem; overflow-wrap: anywhere; }
-.ticket-msg-files { list-style: none; padding: 0; margin: .5rem 0 0; }
-.ticket-msg-files a { display: inline-flex; align-items: center; gap: .25rem; }
-.ticket-reply { background: #fff; border: 1px solid var(--p-line); border-radius: 12px; padding: 1rem; }
-.ticket-reply h2 { margin: 0 0 .5rem; font-size: 1.05rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
-.ticket-reply textarea { display: block; width: 100%; box-sizing: border-box; margin-top: .25rem; font: inherit; padding: .5rem .6rem; border: 1px solid #c5ccd6; border-radius: 8px; }
-.ticket-reply button { border: 1px solid var(--p-line); background: #fff; border-radius: 10px; padding: .55rem 1rem; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: .3rem; }
-.ticket-reply .primary { background: var(--p-blue-2); border-color: var(--p-blue-2); color: #fff; font-weight: 600; }
+/* Widget «I miei ticket» */
+.tw-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
+.tw-head .widget-title { margin: 0; }
+.tw-all { display: inline-flex; align-items: center; font-size: .78rem; font-weight: 600; color: var(--p-blue-2); text-decoration: none; white-space: nowrap; }
+.tw-all .material-icons { font-size: 1rem; }
+.tw-all:hover { text-decoration: underline; }
+.tw-note { display: flex; gap: .45rem; align-items: center; margin: 0; color: var(--p-text-3); font-size: .85rem; }
+.tw-note .material-icons { font-size: 1.1rem; }
+.tw-empty { display: grid; justify-items: center; gap: .4rem; padding: .6rem 0 .3rem; text-align: center; }
+.tw-empty p { margin: 0; color: var(--p-text-3); font-size: .88rem; }
+.tw-empty-icon { width: 44px; height: 44px; border-radius: 50%; background: #e8f0fe; color: var(--p-blue-2); display: grid; place-items: center; font-size: 1.4rem; }
+.tw-open { border: 1px solid var(--p-blue-2); background: #fff; color: var(--p-blue-2); border-radius: 999px; padding: .35rem .9rem; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.tw-open:hover { background: #eff6ff; }
+
+.ticket-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
+.ticket-link { display: grid; gap: .15rem; padding: .5rem .6rem .5rem .75rem; border-left: 3px solid var(--st, var(--p-line)); border-radius: 4px 10px 10px 4px; color: inherit; text-decoration: none; background: #fff; }
+.ticket-link:hover, .ticket-link:focus-visible { background: var(--st-bg, var(--p-page)); }
+.ticket-title { font-size: .9rem; font-weight: 550; color: var(--p-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ticket-link.is-unread .ticket-title { font-weight: 700; }
+.ticket-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .6rem; font-size: .76rem; color: var(--p-text-3); }
+.st-label { color: var(--st); font-weight: 600; }
+.ticket-unread { display: inline-flex; align-items: center; gap: .3rem; color: var(--p-blue-2); font-weight: 700; }
+.ticket-unread::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: var(--p-blue-2); }
+
+/* Pagine dei ticket: banda blu come la plancia, contenuto che vi si appoggia. */
+.thero { background: linear-gradient(120deg, var(--p-blue-1) 0%, var(--p-blue-2) 60%, var(--p-blue-3) 100%); color: #fff; padding: 1rem 0 3.4rem; }
+.thero > * { max-width: 820px; margin-left: auto; margin-right: auto; padding: 0 16px; box-sizing: border-box; }
+.thero-crumbs { display: flex; align-items: center; gap: .15rem; font-size: .82rem; opacity: .9; }
+.thero-crumbs a { color: #fff; text-decoration: none; }
+.thero-crumbs a:hover { text-decoration: underline; }
+.thero-crumbs .material-icons { font-size: 1rem; opacity: .7; }
+.thero-main { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-top: .6rem; }
+.thero h1 { margin: 0; font-size: 1.55rem; font-weight: 650; line-height: 1.25; text-transform: none; letter-spacing: normal; color: #fff; }
+.thero-meta { margin: .3rem 0 0; font-size: .88rem; opacity: .85; }
+.thero-action { display: inline-flex; align-items: center; gap: .3rem; border: 0; background: #fff; color: var(--p-blue-1); border-radius: 999px; padding: .5rem 1rem .5rem .75rem; font: inherit; font-weight: 650; cursor: pointer; }
+.thero-action:hover { background: #eff6ff; }
+.tpage { max-width: 820px; margin: -2.4rem auto 3rem; padding: 0 16px; box-sizing: border-box; position: relative; }
+.tpage-note { display: flex; gap: .5rem; align-items: center; background: #fff; border-radius: 12px; padding: .7rem .9rem; box-shadow: var(--p-shadow); color: var(--p-text-2); font-size: .88rem; }
+.tpage-empty { display: grid; justify-items: center; gap: .5rem; background: #fff; border-radius: 16px; padding: 2rem 1rem; box-shadow: var(--p-shadow); text-align: center; color: var(--p-text-2); }
+.tpage-empty > .material-icons { font-size: 2.2rem; color: var(--p-text-4); }
+.tpage-empty p { margin: 0; max-width: 46ch; }
+.tpage-back { color: var(--p-blue-2); font-weight: 600; }
+
+/* Elenco */
+.tlist { background: #fff; border-radius: 16px; box-shadow: var(--p-shadow); padding: 1rem 1.1rem; margin-bottom: 1rem; }
+.tlist h2 { display: flex; align-items: center; gap: .5rem; margin: 0 0 .6rem; font-size: 1rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
+.tlist-count { min-width: 1.5rem; padding: 0 .4rem; border-radius: 999px; background: var(--p-page); color: var(--p-text-3); font-size: .78rem; text-align: center; }
+.ticket-list-wide .ticket-link { padding: .65rem .8rem .65rem .9rem; }
+.ticket-list-wide .ticket-title { font-size: .95rem; white-space: normal; }
+
+/* Tracciato dello stato: unico elemento forte della pagina. */
+.tracker { list-style: none; margin: 0 0 1.2rem; padding: 1rem 1.2rem; background: #fff; border-radius: 16px; box-shadow: var(--p-shadow); display: grid; grid-template-columns: repeat(3, 1fr); }
+.tracker li { position: relative; display: grid; justify-items: center; gap: .35rem; font-size: .82rem; color: var(--p-text-4); text-align: center; }
+.tracker li::before { content: ""; position: absolute; top: .55rem; right: 50%; width: 100%; height: 3px; background: var(--p-line); z-index: 0; }
+.tracker li:first-child::before { display: none; }
+.tracker li.is-done::before { background: var(--p-blue-2); }
+.tracker-dot { position: relative; z-index: 1; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: #fff; border: 3px solid var(--p-line); box-sizing: border-box; }
+.tracker li.is-done { color: var(--p-text-2); }
+.tracker li.is-done .tracker-dot { border-color: var(--p-blue-2); background: var(--p-blue-2); }
+.tracker li[aria-current="step"] { color: var(--p-blue-1); font-weight: 700; }
+.tracker li[aria-current="step"] .tracker-dot { width: 1.4rem; height: 1.4rem; margin-top: -.15rem; background: #fff; border-width: 5px; box-shadow: 0 0 0 4px #dbeafe; }
+
+/* Conversazione */
+.thread { list-style: none; margin: 0 0 1.2rem; padding: 0; display: grid; gap: .9rem; }
+.msg { display: grid; grid-template-columns: 2.2rem 1fr; gap: .6rem; align-items: start; }
+.msg-avatar { width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; font-size: 1.15rem; background: #fff; color: var(--p-text-3); box-shadow: var(--p-shadow); }
+.msg.from-agent .msg-avatar { background: var(--p-blue-2); color: #fff; }
+.msg-card { background: #fff; border-radius: 4px 14px 14px 14px; padding: .75rem .95rem; box-shadow: var(--p-shadow); min-width: 0; }
+.msg.from-agent .msg-card { background: #eff6ff; box-shadow: inset 0 0 0 1px #d1e0ff; }
+.msg-head { display: flex; justify-content: space-between; gap: .8rem; font-size: .85rem; color: var(--p-text-2); }
+.msg-head time { color: var(--p-text-3); font-size: .8rem; }
+.msg-body { margin-top: .35rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; color: var(--p-text); }
+.msg-files { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.msg-files li { display: inline-flex; align-items: center; gap: .35rem; background: #fff; border: 1px solid var(--p-line); border-radius: 999px; padding: .2rem .7rem .2rem .45rem; font-size: .82rem; }
+.msg-files a { display: inline-flex; align-items: center; gap: .2rem; color: var(--p-blue-2); text-decoration: none; }
+.msg-files .material-icons { font-size: 1rem; }
+.msg-files small { color: var(--p-text-4); }
+.msg-pc { margin-top: .55rem; font-size: .78rem; color: var(--p-text-3); }
+.msg-pc summary { cursor: pointer; }
+.msg-pc div { white-space: pre-wrap; margin-top: .3rem; padding-left: .8rem; border-left: 2px solid var(--p-line); }
+
+/* Risposta */
+.reply { background: #fff; border-radius: 16px; box-shadow: var(--p-shadow); padding: 1rem 1.1rem; margin-left: 2.8rem; }
+.reply-label { display: block; font-weight: 600; color: var(--p-text-2); margin-bottom: .45rem; }
+.reply textarea { display: block; width: 100%; box-sizing: border-box; font: inherit; padding: .6rem .7rem; border: 1px solid #c5ccd6; border-radius: 10px; resize: vertical; min-height: 5.5rem; }
+.reply textarea:focus { outline: 2px solid var(--p-blue-3); outline-offset: 1px; border-color: transparent; }
+.reply-files { list-style: none; padding: 0; margin: .5rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.reply-files li { display: inline-flex; align-items: center; gap: .2rem; background: var(--p-page); border-radius: 999px; padding: .15rem .3rem .15rem .7rem; font-size: .82rem; }
+.reply-actions { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-top: .7rem; }
+.reply-attach, .reply-send { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .5rem 1rem; font: inherit; cursor: pointer; }
+.reply-attach { border: 1px solid var(--p-line); background: #fff; color: var(--p-text-2); }
+.reply-send { border: 0; background: var(--p-blue-2); color: #fff; font-weight: 650; }
+.reply-send:disabled { opacity: .6; cursor: progress; }
+.reply .ticket-remove { border: 0; background: none; cursor: pointer; font-size: 1.1rem; }
+.reply-attach .material-icons, .reply-send .material-icons { font-size: 1.1rem; }
+
+@media (max-width: 640px) {
+	.thero h1 { font-size: 1.3rem; }
+	.reply { margin-left: 0; }
+	.msg { grid-template-columns: 1fr; }
+	.msg-avatar { display: none; }
+}

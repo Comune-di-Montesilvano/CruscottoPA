@@ -27,7 +27,7 @@ func TestTicketWidget(t *testing.T) {
 		t.Fatal("contenitore del widget assente")
 	}
 	body := do(t, s, "GET", "/partials/ticket", nil, c, nil).Body.String()
-	for _, want := range []string{"Stampante ferma", "/ticket/5", "In lavorazione", "Chiusi di recente", "Password", "ticket-unread"} {
+	for _, want := range []string{"Stampante ferma", "/ticket/5", "Nuova risposta", "ticket-unread", "Tutti i miei ticket (2)"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("widget: manca %q", want)
 		}

@@ -52,17 +52,34 @@
 {{end}}{{end}}
 
 {{define "widget_ticket"}}
-<h2 class="widget-title">I miei ticket</h2>
-{{if .Down}}<p class="muted">Assistenza non raggiungibile, riprova più tardi.</p>
-{{else}}
-{{if .Open}}<ul class="ticket-list">{{range .Open}}{{template "ticket_row" .}}{{end}}</ul>
-{{else}}<p class="muted">Nessun ticket aperto. <button type="button" class="linklike" data-ticket-open>Apri un ticket</button></p>{{end}}
-{{with .Closed}}<details class="ticket-closed"><summary>Chiusi di recente ({{len .}})</summary><ul class="ticket-list">{{range .}}{{template "ticket_row" .}}{{end}}</ul></details>{{end}}
-{{end}}
+<div class="tw-head">
+	<h2 class="widget-title">I miei ticket</h2>
+	{{if .Total}}<a class="tw-all" href="/ticket">Tutti i miei ticket ({{.Total}})<span class="material-icons" aria-hidden="true">chevron_right</span></a>{{end}}
+</div>
+{{if .Down}}<p class="tw-note"><span class="material-icons" aria-hidden="true">cloud_off</span>Assistenza non raggiungibile: riprova più tardi.</p>
+{{else if .Rows}}<ul class="ticket-list">{{range .Rows}}{{template "ticket_row" .}}{{end}}</ul>
+{{else}}<div class="tw-empty">
+	<span class="tw-empty-icon material-icons" aria-hidden="true">support_agent</span>
+	<p>Nessun ticket aperto.</p>
+	<button type="button" class="tw-open" data-ticket-open>Apri un ticket</button>
+</div>{{end}}
 {{end}}
 
-{{define "ticket_row"}}<li><a href="/ticket/{{.TicketID}}" class="ticket-link">
-	{{if .Unread}}<span class="ticket-unread" title="Nuova risposta"></span>{{end}}
+{{define "ticket_row"}}<li><a href="/ticket/{{.TicketID}}" class="ticket-link {{stateClass .StateType}}{{if .Unread}} is-unread{{end}}">
 	<span class="ticket-title">{{.Title}}</span>
-	<small>{{ticketState .StateType}} · {{shortDay .Changed}} · n. {{.TicketNumber}}</small>
+	<span class="ticket-meta">{{if .Unread}}<span class="ticket-unread">Nuova risposta</span>{{else}}<span class="st-label">{{ticketState .StateType}}</span>{{end}}<span>{{ago .Changed}}</span></span>
 </a></li>{{end}}
+
+{{/* Testata delle pagine dei ticket: briciole e titolo sulla banda blu. */}}
+{{define "ticket_hero"}}
+<header class="thero">
+	<nav class="thero-crumbs" aria-label="Percorso"><a href="/">Plancia</a><span class="material-icons" aria-hidden="true">chevron_right</span>{{if .Sub}}<a href="/ticket">I miei ticket</a>{{else}}<span aria-current="page">I miei ticket</span>{{end}}</nav>
+	<div class="thero-main">
+		<div>
+			<h1>{{.Title}}</h1>
+			{{with .Meta}}<p class="thero-meta">{{.}}</p>{{end}}
+		</div>
+		{{if .Action}}<button type="button" class="thero-action" data-ticket-open><span class="material-icons" aria-hidden="true">add</span>Apri un ticket</button>{{end}}
+	</div>
+</header>
+{{end}}

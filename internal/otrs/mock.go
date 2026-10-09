@@ -17,6 +17,8 @@ type Mock struct {
 	FailUpdate bool               // simula il cliente non impostato
 	Tickets    map[string]*Ticket // per TicketID; nil = nessuna lettura
 	Replies    []MockReply        // risposte ricevute
+	demo       map[string]bool    // NewDemoMock: utenti con i ticket di esempio
+	next       int                // numerazione dei ticket di esempio
 }
 
 // NewMock: OTRS finto per lo sviluppo; un ticket aperto compare nei propri ticket.
@@ -46,6 +48,7 @@ func (m *Mock) Mine(_ context.Context, email string) ([]Summary, error) {
 	if m.Err != nil {
 		return nil, m.Err
 	}
+	m.seedDemo(email)
 	out := []Summary{}
 	for _, t := range m.Tickets {
 		if strings.EqualFold(t.CustomerUserID, email) {

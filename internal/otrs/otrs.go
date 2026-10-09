@@ -65,7 +65,7 @@ type Created struct {
 // New: client finto con OTRS_URL=mock, altrimenti HTTP.
 func New(c config.OTRS, loc *time.Location) Client {
 	if c.Mock() {
-		return NewMock()
+		return NewDemoMock()
 	}
 	h := NewHTTPClient(c)
 	h.Loc = loc

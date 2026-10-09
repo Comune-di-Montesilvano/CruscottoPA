@@ -263,3 +263,31 @@ func TestGetRouteWithoutParam(t *testing.T) {
 		t.Fatalf("TicketGet senza parametro nella route: %+v %v", tk, err)
 	}
 }
+
+// OTRS_URL=mock: ticket di esempio al primo accesso di ogni utente (sviluppo).
+func TestDemoMockSeeds(t *testing.T) {
+	m := NewDemoMock()
+	got, err := m.Mine(context.Background(), "mrossi@example.it")
+	if err != nil || len(got) < 3 {
+		t.Fatalf("esempi: %+v %v", got, err)
+	}
+	states := map[string]bool{}
+	agent := false
+	for _, s := range got {
+		states[s.StateType] = true
+		tk, _ := m.Get(context.Background(), "mrossi@example.it", s.TicketID)
+		for _, a := range tk.Articles {
+			agent = agent || a.FromAgent
+		}
+	}
+	if !states["new"] || !states["open"] || !states["closed"] || !agent {
+		t.Fatalf("esempi poco vari: %v agent=%v", states, agent)
+	}
+	again, _ := m.Mine(context.Background(), "mrossi@example.it")
+	if len(again) != len(got) {
+		t.Fatal("esempi ricreati a ogni lettura")
+	}
+	if plain, _ := NewMock().Mine(context.Background(), "mrossi@example.it"); len(plain) != 0 {
+		t.Fatal("NewMock senza esempi")
+	}
+}

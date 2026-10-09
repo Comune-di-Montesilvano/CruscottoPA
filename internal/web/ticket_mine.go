@@ -1,10 +1,6 @@
 package web
 
 import (
-	"context"
-	"errors"
-	"log/slog"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -117,61 +113,4 @@ func stateLabel(stateType string) string {
 		return "Chiuso"
 	}
 	return stateType
-}
-
-type ticketRow struct {
-	otrs.Summary
-	Unread bool
-}
-
-type ticketWidget struct {
-	Open, Closed []ticketRow
-	Down         bool
-}
-
-// handleTicketWidget: widget caricato a parte (HTMX). Senza modulo, utente
-// anonimo o senza mail: niente (200 vuoto).
-func (s *Server) handleTicketWidget(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	if !s.ticketsEnabled() {
-		return
-	}
-	req, problem := s.ticketRequester(r)
-	if problem != "" {
-		return
-	}
-	user := s.ticketUser(r)
-	if err := s.db.UpsertTicketUser(req.Email, user, s.now()); err != nil {
-		slog.Warn("ticket: mail → utente", "err", err)
-	}
-	list, err := s.ticketCache.mine(req.Email, func() ([]otrs.Summary, error) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*otrs.ReadTimeout)
-		defer cancel()
-		return s.tickets.Mine(ctx, req.Email)
-	})
-	if err != nil {
-		if !errors.Is(err, otrs.ErrOTRS) {
-			slog.Warn("ticket: elenco", "err", err)
-		}
-		s.render(w, http.StatusOK, "widget_ticket", ticketWidget{Down: true})
-		return
-	}
-	seen, err := s.db.TicketSeen(user)
-	if err != nil {
-		slog.Warn("ticket: visti", "err", err)
-	}
-	var v ticketWidget
-	for _, t := range list {
-		row := ticketRow{Summary: t}
-		if !t.LastAgentArticle.IsZero() {
-			at, ok := seen[t.TicketID]
-			row.Unread = !ok || t.LastAgentArticle.After(at)
-		}
-		if t.Closed {
-			v.Closed = append(v.Closed, row)
-		} else {
-			v.Open = append(v.Open, row)
-		}
-	}
-	s.render(w, http.StatusOK, "widget_ticket", v)
 }
