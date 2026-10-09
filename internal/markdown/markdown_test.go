@@ -87,15 +87,18 @@ func TestRenderRelativeRewrite(t *testing.T) {
 	opt := Options{
 		LinkBase:  "https://github.com/o/r/blob/main/docs/",
 		ImageBase: "https://raw.githubusercontent.com/o/r/main/docs/",
+		LinkRoot:  "https://github.com/o/r/blob/main/",
+		ImageRoot: "https://raw.githubusercontent.com/o/r/main/",
 	}
-	got := string(Render("[altro](altro.md) ![s](img/s.png) [ass](https://x.org/a) [ancora](#sez) ![u](/uploads/guide/a.png) [qui](./b.md)", opt))
+	got := string(Render("[altro](altro.md) ![s](img/s.png) [ass](https://x.org/a) [ancora](#sez) ![u](/img/a.png) [qui](./b.md) [radice](/README.md)", opt))
 	for _, want := range []string{
 		`href="https://github.com/o/r/blob/main/docs/altro.md"`,
 		`src="https://raw.githubusercontent.com/o/r/main/docs/img/s.png"`,
 		`href="https://x.org/a"`,
 		`href="#sez"`,
-		`src="/uploads/guide/a.png"`,
+		`src="https://raw.githubusercontent.com/o/r/main/img/a.png"`, // "/" = radice del repository, come su GitHub
 		`href="https://github.com/o/r/blob/main/docs/b.md"`,
+		`href="https://github.com/o/r/blob/main/README.md"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("manca %s: %s", want, got)
@@ -103,6 +106,25 @@ func TestRenderRelativeRewrite(t *testing.T) {
 	}
 	if got := r("![u](/uploads/guide/a.png)"); !strings.Contains(got, `src="/uploads/guide/a.png"`) {
 		t.Errorf("relativo interno: %s", got)
+	}
+}
+
+// Le entità nell'URL si decodificano prima del controllo: &#x2F;&#x2F;host è
+// //host (host esterno senza schema), anche se codificato due volte.
+func TestRenderLinkEntities(t *testing.T) {
+	for _, src := range []string{
+		"[x](&#x2F;&#x2F;evil.example/a)",
+		"[x](&#47;/evil.example/a)",
+		"[x](&amp;#x2F;&amp;#x2F;evil.example/a)",
+		"[x](&#x2F;&#x2F;evil.example/a \"t\")",
+	} {
+		got := r(src)
+		if strings.Contains(got, "<a") || !strings.Contains(got, "x") {
+			t.Errorf("%s → %s", src, got)
+		}
+	}
+	if got := r("[q](https://example.it/?a=1&amp;b=2)"); !strings.Contains(got, `href="https://example.it/?a=1&amp;b=2"`) {
+		t.Errorf("entità lecita: %s", got)
 	}
 }
 

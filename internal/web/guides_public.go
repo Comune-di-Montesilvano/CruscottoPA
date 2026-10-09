@@ -65,7 +65,7 @@ func (s *Server) handleGuidePage(w http.ResponseWriter, r *http.Request) {
 		case database.GuideKindGitHub:
 			src, _ := guidesrc.ParseGitHubURL(g.SourceURL)
 			view.Guide, view.Source = g, g.SourceURL
-			view.HTML = markdown.Render(g.Body, markdown.Options{LinkBase: src.LinkBase, ImageBase: src.ImageBase})
+			view.HTML = markdown.Render(g.Body, markdown.Options{LinkBase: src.LinkBase, ImageBase: src.ImageBase, LinkRoot: src.LinkRoot, ImageRoot: src.ImageRoot})
 		case database.GuideKindLink:
 			http.Redirect(w, r, g.URL, http.StatusSeeOther)
 			return

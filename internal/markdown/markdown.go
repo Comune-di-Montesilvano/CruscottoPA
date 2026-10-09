@@ -4,6 +4,7 @@ package markdown
 
 import (
 	"bytes"
+	stdhtml "html"
 	"html/template"
 	"net/url"
 	"strings"
@@ -20,9 +21,11 @@ import (
 )
 
 // Options: basi per riscrivere link e immagini relativi (guide GitHub).
-// Vuote = relativi lasciati come sono.
+// Vuote = relativi lasciati come sono. Root: radice del repository, per i
+// percorsi che iniziano con "/" (su GitHub sono relativi al repository).
 type Options struct {
 	LinkBase, ImageBase string
+	LinkRoot, ImageRoot string
 }
 
 // Render: a capo singolo = <br> (gli avvisi scritti in testo semplice restano
@@ -53,7 +56,7 @@ func (s sanitizer) Transform(doc *ast.Document, reader text.Reader, _ parser.Con
 		case *ast.Heading:
 			n.Level = min(n.Level+1, 6)
 		case *ast.Link:
-			dest, ok := fixURL(string(n.Destination), s.opt.LinkBase, true)
+			dest, ok := fixURL(string(n.Destination), s.opt.LinkBase, s.opt.LinkRoot, true)
 			if !ok {
 				unwrap = append(unwrap, n)
 				return ast.WalkContinue, nil
@@ -68,13 +71,13 @@ func (s sanitizer) Transform(doc *ast.Document, reader text.Reader, _ parser.Con
 			if !strings.Contains(u, "://") { // linkify di "www.esempio.it": goldmark antepone http://
 				u = "http://" + u
 			}
-			if _, ok := fixURL(u, "", true); !ok {
+			if _, ok := fixURL(u, "", "", true); !ok {
 				drop = append(drop, n)
 				return ast.WalkSkipChildren, nil
 			}
 			external(n, u)
 		case *ast.Image:
-			dest, ok := fixURL(string(n.Destination), s.opt.ImageBase, false)
+			dest, ok := fixURL(string(n.Destination), s.opt.ImageBase, s.opt.ImageRoot, false)
 			if !ok {
 				drop = append(drop, n)
 				return ast.WalkSkipChildren, nil
@@ -105,10 +108,15 @@ func external(n ast.Node, dest string) {
 	}
 }
 
-// fixURL valida un URL e riscrive i relativi con base. link=false (immagini):
-// niente mailto.
-func fixURL(raw, base string, link bool) (string, bool) {
-	raw = strings.TrimSpace(raw)
+// fixURL valida un URL e riscrive i relativi con base (o root se iniziano con
+// "/"). link=false (immagini): niente mailto. Le entità HTML si decodificano
+// prima del controllo e fino in fondo (&amp;#x2F; → &#x2F; → /): il renderer
+// le decodificherebbe dopo, trasformando un relativo innocuo in //host.
+func fixURL(raw, base, root string, link bool) (string, bool) {
+	raw, ok := unescapeAll(strings.TrimSpace(raw))
+	if !ok {
+		return "", false
+	}
 	if strings.ContainsAny(raw, "\x00\t\r\n\\") {
 		return "", false
 	}
@@ -125,10 +133,26 @@ func fixURL(raw, base string, link bool) (string, bool) {
 		if u.Host != "" || strings.HasPrefix(raw, "//") {
 			return "", false // //host/x: host esterno senza schema
 		}
+		if strings.HasPrefix(raw, "/") && root != "" {
+			return root + strings.TrimPrefix(raw, "/"), true
+		}
 		if base == "" || raw == "" || strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "#") {
 			return raw, true
 		}
 		return base + strings.TrimPrefix(raw, "./"), true
+	}
+	return "", false
+}
+
+// unescapeAll decodifica le entità finché il testo non cambia più; troppi
+// livelli di codifica = URL scartato.
+func unescapeAll(s string) (string, bool) {
+	for range 4 {
+		u := stdhtml.UnescapeString(s)
+		if u == s {
+			return s, true
+		}
+		s = u
 	}
 	return "", false
 }
