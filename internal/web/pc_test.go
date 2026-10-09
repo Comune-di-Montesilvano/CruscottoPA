@@ -125,7 +125,7 @@ func TestTicketPCInfoWithoutPCName(t *testing.T) {
 
 func TestPCScripts(t *testing.T) {
 	dash, _ := os.ReadFile("../../web/static/js/dashboard.js")
-	for _, want := range []string{"/io?aggiorna=1", "data-pc-aggiorna", "data-pc-copy", "clipboard"} {
+	for _, want := range []string{"/io?aggiorna=1", "data-pc-aggiorna", `querySelectorAll("[data-pc-copy]")`, "clipboard"} {
 		if !strings.Contains(string(dash), want) {
 			t.Errorf("dashboard.js: manca %q", want)
 		}

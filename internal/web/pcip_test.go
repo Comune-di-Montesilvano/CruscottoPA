@@ -69,8 +69,15 @@ func TestPCIPInHeaderAndTicket(t *testing.T) {
 	s, _ := pcipServer(t, m)
 	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", PC: "PC-PROVA-001"})
 	page := do(t, s, "GET", "/", nil, c, nil).Body.String()
-	if !strings.Contains(page, `<span class="hero-pc-ip">Indirizzo IP: 192.0.2.15</span>`) {
-		t.Error("testata: IP del PC mancante")
+	for _, want := range []string{
+		`<dt>Nome PC</dt><dd>PC-PROVA-001</dd>`,
+		`<dt>Indirizzo IP</dt><dd>192.0.2.15</dd>`,
+		`data-pc-copy="192.0.2.15" aria-label="Copia l'indirizzo IP"`,
+		`data-pc-copy="PC-PROVA-001" aria-label="Copia il nome del PC"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("testata: manca %s", want)
+		}
 	}
 	if !strings.Contains(page, "IP <strong>192.0.2.15</strong>") {
 		t.Error("dialog: IP mancante fra le informazioni allegate")
