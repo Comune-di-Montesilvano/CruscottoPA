@@ -95,7 +95,7 @@ func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg [
 		s.refreshRecognition(w, r, login)
 		return
 	}
-	if !strings.EqualFold(login.Domain, s.cfg.NTLMDomain) {
+	if !s.ntlmDomainOK(login) {
 		slog.Info("riconoscimento: dominio non ammesso", "domain", auth.SafeLog(login.Domain), "user", auth.SafeLog(login.User))
 		s.recognized(w, r, identity.User{Anonymous: true})
 		return
@@ -119,7 +119,7 @@ func (s *Server) finishRecognition(w http.ResponseWriter, r *http.Request, msg [
 // refreshRecognition: come finishRecognition, ma ogni esito diverso dal
 // riconoscimento lascia il cookie com'è (AD giù, dominio o utente diversi).
 func (s *Server) refreshRecognition(w http.ResponseWriter, r *http.Request, login identity.Login) {
-	if strings.EqualFold(login.Domain, s.cfg.NTLMDomain) {
+	if s.ntlmDomainOK(login) {
 		if p, err := s.directory.Lookup(login.User); err == nil {
 			s.recognized(w, r, identity.User{Username: p.Username, Name: p.Name, GivenName: p.GivenName, PC: cleanPC(login.Workstation)})
 			return
@@ -127,6 +127,15 @@ func (s *Server) refreshRecognition(w http.ResponseWriter, r *http.Request, logi
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"riconosciuto":false}`))
+}
+
+// ntlmDomainOK: dominio NetBIOS configurato, oppure dominio vuoto con un UPN
+// (utente@dominio), che la directory cerca per userPrincipalName.
+func (s *Server) ntlmDomainOK(login identity.Login) bool {
+	if login.Domain == "" {
+		return strings.Contains(login.User, "@")
+	}
+	return strings.EqualFold(login.Domain, s.cfg.NTLMDomain)
 }
 
 // cleanPC: nome NetBIOS del PC, solo lettere, cifre, '.', '_' e '-', max 63.
