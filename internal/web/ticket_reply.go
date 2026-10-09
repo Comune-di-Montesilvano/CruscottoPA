@@ -69,7 +69,7 @@ func (s *Server) handleTicketReply(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), ticketSendTimeout)
 	defer cancel()
 	err = s.tickets.Reply(ctx, req.Email, id, otrs.NewReply{Name: req.Name, Email: req.Email,
-		Body: body + pcBlock(req.PC, r), Attachments: atts})
+		Body: body + pcBlock(req.PC, s.pcIP(req.PC), r), Attachments: atts})
 	if err != nil {
 		s.releaseTicketFiles(ids)
 		if errors.Is(err, otrs.ErrNotYours) {

@@ -31,11 +31,14 @@ type ticketRequester struct{ Name, Email, Phone, PC string }
 
 // pcBlock: informazioni sul PC in fondo alla descrizione. Il nome viene dal
 // cookie (NTLM), browser, sistema e schermo dal browser: una riga ciascuno.
-func pcBlock(pc string, r *http.Request) string {
+func pcBlock(pc, ip string, r *http.Request) string {
 	if pc == "" {
 		pc = "non rilevato"
 	}
 	b := "\n\n— Informazioni sul PC —\nPC: " + pc
+	if ip != "" {
+		b += "\nIP: " + ip
+	}
 	for _, f := range []struct{ label, field string }{{"Browser", "browser"}, {"Sistema", "sistema"}, {"Schermo", "schermo"}} {
 		if v := oneLine(r.FormValue(f.field), 60); v != "" {
 			b += "\n" + f.label + ": " + v
@@ -160,7 +163,7 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), ticketSendTimeout)
 	defer cancel()
 	created, err := s.tickets.Create(ctx, otrs.NewTicket{Name: req.Name, Email: req.Email, Phone: phone,
-		Subject: subject, Body: body + pcBlock(req.PC, r), Attachments: atts})
+		Subject: subject, Body: body + pcBlock(req.PC, s.pcIP(req.PC), r), Attachments: atts})
 	if err != nil {
 		s.releaseTicketFiles(ids) // lo stesso dialog può riprovare con gli stessi allegati (il client ha già scritto il log)
 		reply(map[string]any{"errore": "otrs"})

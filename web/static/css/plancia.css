@@ -346,7 +346,7 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 .hero-pc button { border: 0; background: rgba(255, 255, 255, .16); color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .hero-pc button .material-icons { font-size: 1rem; }
 .hero-pc button.copied { background: #2e7d32; }
-.ticket-pc { display: flex; gap: .5rem; align-items: center; margin: 0 0 .4rem; color: var(--p-text-3); }
+.ticket-pc { display: flex; gap: .5rem; align-items: flex-start; line-height: 1.45; margin: 0 0 .4rem; color: var(--p-text-3); }
 .ticket-pc .material-icons { font-size: 1.1rem; }
 
 /* ── Ticket: stati, widget, elenco, conversazione ───────────────────────── */
@@ -484,3 +484,6 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 @media (max-width: 640px) {
 	.hero-center { order: 3; flex-basis: 100%; align-items: flex-start; }
 }
+
+/* IP del PC sotto il nome, in «Questo PC». */
+.hero-pc-ip { font-size: .78rem; opacity: .85; font-variant-numeric: tabular-nums; }

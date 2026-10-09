@@ -45,6 +45,8 @@ type Options struct {
 	Now          func() time.Time
 	// GuideFetch scarica un file raw da GitHub (nil = guidesrc.NewFetcher().Fetch).
 	GuideFetch func(ctx context.Context, rawURL string) (string, error)
+	// PCLookup: risoluzione DNS del nome del PC (nil = resolver con PC_DNS_SERVER).
+	PCLookup func(ctx context.Context, host string) ([]string, error)
 	// Tickets: invio dei ticket a OTRS (nil = modulo spento).
 	Tickets otrs.Client
 }
@@ -73,11 +75,13 @@ type Server struct {
 	hub             *notify.Hub   // plance collegate a /eventi
 	pusher          notify.Pusher // nil = Web Push spento
 	vapidPublic     string
-	notifyDone      chan struct{} // chiuso quando il dispatcher è terminato
-	tickets         otrs.Client   // nil = modulo ticket spento
-	ticketSending   sync.Map      // username → invio a OTRS in corso
-	ticketCache     *ticketCache  // letture da OTRS
-	ticketDownloads chan struct{} // download di allegati in corso (al massimo cap)
+	notifyDone      chan struct{}                                            // chiuso quando il dispatcher è terminato
+	tickets         otrs.Client                                              // nil = modulo ticket spento
+	ticketSending   sync.Map                                                 // username → invio a OTRS in corso
+	ticketCache     *ticketCache                                             // letture da OTRS
+	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
+	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
+	pcIPs           pcIPCache
 }
 
 func New(o Options) (*Server, error) {
@@ -128,6 +132,11 @@ func New(o Options) (*Server, error) {
 	s.profiles = newProfileCache(o.Now)
 	s.ticketCache = newTicketCache(o.Now)
 	s.ticketDownloads = make(chan struct{}, 4)
+	s.pcLookup = o.PCLookup
+	if s.pcLookup == nil {
+		s.pcLookup = newPCLookup(o.Config.PCDNSServer)
+	}
+	s.pcIPs = pcIPCache{m: map[string]cachedIP{}}
 	s.membersCache = newMembersCache(o.Now)
 	s.hub = notify.NewHub(2000)
 	if o.Config.VAPIDSubject != "" {

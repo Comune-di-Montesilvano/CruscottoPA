@@ -11,7 +11,7 @@ var allVars = []string{
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
 	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT", "GUIDE_REFRESH_HOURS",
-	"OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
+	"PC_DNS_SUFFIX", "PC_DNS_SERVER", "OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
 }
 
 func TestLoadOTRSDisabledByDefault(t *testing.T) {
@@ -257,5 +257,21 @@ func TestLoadOTRSRouteGetWithoutParam(t *testing.T) {
 	t.Setenv("OTRS_ROUTE_GET", "/TicketGet")
 	if cfg, err := Load(); err != nil || cfg.OTRS.RouteGet != "/TicketGet" {
 		t.Fatalf("route senza parametro: %v %+v", err, cfg.OTRS)
+	}
+}
+
+// IP del PC: suffisso DNS del dominio e, facoltativo, il DNS da interrogare.
+func TestLoadPCDNS(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("PC_DNS_SUFFIX", " .intranet.example.it. ")
+	t.Setenv("PC_DNS_SERVER", "192.0.2.53")
+	cfg, err := Load()
+	if err != nil || cfg.PCDNSSuffix != "intranet.example.it" || cfg.PCDNSServer != "192.0.2.53:53" {
+		t.Fatalf("PC DNS: %v %q %q", err, cfg.PCDNSSuffix, cfg.PCDNSServer)
+	}
+	t.Setenv("PC_DNS_SERVER", "dns.example.it:5353")
+	if cfg, _ := Load(); cfg.PCDNSServer != "dns.example.it:5353" {
+		t.Fatalf("porta esplicita: %q", cfg.PCDNSServer)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -85,6 +86,10 @@ type Config struct {
 	LDAP              LDAP
 	// NTLMDomain: dominio NetBIOS accettato da /io (vuoto = riconoscimento spento).
 	NTLMDomain string
+	// PCDNSSuffix: suffisso DNS del dominio per l'IP del PC (vuoto = niente IP).
+	PCDNSSuffix string
+	// PCDNSServer: DNS da interrogare, host:porta (vuoto = quello del container).
+	PCDNSServer string
 	// VAPIDSubject: contatto VAPID (mailto: o https:); vuoto = Web Push spento.
 	VAPIDSubject string
 	// OTRS: modulo ticket (vuoto = spento).
@@ -110,6 +115,8 @@ func Load() (Config, error) {
 		},
 		NTLMDomain:   strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
 		VAPIDSubject: strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
+		PCDNSSuffix:  strings.Trim(strings.TrimSpace(os.Getenv("PC_DNS_SUFFIX")), "."),
+		PCDNSServer:  dnsServer(os.Getenv("PC_DNS_SERVER")),
 		OTRS: OTRS{
 			URL:           strings.TrimRight(strings.TrimSpace(os.Getenv("OTRS_URL")), "/"),
 			RouteCreate:   getEnv("OTRS_ROUTE_CREATE", "/TicketCreate"),
@@ -164,6 +171,18 @@ func Load() (Config, error) {
 		cfg.SessionSecret = hex.EncodeToString(b)
 	}
 	return cfg, nil
+}
+
+// dnsServer: "10.0.0.1" → "10.0.0.1:53"; con la porta resta com'è.
+func dnsServer(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	if _, _, err := net.SplitHostPort(v); err == nil {
+		return v
+	}
+	return net.JoinHostPort(v, "53")
 }
 
 func getEnv(key, fallback string) string {
