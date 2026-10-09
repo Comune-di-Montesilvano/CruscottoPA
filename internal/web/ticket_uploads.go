@@ -48,6 +48,12 @@ type ticketUploads struct {
 	byID map[string]*ticketUpload
 }
 
+// uploadExpired: caricamento più vecchio di un'ora (la pulizia avviene solo
+// all'avvio di un nuovo upload: fino ad allora va rifiutato ovunque).
+func (s *Server) uploadExpired(u *ticketUpload) bool {
+	return s.now().Sub(u.started) > ticketUploadTTL
+}
+
 func (s *Server) ticketTmpDir() string { return filepath.Join(s.cfg.UploadDir, ".tmp", "ticket") }
 
 // ticketUser: username del cookie, "" se anonimo o senza cookie.
@@ -71,6 +77,10 @@ func (s *Server) expireTicketUploads() {
 }
 
 func (s *Server) handleTicketFileStart(w http.ResponseWriter, r *http.Request) {
+	if !s.ticketsEnabled() {
+		mediaFail(w, "L'apertura dei ticket non è attiva.")
+		return
+	}
 	user := s.ticketUser(r)
 	if user == "" {
 		mediaFail(w, "Per allegare file devi essere riconosciuto.")
@@ -117,7 +127,7 @@ func (s *Server) handleTicketFileChunk(w http.ResponseWriter, r *http.Request) {
 
 	s.ticketFiles.mu.Lock()
 	u := s.ticketFiles.byID[id]
-	if u == nil || u.username != user || u.done || u.writing {
+	if u == nil || u.username != user || u.done || u.writing || s.uploadExpired(u) {
 		s.ticketFiles.mu.Unlock()
 		mediaFail(w, "Caricamento scaduto, riprova.")
 		return
@@ -166,7 +176,7 @@ func (s *Server) handleTicketFileFinish(w http.ResponseWriter, r *http.Request) 
 	s.ticketFiles.mu.Lock()
 	defer s.ticketFiles.mu.Unlock()
 	u := s.ticketFiles.byID[id]
-	if u == nil || u.username != user || u.done || u.writing {
+	if u == nil || u.username != user || u.done || u.writing || s.uploadExpired(u) {
 		mediaFail(w, "Caricamento scaduto, riprova.")
 		return
 	}
@@ -215,7 +225,7 @@ func (s *Server) takeTicketFiles(username string, ids []string) ([]otrs.Attachme
 	seen := map[string]bool{}
 	for _, id := range ids {
 		u := s.ticketFiles.byID[id]
-		if u == nil || seen[id] || !u.done || u.taken || u.username != username {
+		if u == nil || seen[id] || !u.done || u.taken || u.username != username || s.uploadExpired(u) {
 			s.ticketFiles.mu.Unlock()
 			return nil, nil, errTicketFiles
 		}

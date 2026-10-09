@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 )
 
 // uploadTicketFile carica data a pezzi come ticket.js; risposta finale o primo errore.
@@ -30,7 +31,7 @@ func uploadTicketFile(t *testing.T, s *Server, c *http.Cookie, name string, data
 
 func ticketServer(t *testing.T) (*Server, *http.Cookie) {
 	t.Helper()
-	s, _ := newTestServer(t, nil)
+	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Tickets = otrs.NewMock() }) // caricamenti solo con il modulo attivo
 	return s, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"})
 }
 

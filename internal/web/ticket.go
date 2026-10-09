@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -76,7 +75,10 @@ func (s *Server) ticketRequester(r *http.Request) (ticketRequester, string) {
 	case !ok:
 		return ticketRequester{}, "anonimo"
 	}
-	req := ticketRequester{Name: u.Name, Email: firstAttr(p, "mail"), Phone: firstAttr(p, "telephoneNumber"), PC: u.PC}
+	req := ticketRequester{Name: firstAttr(p, "displayName"), Email: firstAttr(p, "mail"), Phone: firstAttr(p, "telephoneNumber"), PC: u.PC}
+	if req.Name == "" {
+		req.Name = u.Name // AD senza displayName: il nome letto al riconoscimento
+	}
 	if req.Name == "" {
 		req.Name = u.Username
 	}
@@ -160,10 +162,7 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 	created, err := s.tickets.Create(ctx, otrs.NewTicket{Name: req.Name, Email: req.Email, Phone: phone,
 		Subject: subject, Body: body + pcBlock(req.PC, r), Attachments: atts})
 	if err != nil {
-		s.releaseTicketFiles(ids) // lo stesso dialog può riprovare con gli stessi allegati
-		if !errors.Is(err, otrs.ErrOTRS) {
-			slog.Error("ticket: invio", "err", err)
-		}
+		s.releaseTicketFiles(ids) // lo stesso dialog può riprovare con gli stessi allegati (il client ha già scritto il log)
 		reply(map[string]any{"errore": "otrs"})
 		return
 	}
