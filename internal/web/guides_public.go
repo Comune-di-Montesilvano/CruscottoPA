@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
@@ -49,6 +52,22 @@ func (s *Server) planciaGuide(r *http.Request) (*database.Guide, error) {
 	return &g, nil
 }
 
+// adminGuide: qualsiasi guida, anche disattivata o riservata (anteprima
+// dall'admin, dietro requireAdmin); nil se non c'è.
+func (s *Server) adminGuide(r *http.Request) (*database.Guide, error) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		return nil, nil
+	}
+	g, err := s.db.GetGuide(id)
+	if errors.Is(err, database.ErrNotFound) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
 // handleGuidePage: guide Markdown e GitHub. Guida non disponibile → 200 con
 // messaggio (il proxy riscriverebbe un 404).
 func (s *Server) handleGuidePage(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +76,22 @@ func (s *Server) handleGuidePage(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	view := guidaView{Version: s.version, Admin: s.viewerIsAdmin(r)}
+	s.showGuide(w, r, g, "/guide/%d/pdf", s.viewerIsAdmin(r))
+}
+
+// handleAdminGuidePreview: come /guide/{id}, per ogni guida (l'admin la vede
+// prima di attivarla). Il PDF passa da /admin/guide/{id}/pdf.
+func (s *Server) handleAdminGuidePreview(w http.ResponseWriter, r *http.Request) {
+	g, err := s.adminGuide(r)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.showGuide(w, r, g, "/admin/guide/%d/pdf", true)
+}
+
+func (s *Server) showGuide(w http.ResponseWriter, r *http.Request, g *database.Guide, pdfPath string, admin bool) {
+	view := guidaView{Version: s.version, Admin: admin}
 	if g != nil {
 		switch g.Kind {
 		case database.GuideKindMarkdown:
@@ -65,12 +99,12 @@ func (s *Server) handleGuidePage(w http.ResponseWriter, r *http.Request) {
 		case database.GuideKindGitHub:
 			src, _ := guidesrc.ParseGitHubURL(g.SourceURL)
 			view.Guide, view.Source = g, g.SourceURL
-			view.HTML = markdown.Render(g.Body, markdown.Options{LinkBase: src.LinkBase, ImageBase: src.ImageBase})
+			view.HTML = markdown.Render(g.Body, markdown.Options{LinkBase: src.LinkBase, ImageBase: src.ImageBase, LinkRoot: src.LinkRoot, ImageRoot: src.ImageRoot})
 		case database.GuideKindLink:
 			http.Redirect(w, r, g.URL, http.StatusSeeOther)
 			return
 		case database.GuideKindPDF:
-			http.Redirect(w, r, fmt.Sprintf("/guide/%d/pdf", g.ID), http.StatusSeeOther)
+			http.Redirect(w, r, fmt.Sprintf(pdfPath, g.ID), http.StatusSeeOther)
 			return
 		}
 	}
@@ -83,33 +117,70 @@ func (s *Server) handleGuidePDF(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
+	s.serveGuidePDF(w, r, g, s.viewerIsAdmin(r))
+}
+
+func (s *Server) handleAdminGuidePDF(w http.ResponseWriter, r *http.Request) {
+	g, err := s.adminGuide(r)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.serveGuidePDF(w, r, g, true)
+}
+
+func (s *Server) serveGuidePDF(w http.ResponseWriter, r *http.Request, g *database.Guide, admin bool) {
 	if g == nil || g.Kind != database.GuideKindPDF || !guideMediaRe.MatchString(g.File) || !strings.HasSuffix(g.File, ".pdf") {
-		s.render(w, http.StatusOK, "guida.html", guidaView{Version: s.version, Admin: s.viewerIsAdmin(r)})
+		s.render(w, http.StatusOK, "guida.html", guidaView{Version: s.version, Admin: admin})
 		return
 	}
 	h := w.Header()
 	h.Set("Content-Type", "application/pdf")
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", pdfCSP)
-	h.Set("Content-Disposition", `inline; filename="`+pdfFilename(g.Title)+`"`)
+	h.Set("Content-Disposition", pdfDisposition(g.Title))
 	http.ServeFile(w, r, filepath.Join(s.uploadDir(uploadGuide), g.File))
 }
 
-// pdfFilename: titolo ridotto a caratteri sicuri per l'header.
-func pdfFilename(title string) string {
-	var b strings.Builder
+// pdfDisposition: nome del file dal titolo. filename* (RFC 6266) tiene le
+// lettere accentate; filename è il ripiego ASCII, con gli accenti tolti.
+func pdfDisposition(title string) string {
+	var full, ascii strings.Builder
 	for _, r := range title {
 		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
-			b.WriteRune(r)
+		case r == '-' || r == '_' || (r >= '0' && r <= '9'):
+			full.WriteRune(r)
+			ascii.WriteRune(r)
+		case unicode.IsLetter(r):
+			full.WriteRune(r)
+			if r < utf8.RuneSelf {
+				ascii.WriteRune(r)
+			} else if b, ok := unaccent[unicode.ToLower(r)]; ok {
+				if unicode.IsUpper(r) {
+					b = unicode.ToUpper(b)
+				}
+				ascii.WriteRune(b)
+			}
 		case r == ' ' || r == '\'':
-			b.WriteByte('-')
+			full.WriteByte('-')
+			ascii.WriteByte('-')
 		}
 	}
-	if b.Len() == 0 {
-		return "guida.pdf"
+	name := func(b *strings.Builder) string {
+		s := strings.Trim(b.String(), "-")
+		if s == "" {
+			return "guida.pdf"
+		}
+		return s + ".pdf"
 	}
-	return b.String() + ".pdf"
+	return `inline; filename="` + name(&ascii) + `"; filename*=UTF-8''` + url.PathEscape(name(&full))
+}
+
+// unaccent: lettere accentate più comuni nei titoli → lettera base.
+var unaccent = map[rune]rune{
+	'à': 'a', 'á': 'a', 'â': 'a', 'ä': 'a', 'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+	'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ò': 'o', 'ó': 'o', 'ô': 'o', 'ö': 'o',
+	'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 'ç': 'c', 'ñ': 'n',
 }
 
 // guideHref: dove porta una guida dalla plancia.

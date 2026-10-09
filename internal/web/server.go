@@ -65,6 +65,7 @@ type Server struct {
 	backup          *backup.Service
 	restoreDelay    time.Duration
 	branding        atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
+	brandingMu      sync.Mutex                        // un salvataggio di /admin/ente alla volta
 	tmpl            *template.Template
 	store           *sessions.CookieStore
 	version         string
@@ -148,8 +149,9 @@ func New(o Options) (*Server, error) {
 		s.pusher = &notify.WebPusher{Subject: o.Config.VAPIDSubject, PublicKey: pub, PrivateKey: priv}
 	}
 	s.routes()
-	// Allegati dei ticket lasciati a metà da un riavvio: nessuno li userà più.
-	os.RemoveAll(s.ticketTmpDir())
+	// Caricamenti (media e allegati dei ticket) lasciati a metà da un riavvio:
+	// nessuno li completerà più.
+	os.RemoveAll(filepath.Join(o.Config.UploadDir, ".tmp"))
 	return s, nil
 }
 
@@ -260,6 +262,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/app/{id}/sposta", s.requireAdmin(s.handleAppMove))
 	s.mux.HandleFunc("GET /admin/guide", s.requireAdmin(s.handleGuidesPage))
 	s.mux.HandleFunc("GET /admin/guide/{id}/modifica", s.requireAdmin(s.handleGuideEdit))
+	s.mux.HandleFunc("GET /admin/guide/{id}/anteprima", s.requireAdmin(s.handleAdminGuidePreview))
+	s.mux.HandleFunc("GET /admin/guide/{id}/pdf", s.requireAdmin(s.handleAdminGuidePDF))
 	s.mux.HandleFunc("POST /admin/guide", s.requireAdmin(s.handleGuideSave))
 	s.mux.HandleFunc("POST /admin/guide/{id}", s.requireAdmin(s.handleGuideSave))
 	s.mux.HandleFunc("POST /admin/guide/{id}/elimina", s.requireAdmin(s.handleGuideDelete))

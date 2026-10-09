@@ -28,6 +28,13 @@
 </article>
 {{end}}
 
+{{define "audience_toggle"}}{{with .}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}{{end}}
+
+{{/* Refresh del carosello: con il contatore di "Mostra anche…" fuori banda. */}}
+{{define "alerts_partial"}}{{template "alerts_carousel" .Alerts}}
+<div id="audience-toggle" hx-swap-oob="true">{{template "audience_toggle" .Filter}}</div>
+{{end}}
+
 {{define "alerts_carousel"}}{{if .}}
 <section class="carousel" data-carousel tabindex="0" aria-roledescription="carosello" aria-label="Avvisi">
 	<div class="carousel-track">{{range .}}{{template "alert_card" .}}{{end}}</div>
@@ -54,9 +61,9 @@
 {{end}}{{end}}
 {{end}}{{end}}
 
-{{define "app_icon"}}{{if eq .IconKind "pack"}}<span class="app-icon" style="background:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<img class="app-icon" src="/uploads/icons/{{.IconValue}}" alt=""{{with .IconBg}} style="background:{{.}}"{{end}}>{{else if eq .IconKind "url"}}<img class="app-icon" src="{{.IconValue}}" alt=""{{with .IconBg}} style="background:{{.}}"{{end}} data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}">{{else}}<span class="app-icon" style="background:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
+{{define "app_icon"}}{{if eq .IconKind "pack"}}<span class="app-icon" style="background:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<img class="app-icon" src="/uploads/icons/{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"{{with .IconBg}} style="background:{{.}}"{{end}}>{{else if eq .IconKind "url"}}<img class="app-icon" src="{{.IconValue}}" alt=""{{with .IconBg}} style="background:{{.}}"{{end}} data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}">{{else}}<span class="app-icon" style="background:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
-{{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="/uploads/icons/{{.IconValue}}" alt=""></span>{{else if eq .IconKind "url"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
+{{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="/uploads/icons/{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else if eq .IconKind "url"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
 {{define "app_tile"}}
 <div class="tile" style="background:{{tint .IconColor}}">

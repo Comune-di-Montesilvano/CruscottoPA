@@ -86,6 +86,27 @@ func TestDashboardShowAllNoUrgentPopup(t *testing.T) {
 	}
 }
 
+// Il refresh del carosello aggiorna anche il contatore di "Mostra anche…"
+// (swap out-of-band): un avviso riservato pubblicato dopo il caricamento conta.
+func TestAlertsPartialRefreshesAudienceToggle(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	seedVisibility(t, db)
+	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi"})
+	body := do(t, s, "GET", "/partials/alerts", nil, c, hx).Body.String()
+	if !strings.Contains(body, `id="audience-toggle" hx-swap-oob="true"`) || !strings.Contains(body, "non destinati a te (2)") {
+		t.Fatalf("contatore nel refresh:\n%s", body)
+	}
+	trib, _ := db.CreateAudienceGroup("Altri")
+	id, _ := db.CreateAlert(database.Alert{Title: "Nuovo riservato", Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Minute)})
+	db.SetContentAudience(database.ContentAlert, id, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{trib}})
+	if body := do(t, s, "GET", "/partials/alerts", nil, c, hx).Body.String(); !strings.Contains(body, "non destinati a te (3)") {
+		t.Fatalf("contatore dopo un nuovo avviso riservato:\n%s", body)
+	}
+	if page := do(t, s, "GET", "/", nil, c, nil).Body.String(); !strings.Contains(page, `<div id="audience-toggle">`) {
+		t.Fatal("la plancia deve avere il contenitore del contatore")
+	}
+}
+
 func TestAvvisiAndPartialFilteredByAudience(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	seedVisibility(t, db)

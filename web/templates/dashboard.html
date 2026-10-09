@@ -91,7 +91,7 @@
 			{{else}}
 			<p class="empty">Nessun applicativo configurato. Gli amministratori possono aggiungerli dal <a href="/admin">pannello di amministrazione</a>.</p>
 			{{end}}
-			{{with .Filter}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}
+			<div id="audience-toggle">{{template "audience_toggle" .Filter}}</div>
 		</section>
 		</div>
 

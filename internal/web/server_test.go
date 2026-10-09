@@ -95,6 +95,8 @@ var testDirectory = fakeDirectory{
 	people: map[string]identity.Person{
 		"mrossi":    {Username: "mrossi", Name: "Mario Rossi"},
 		"senzanome": {Username: "senzanome"},
+		// UPN: lo stesso utente cercato per userPrincipalName.
+		"mario.rossi@example.it": {Username: "mrossi", Name: "Mario Rossi"},
 	},
 	profiles: map[string]audience.Profile{
 		"mrossi":    {Username: "mrossi", Attrs: map[string][]string{"physicaldeliveryofficename": {"TRIBUTI"}, "title": {"Istruttore amministrativo"}}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
