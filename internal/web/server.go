@@ -65,6 +65,7 @@ type Server struct {
 	backup          *backup.Service
 	restoreDelay    time.Duration
 	branding        atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
+	brandingMu      sync.Mutex                        // un salvataggio di /admin/ente alla volta
 	tmpl            *template.Template
 	store           *sessions.CookieStore
 	version         string
