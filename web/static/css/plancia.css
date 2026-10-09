@@ -315,11 +315,7 @@ dialog.notify-blocked { width: min(600px, 94vw); max-height: 90vh; overflow-y: a
 .guida-fonte { margin-top: .8rem; font-size: .88rem; color: var(--p-text-2); word-break: break-all; }
 .guida-fonte a { color: inherit; }
 
-/* Ticket: tile dedicata e dialog. */
-.ticket-row { margin-bottom: 1rem; }
-.tile-ticket { background: #e8f0fe; }
-.tile-ticket .tile-main { border: 0; background: none; font: inherit; text-align: left; cursor: pointer; width: 100%; }
-.tile-ticket .tile-icon { background: #1565c0; color: #fff; }
+/* Ticket: dialog «Apri un ticket». */
 dialog.ticket { border: 0; border-radius: 16px; padding: 1.3rem 1.4rem; width: min(560px, 94vw); max-height: 92vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); color: var(--p-text); }
 dialog.ticket::backdrop { background: rgba(16, 24, 40, .45); }
 dialog.ticket h2 { margin: 0 0 .8rem; font-size: 1.15rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
@@ -345,7 +341,8 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 .hero-pc { display: inline-flex; align-items: center; gap: .55rem; padding: .35rem .4rem .35rem .7rem; border: 1px solid rgba(255, 255, 255, .28); border-radius: 12px; background: rgba(255, 255, 255, .12); color: #fff; }
 .hero-pc-text { display: flex; flex-direction: column; line-height: 1.15; }
 .hero-pc-text small { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
-.hero-pc-text strong { font-size: .95rem; letter-spacing: .03em; }
+.hero-pc-text strong { font-size: .95rem; letter-spacing: .03em; white-space: nowrap; }
+.hero-pc { flex-shrink: 0; }
 .hero-pc button { border: 0; background: rgba(255, 255, 255, .16); color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .hero-pc button .material-icons { font-size: 1rem; }
 .hero-pc button.copied { background: #2e7d32; }
@@ -460,4 +457,30 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 	.reply { margin-left: 0; }
 	.msg { grid-template-columns: 1fr; }
 	.msg-avatar { display: none; }
+}
+
+/* Bottone «indietro» delle pagine secondarie (avvisi, guide, ticket): sulla banda blu. */
+.back-btn { display: inline-flex; align-items: center; gap: .4rem; min-height: 40px; box-sizing: border-box; padding: .45rem 1rem .45rem .7rem; border-radius: 999px; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .28); color: #fff; font-size: .95rem; font-weight: 600; text-decoration: none; opacity: 1; }
+.back-btn .material-icons { font-size: 1.2rem; }
+.back-btn:hover { background: rgba(255, 255, 255, .26); }
+.back-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.hero-bar:has(.back-btn) { opacity: 1; }
+.hero-bar .brand { opacity: .8; }
+.thero-bar { display: flex; }
+
+/* Widget Assistenza: in cima alla colonna destra, parte alta in risalto. */
+.widget.assist { padding: 0; overflow: hidden; }
+.assist-top { display: grid; grid-template-columns: auto 1fr; column-gap: .75rem; align-items: center; padding: 1.05rem 1.1rem 1.1rem; background: linear-gradient(135deg, var(--p-blue-1) 0%, var(--p-blue-2) 70%, var(--p-blue-3) 100%); color: #fff; }
+.assist-icon { grid-row: span 2; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .16); font-size: 1.5rem; }
+.assist-top h2 { margin: 0; font-size: 1.1rem; font-weight: 700; text-transform: none; letter-spacing: normal; color: #fff; }
+.assist-top p { margin: .1rem 0 0; font-size: .85rem; line-height: 1.35; opacity: .9; }
+.assist-open { grid-column: 1 / -1; margin-top: .9rem; display: flex; align-items: center; justify-content: center; gap: .35rem; width: 100%; min-height: 44px; border: 0; border-radius: 12px; background: #fff; color: var(--p-blue-1); font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(11, 58, 126, .35); }
+.assist-open:hover { background: #eff6ff; }
+.assist-open:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.assist-mine { padding: .85rem 1.05rem 1rem; }
+.assist-mine .widget-title { margin: 0; }
+
+/* Smartphone: «Questo PC» su una riga sua, sotto la data. */
+@media (max-width: 640px) {
+	.hero-center { order: 3; flex-basis: 100%; align-items: flex-start; }
 }

@@ -1,17 +1,3 @@
-{{define "ticket_tile"}}{{if .Enabled}}
-<div class="tile tile-ticket">
-	<div class="tile-card">
-	<button type="button" class="tile-main" data-ticket-open>
-		<span class="tile-icon"><span class="material-icons" aria-hidden="true">confirmation_number</span></span>
-		<span class="tile-text">
-			<span class="tile-title">Apri un ticket</span>
-			<span class="tile-desc">Chiedi assistenza al CED</span>
-		</span>
-	</button>
-	</div>
-</div>
-{{end}}{{end}}
-
 {{define "ticket_dialog"}}{{if .Enabled}}
 <dialog class="ticket" aria-labelledby="ticket-title">
 	<h2 id="ticket-title">Apri un ticket</h2>
@@ -53,16 +39,12 @@
 
 {{define "widget_ticket"}}
 <div class="tw-head">
-	<h2 class="widget-title">I miei ticket</h2>
+	<h3 class="widget-title">I miei ticket</h3>
 	{{if .Total}}<a class="tw-all" href="/ticket">Tutti i miei ticket ({{.Total}})<span class="material-icons" aria-hidden="true">chevron_right</span></a>{{end}}
 </div>
 {{if .Down}}<p class="tw-note"><span class="material-icons" aria-hidden="true">cloud_off</span>Assistenza non raggiungibile: riprova più tardi.</p>
 {{else if .Rows}}<ul class="ticket-list">{{range .Rows}}{{template "ticket_row" .}}{{end}}</ul>
-{{else}}<div class="tw-empty">
-	<span class="tw-empty-icon material-icons" aria-hidden="true">support_agent</span>
-	<p>Nessun ticket aperto.</p>
-	<button type="button" class="tw-open" data-ticket-open>Apri un ticket</button>
-</div>{{end}}
+{{else}}<p class="tw-note"><span class="material-icons" aria-hidden="true">task_alt</span>Nessun ticket aperto.</p>{{end}}
 {{end}}
 
 {{define "ticket_row"}}<li><a href="/ticket/{{.TicketID}}" class="ticket-link {{stateClass .StateType}}{{if .Unread}} is-unread{{end}}">
@@ -73,7 +55,7 @@
 {{/* Testata delle pagine dei ticket: briciole e titolo sulla banda blu. */}}
 {{define "ticket_hero"}}
 <header class="thero">
-	<nav class="thero-crumbs" aria-label="Percorso"><a href="/">Plancia</a><span class="material-icons" aria-hidden="true">chevron_right</span>{{if .Sub}}<a href="/ticket">I miei ticket</a>{{else}}<span aria-current="page">I miei ticket</span>{{end}}</nav>
+	<div class="thero-bar">{{if .Sub}}<a class="back-btn" href="/ticket"><span class="material-icons" aria-hidden="true">arrow_back</span>I miei ticket</a>{{else}}<a class="back-btn" href="/"><span class="material-icons" aria-hidden="true">arrow_back</span>Torna alla plancia</a>{{end}}</div>
 	<div class="thero-main">
 		<div>
 			<h1>{{.Title}}</h1>
@@ -83,3 +65,15 @@
 	</div>
 </header>
 {{end}}
+
+{{define "widget_assist"}}{{if .Enabled}}
+<section class="widget assist" aria-labelledby="assist-title">
+	<div class="assist-top">
+		<span class="assist-icon material-icons" aria-hidden="true">support_agent</span>
+		<h2 id="assist-title">Assistenza</h2>
+		<p>Un problema con il PC o con un programma? Scrivi al CED.</p>
+		<button type="button" class="assist-open" data-ticket-open><span class="material-icons" aria-hidden="true">add</span>Apri un ticket</button>
+	</div>
+	{{if eq .Problem ""}}<div class="assist-mine" id="widget-ticket" hx-get="/partials/ticket" hx-trigger="load, every 300s, ticket from:body" hx-swap="innerHTML"><h3 class="widget-title">I miei ticket</h3></div>{{end}}
+</section>
+{{end}}{{end}}

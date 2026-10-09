@@ -78,7 +78,6 @@
 		<div class="main-col">
 		<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
 		<section class="apps" aria-label="Applicativi">
-			{{if .Ticket.Enabled}}<div class="category ticket-row"><div class="grid">{{template "ticket_tile" .Ticket}}</div></div>{{end}}
 			{{range .Categories}}
 			<div class="category" data-category>
 				<h2 class="section-title">{{.Name}} <span>{{len .Apps}}</span></h2>
@@ -94,7 +93,7 @@
 		</div>
 
 		<aside class="widgets" aria-label="Oggi, calendario e guide">
-{{if and .Ticket.Enabled (eq .Ticket.Problem "")}}<section class="widget" id="widget-ticket" aria-label="I miei ticket" hx-get="/partials/ticket" hx-trigger="load, every 300s, ticket from:body" hx-swap="innerHTML"><h2 class="widget-title">I miei ticket</h2></section>{{end}}
+{{template "widget_assist" .Ticket}}
 			{{template "widget_guide" .GeneralGuides}}
 			{{template "widget_calendario" .Calendar}}
 		</aside>

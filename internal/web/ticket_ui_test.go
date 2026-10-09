@@ -2,10 +2,12 @@ package web
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 )
@@ -113,5 +115,51 @@ func TestTicketTrackerMiddleLabel(t *testing.T) {
 		if !strings.Contains(body, `<span class="tracker-dot"></span>`+want+`</li>`) {
 			t.Errorf("%s: tappa centrale attesa %q", state, want)
 		}
+	}
+}
+
+// Un solo bottone «indietro», uguale in tutte le pagine secondarie.
+func TestBackButtons(t *testing.T) {
+	m := mockConversation()
+	s, c := ticketTestServer(t, m)
+	s.db.CreateAlert(database.Alert{Title: "Avviso", Body: "x", Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour)})
+	alerts, _ := s.db.ListActiveAlerts(fixedNow)
+	for path, want := range map[string]string{
+		"/avvisi":                             `<a class="back-btn" href="/"><span class="material-icons" aria-hidden="true">arrow_back</span>Torna alla plancia</a>`,
+		"/ticket":                             `<a class="back-btn" href="/"><span class="material-icons" aria-hidden="true">arrow_back</span>Torna alla plancia</a>`,
+		"/ticket/5":                           `<a class="back-btn" href="/ticket"><span class="material-icons" aria-hidden="true">arrow_back</span>I miei ticket</a>`,
+		"/avvisi/" + fmt.Sprint(alerts[0].ID): `<a class="back-btn" href="/avvisi"><span class="material-icons" aria-hidden="true">arrow_back</span>Tutti gli avvisi</a>`,
+	} {
+		if body := do(t, s, "GET", path, nil, c, nil).Body.String(); !strings.Contains(body, want) {
+			t.Errorf("%s: bottone indietro mancante", path)
+		}
+	}
+	css, _ := os.ReadFile("../../web/static/css/plancia.css")
+	if !strings.Contains(string(css), ".back-btn {") || !strings.Contains(string(css), "min-height: 40px") {
+		t.Error("stile del bottone indietro mancante")
+	}
+}
+
+// «Apri un ticket» sta nel widget Assistenza in cima alla colonna destra, non in una tile.
+func TestAssistWidgetPlacement(t *testing.T) {
+	s, c := ticketTestServer(t, mockMany())
+	page := do(t, s, "GET", "/", nil, c, nil).Body.String()
+	if strings.Contains(page, "tile-ticket") {
+		t.Error("la tile «Apri un ticket» non deve più esserci")
+	}
+	assist := strings.Index(page, `class="widget assist"`)
+	cal := strings.Index(page, `id="widget-calendario"`)
+	if assist < 0 || cal < 0 || assist > cal {
+		t.Fatal("widget Assistenza assente o non in cima alla colonna")
+	}
+	block := page[assist:cal]
+	for _, want := range []string{"Assistenza", `class="assist-open" data-ticket-open`, `hx-get="/partials/ticket"`} {
+		if !strings.Contains(block, want) {
+			t.Errorf("widget Assistenza: manca %q", want)
+		}
+	}
+	anon := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Anonymous: true}), nil).Body.String()
+	if !strings.Contains(anon, `class="assist-open" data-ticket-open`) || strings.Contains(anon, `hx-get="/partials/ticket"`) {
+		t.Error("anonimo: bottone sì, elenco no")
 	}
 }
