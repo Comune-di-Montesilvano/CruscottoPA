@@ -342,14 +342,13 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
    righe etichetta/valore allineate, un «Copia» per riga. */
 .hero-pc { display: inline-flex; align-items: center; gap: .75rem; flex-shrink: 0; padding: .5rem .55rem .5rem .6rem; border: 1px solid rgba(255, 255, 255, .2); border-radius: 16px; background: rgba(255, 255, 255, .12); color: #fff; }
 .hero-pc-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: #fff; color: var(--p-blue-2); font-size: 1.4rem; }
-.hero-pc-rows { display: grid; grid-template-columns: auto auto auto; align-items: center; column-gap: .7rem; row-gap: .15rem; margin: 0; }
-.hero-pc-row { display: contents; }
-.hero-pc-row dt { font-size: .78rem; opacity: .75; }
-.hero-pc-row dd { margin: 0; font-size: .98rem; font-weight: 650; letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.hero-pc-row button { border: 0; background: transparent; color: #fff; border-radius: 8px; width: 28px; height: 28px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; opacity: .75; }
-.hero-pc-row button:hover, .hero-pc-row button:focus-visible { opacity: 1; background: rgba(255, 255, 255, .18); }
-.hero-pc-row button .material-icons { font-size: 1rem; }
-.hero-pc-row button.copied { opacity: 1; background: #2e7d32; }
+.hero-pc-text { display: flex; flex-direction: column; gap: .1rem; line-height: 1.15; }
+.hero-pc-name { font-size: 1.2rem; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.hero-pc-ip { font-size: .78rem; opacity: .8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hero-pc-copy { align-self: center; border: 0; background: transparent; color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; opacity: .75; }
+.hero-pc-copy:hover, .hero-pc-copy:focus-visible { opacity: 1; background: rgba(255, 255, 255, .18); }
+.hero-pc-copy .material-icons { font-size: 1.05rem; }
+.hero-pc-copy.copied { opacity: 1; background: #2e7d32; }
 .ticket-pc { display: flex; gap: .5rem; align-items: flex-start; line-height: 1.45; margin: 0 0 .4rem; color: var(--p-text-3); }
 .ticket-pc .material-icons { font-size: 1.1rem; }
 

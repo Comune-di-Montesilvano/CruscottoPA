@@ -31,10 +31,11 @@
 			<div class="hero-center">
 				{{with .User.PC}}<div class="hero-pc" data-pc title="Dati di questo PC: comunicali all'assistenza">
 					<span class="hero-pc-icon material-icons" aria-hidden="true">computer</span>
-					<dl class="hero-pc-rows">
-						<div class="hero-pc-row"><dt>Nome PC</dt><dd>{{.}}</dd><button type="button" data-pc-copy="{{.}}" aria-label="Copia il nome del PC"><span class="material-icons" aria-hidden="true">content_copy</span></button></div>
-						{{with $.PCIP}}<div class="hero-pc-row"><dt>Indirizzo IP</dt><dd>{{.}}</dd><button type="button" data-pc-copy="{{.}}" aria-label="Copia l'indirizzo IP"><span class="material-icons" aria-hidden="true">content_copy</span></button></div>{{end}}
-					</dl>
+					<span class="hero-pc-text">
+						<strong class="hero-pc-name">{{.}}</strong>
+						{{with $.PCIP}}<span class="hero-pc-ip">Indirizzo IP {{.}}</span>{{end}}
+					</span>
+					<button type="button" class="hero-pc-copy" data-pc-copy="{{.}}" aria-label="Copia il nome del PC" title="Copia il nome del PC"><span class="material-icons" aria-hidden="true">content_copy</span></button>
 				</div>{{end}}
 				<button type="button" class="notify-off" data-notify-off hidden>
 					<span class="notify-off-icon"><span class="material-icons" aria-hidden="true">notifications_off</span></span>
