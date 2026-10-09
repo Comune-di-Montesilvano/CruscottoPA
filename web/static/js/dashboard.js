@@ -511,16 +511,22 @@
 	});
 
 	// "Mostra tutto": preferenza in un cookie letto dal server, poi ricarica.
-	const audienceToggle = document.querySelector("[data-mostra-tutto]");
-	if (audienceToggle) {
-		audienceToggle.hidden = false;
-		audienceToggle.addEventListener("click", () => {
-			document.cookie = audienceToggle.dataset.mostraTutto === "1"
-				? "cruscotto_tutto=1; Path=/; Max-Age=31536000; SameSite=Lax"
-				: "cruscotto_tutto=; Path=/; Max-Age=0; SameSite=Lax";
-			location.reload();
-		});
-	}
+	// Il bottone arriva nascosto (senza JS non servirebbe) e il refresh degli
+	// avvisi lo sostituisce fuori banda col contatore aggiornato.
+	const showAudienceToggle = () => {
+		const b = document.querySelector("[data-mostra-tutto]");
+		if (b) b.hidden = false;
+	};
+	showAudienceToggle();
+	document.addEventListener("htmx:oobAfterSwap", showAudienceToggle);
+	document.addEventListener("click", (e) => {
+		const b = e.target.closest("[data-mostra-tutto]");
+		if (!b) return;
+		document.cookie = b.dataset.mostraTutto === "1"
+			? "cruscotto_tutto=1; Path=/; Max-Age=31536000; SameSite=Lax"
+			: "cruscotto_tutto=; Path=/; Max-Age=0; SameSite=Lax";
+		location.reload();
+	});
 
 	initCarousel();
 	showUrgents();

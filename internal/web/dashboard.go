@@ -120,8 +120,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleAlertsPartial filtra l'intera plancia, non solo gli avvisi: il
+// contatore di "Mostra anche…" conta anche app e guide nascoste.
 func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
-	alerts, err := s.db.ListActiveAlerts(s.now())
+	d, err := s.db.GetDashboard(s.now())
 	if err != nil {
 		s.serverError(w, err)
 		return
@@ -131,7 +133,11 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, http.StatusOK, "alerts_carousel", f.alertList(alerts))
+	f.dashboard(&d)
+	s.render(w, http.StatusOK, "alerts_partial", struct {
+		Alerts []database.Alert
+		Filter *contentFilter
+	}{d.Alerts, f})
 }
 
 // handleCalendarPartial: mese non valido → mese corrente (mai un errore).

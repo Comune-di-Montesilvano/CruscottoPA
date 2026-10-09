@@ -28,6 +28,13 @@
 </article>
 {{end}}
 
+{{define "audience_toggle"}}{{with .}}{{if or .Hidden .ShowAll}}<div class="audience-toggle"><button type="button" data-mostra-tutto="{{if .ShowAll}}0{{else}}1{{end}}" hidden>{{if .ShowAll}}Mostra solo i miei contenuti{{else}}Mostra anche i contenuti non destinati a te ({{.Hidden}}){{end}}</button></div>{{end}}{{end}}{{end}}
+
+{{/* Refresh del carosello: con il contatore di "Mostra anche…" fuori banda. */}}
+{{define "alerts_partial"}}{{template "alerts_carousel" .Alerts}}
+<div id="audience-toggle" hx-swap-oob="true">{{template "audience_toggle" .Filter}}</div>
+{{end}}
+
 {{define "alerts_carousel"}}{{if .}}
 <section class="carousel" data-carousel tabindex="0" aria-roledescription="carosello" aria-label="Avvisi">
 	<div class="carousel-track">{{range .}}{{template "alert_card" .}}{{end}}</div>
