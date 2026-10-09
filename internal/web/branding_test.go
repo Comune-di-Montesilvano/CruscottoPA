@@ -136,7 +136,7 @@ func TestHeaderShowsAppAndEnte(t *testing.T) {
 			t.Errorf("testata plancia: manca %q in %s", want, bar)
 		}
 	}
-	if !strings.Contains(do(t, s, "GET", "/avvisi", nil, nil, nil).Body.String(), "← CruscottoPA · Comune di Esempio</a>") {
-		t.Error("avvisi: il link di ritorno deve mostrare CruscottoPA e l'ente")
+	if !strings.Contains(do(t, s, "GET", "/avvisi", nil, nil, nil).Body.String(), `<span class="brand">CruscottoPA · Comune di Esempio</span>`) {
+		t.Error("avvisi: la testata deve mostrare CruscottoPA e l'ente accanto al bottone indietro")
 	}
 }

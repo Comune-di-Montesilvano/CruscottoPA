@@ -1,0 +1,35 @@
+{{define "ticket_list.html"}}<!doctype html>
+<html lang="it">
+<head>
+	{{template "plancia_head"}}
+	<title>I miei ticket · CruscottoPA{{template "title_ente"}}</title>
+</head>
+<body class="plancia ticket-page">
+	{{template "ticket_hero" (thero "I miei ticket" "" false (and .OK .Ticket.Enabled))}}
+	<main class="tpage">
+		{{if .OK}}
+		<section class="tlist" aria-labelledby="tl-open">
+			<h2 id="tl-open">Aperti <span class="tlist-count">{{len .Open}}</span></h2>
+			{{with .Open}}<ul class="ticket-list ticket-list-wide">{{range .}}{{template "ticket_row_wide" .}}{{end}}</ul>
+			{{else}}<div class="tpage-empty"><span class="material-icons" aria-hidden="true">task_alt</span><p>Nessun ticket aperto.</p><button type="button" class="tw-open" data-ticket-open>Apri un ticket</button></div>{{end}}
+		</section>
+		{{with .Closed}}<section class="tlist" aria-labelledby="tl-closed">
+			<h2 id="tl-closed">Chiusi negli ultimi 7 giorni <span class="tlist-count">{{len .}}</span></h2>
+			<ul class="ticket-list ticket-list-wide">{{range .}}{{template "ticket_row_wide" .}}{{end}}</ul>
+		</section>{{end}}
+		{{else}}
+		<div class="tpage-empty">
+			<span class="material-icons" aria-hidden="true">{{if .Down}}cloud_off{{else}}lock{{end}}</span>
+			<p>{{if .Down}}Assistenza non raggiungibile: riprova più tardi.{{else}}Elenco non disponibile: il Cruscotto deve riconoscerti e trovare la tua mail.{{end}}</p>
+			<a class="tpage-back" href="/">Torna alla plancia</a>
+		</div>
+		{{end}}
+	</main>
+	{{template "ticket_dialog" .Ticket}}
+</body>
+</html>{{end}}
+
+{{define "ticket_row_wide"}}<li><a href="/ticket/{{.TicketID}}" class="ticket-link {{stateClass .StateType}}{{if .Unread}} is-unread{{end}}">
+	<span class="ticket-title">{{.Title}}</span>
+	<span class="ticket-meta">{{if .Unread}}<span class="ticket-unread">Nuova risposta</span>{{end}}<span class="st-label">{{ticketState .StateType}}</span><span>n. {{.TicketNumber}}</span><span>{{ago .Changed}}</span></span>
+</a></li>{{end}}

@@ -1,0 +1,59 @@
+{{define "ticket.html"}}<!doctype html>
+<html lang="it">
+<head>
+	{{template "plancia_head"}}
+	<title>{{if .OK}}{{.Ticket.Title}} · {{end}}I miei ticket · CruscottoPA{{template "title_ente"}}</title>
+</head>
+<body class="plancia ticket-page">
+	{{if .OK}}
+	{{template "ticket_hero" (thero .Ticket.Title (printf "Ticket n. %s · aperto %s" .Ticket.TicketNumber (ago .Ticket.Created)) true false)}}
+	<main class="tpage">
+		<ol class="tracker" aria-label="Stato del ticket">
+			{{$step := ticketStep .Ticket.StateType}}
+			<li data-step="ricevuto"{{if eq $step "ricevuto"}} aria-current="step"{{end}} class="is-done"><span class="tracker-dot"></span>Ricevuto</li>
+			<li data-step="lavorazione"{{if eq $step "lavorazione"}} aria-current="step"{{end}}{{if ne $step "ricevuto"}} class="is-done"{{end}}><span class="tracker-dot"></span>{{if eq (stateClass .Ticket.StateType) "st-pending"}}In attesa{{else}}In lavorazione{{end}}</li>
+			<li data-step="risolto"{{if eq $step "risolto"}} aria-current="step" class="is-done"{{end}}><span class="tracker-dot"></span>Risolto</li>
+		</ol>
+
+		{{if .Ticket.AttachmentsOmitted}}<p class="tpage-note"><span class="material-icons" aria-hidden="true">info</span>Allegati non mostrati: sono troppo grandi per la plancia. Li trovi nelle mail del ticket.</p>{{end}}
+
+		<ol class="thread">
+			{{$id := .Ticket.TicketID}}{{range .Ticket.Articles}}{{$m := splitPC .Body}}
+			<li class="msg{{if .FromAgent}} from-agent{{end}}">
+				<span class="msg-avatar material-icons" aria-hidden="true">{{if .FromAgent}}support_agent{{else}}person{{end}}</span>
+				<div class="msg-card">
+					<div class="msg-head"><strong>{{if .FromAgent}}Assistenza{{else}}Tu{{end}}</strong><time datetime="{{.Created.Format "2006-01-02T15:04:05Z07:00"}}" title="{{fmtDate .Created}}">{{ago .Created}}</time></div>
+					<div class="msg-body">{{$m.Text}}</div>
+					{{$art := .ArticleID}}{{with .Attachments}}<ul class="msg-files">{{range .}}<li><a href="/ticket/{{$id}}/allegati/{{$art}}/{{.FileID}}" target="_blank" rel="noopener"><span class="material-icons" aria-hidden="true">attach_file</span>{{.Filename}}</a><small>{{humanSize .Size}}</small></li>{{end}}</ul>{{end}}
+					{{with $m.PC}}<details class="msg-pc"><summary>Informazioni sul PC</summary><div>{{.}}</div></details>{{end}}
+				</div>
+			</li>{{end}}
+		</ol>
+
+		<form class="reply" data-ticket-reply="{{.Ticket.TicketID}}" novalidate>
+			<label class="reply-label" for="reply-text">{{if .Ticket.Closed}}Il ticket è chiuso: se il problema non è risolto, scrivi qui e verrà riaperto.{{else}}Rispondi all'assistenza{{end}}</label>
+			<textarea id="reply-text" name="descrizione" rows="4" maxlength="10000" required placeholder="Scrivi il messaggio…"></textarea>
+			<small class="ticket-err" data-campo="descrizione" hidden></small>
+			<ul class="reply-files" data-ticket-files></ul>
+			<small class="ticket-err" data-campo="allegati" hidden></small>
+			<p class="ticket-err ticket-general" data-ticket-error hidden></p>
+			<div class="reply-actions">
+				<button type="button" class="reply-attach" data-ticket-attach><span class="material-icons" aria-hidden="true">attach_file</span>Allega</button>
+				<input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple hidden data-ticket-input>
+				<button type="submit" class="reply-send" data-ticket-submit><span class="material-icons" aria-hidden="true">send</span>{{if .Ticket.Closed}}Riapri e invia{{else}}Invia risposta{{end}}</button>
+			</div>
+		</form>
+	</main>
+	{{else}}
+	{{template "ticket_hero" (thero "Ticket non disponibile" "" true false)}}
+	<main class="tpage">
+		<div class="tpage-empty">
+			<span class="material-icons" aria-hidden="true">search_off</span>
+			<p>Il ticket non esiste, non è tuo oppure il sistema di assistenza non risponde.</p>
+			{{with .Fallback}}<p>Puoi scrivere a <a href="mailto:{{.}}">{{.}}</a>.</p>{{end}}
+			<a class="tpage-back" href="/ticket">Vai ai miei ticket</a>
+		</div>
+	</main>
+	{{end}}
+</body>
+</html>{{end}}

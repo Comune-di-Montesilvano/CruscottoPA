@@ -11,6 +11,7 @@
 	<script src="/static/js/htmx.min.js" defer></script>
 	<script src="/static/js/dashboard.js" defer></script>
 	<script src="/static/js/notifiche.js" defer></script>
+	<script src="/static/js/ticket.js" defer></script>
 {{end}}
 
 {{define "dashboard.html"}}<!doctype html>
@@ -19,7 +20,7 @@
 	{{template "plancia_head"}}
 	<title>CruscottoPA{{template "title_ente"}}</title>
 </head>
-<body class="plancia"{{if .Recognize}} data-riconosci{{end}}{{if .Anonymous}} data-anonimo{{end}}>
+<body class="plancia"{{if .Recognize}} data-riconosci{{end}}{{if .Anonymous}} data-anonimo{{end}}{{if .RefreshPC}} data-pc-aggiorna{{end}}>
 	<header class="hero hero-plancia">
 		<div class="hero-main">
 			<div>
@@ -28,6 +29,11 @@
 				{{if or .Hero.Org .Hero.Chips}}<div class="hero-info">{{with .Hero.Org}}<span class="hero-org">{{.}}</span>{{end}}{{with .Hero.Chips}}<span class="hero-chips">{{range .}}<span class="hero-chip"><span class="material-icons" aria-hidden="true">{{if eq .Kind "phone"}}call{{else}}mail{{end}}</span>{{.Text}}</span>{{end}}</span>{{end}}</div>{{end}}
 			</div>
 			<div class="hero-center">
+				{{with .User.PC}}<div class="hero-pc" data-pc title="Nome di questo PC: comunicalo all'assistenza">
+					<span class="material-icons" aria-hidden="true">computer</span>
+					<span class="hero-pc-text"><small>Questo PC</small><strong>{{.}}</strong>{{with $.PCIP}}<span class="hero-pc-ip">{{.}}</span>{{end}}</span>
+					<button type="button" data-pc-copy="{{.}}" aria-label="Copia il nome del PC"><span class="material-icons" aria-hidden="true">content_copy</span></button>
+				</div>{{end}}
 				<button type="button" class="notify-off" data-notify-off hidden>
 					<span class="notify-off-icon"><span class="material-icons" aria-hidden="true">notifications_off</span></span>
 					<span class="notify-off-text"><strong>Notifiche disattivate</strong><small>Non riceverai gli avvisi urgenti</small></span>
@@ -87,6 +93,7 @@
 		</div>
 
 		<aside class="widgets" aria-label="Oggi, calendario e guide">
+{{template "widget_assist" .Ticket}}
 			{{template "widget_guide" .GeneralGuides}}
 			{{template "widget_calendario" .Calendar}}
 		</aside>
@@ -129,5 +136,6 @@
 			<button type="button" class="primary" data-notify-no autofocus>Ho capito</button>
 		</div>
 	</dialog>
+{{template "ticket_dialog" .Ticket}}
 </body>
 </html>{{end}}

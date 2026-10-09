@@ -19,6 +19,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/web"
 )
 
@@ -101,6 +102,14 @@ func main() {
 		slog.Warn("NTLM_DOMAIN impostato ma LDAP_BIND_DN vuoto: riconoscimento utente disattivato")
 	}
 
+	var tickets otrs.Client
+	if cfg.OTRS.Enabled() {
+		tickets = otrs.New(cfg.OTRS, cfg.Location)
+		if directory == nil || cfg.NTLMDomain == "" {
+			slog.Warn("OTRS_URL impostato ma riconoscimento utente spento: nessuno potrà aprire ticket dalla plancia")
+		}
+	}
+
 	srv, err := web.New(web.Options{
 		DB:        db,
 		Config:    cfg,
@@ -108,6 +117,7 @@ func main() {
 		Directory: directory,
 		Backup:    bk,
 		Version:   AppVersion,
+		Tickets:   tickets,
 	})
 	if err != nil {
 		slog.Error("inizializzazione web", "err", err)
@@ -116,6 +126,7 @@ func main() {
 	srv.StartNotifications(ctx)
 	srv.StartGuideRefresh(ctx)
 	srv.StartPresenceCleanup(ctx)
+	srv.StartTicketWatch(ctx)
 
 	httpSrv := &http.Server{
 		Addr:              ":" + cfg.Port,

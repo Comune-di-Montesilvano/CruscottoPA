@@ -11,6 +11,79 @@ var allVars = []string{
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
 	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT", "GUIDE_REFRESH_HOURS",
+	"PC_DNS_SUFFIX", "PC_DNS_SERVER", "OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
+}
+
+func TestLoadOTRSDisabledByDefault(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.OTRS.Enabled() || cfg.OTRS.RouteCreate != "/TicketCreate" || cfg.OTRS.RouteUpdate != "/TicketUpdate" {
+		t.Fatalf("default OTRS: %+v", cfg.OTRS)
+	}
+	if cfg.OTRS.RouteSearch != "/TicketSearch" || cfg.OTRS.RouteGet != "/Ticket/:TicketID" {
+		t.Fatalf("route di lettura: %+v", cfg.OTRS)
+	}
+}
+
+func TestLoadOTRSValidation(t *testing.T) {
+	base := func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("LDAP_HOST", "ldaps://dc.example.local:636")
+		t.Setenv("SESSION_SECRET", strings.Repeat("a", 32))
+		t.Setenv("OTRS_URL", "https://otrs.example.it/otrs/nph-genericinterface.pl/Webservice/Prova")
+		t.Setenv("OTRS_USER", "agente")
+		t.Setenv("OTRS_PASSWORD", "segreta")
+		t.Setenv("OTRS_QUEUE", "Coda di prova")
+	}
+	base(t)
+	cfg, err := Load()
+	if err != nil || !cfg.OTRS.Enabled() || cfg.OTRS.Mock() {
+		t.Fatalf("config valida: %v %+v", err, cfg.OTRS)
+	}
+	for _, tc := range []struct{ key, val, want string }{
+		{"OTRS_URL", "http://otrs.example.it/x", "https"},
+		{"OTRS_USER", "", "OTRS_USER"},
+		{"OTRS_PASSWORD", "", "OTRS_PASSWORD"},
+		{"OTRS_QUEUE", "", "OTRS_QUEUE"},
+		{"OTRS_ROUTE_CREATE", "TicketCreate", "OTRS_ROUTE_CREATE"},
+		{"OTRS_ROUTE_UPDATE", "x", "OTRS_ROUTE_UPDATE"},
+		{"OTRS_ROUTE_SEARCH", "TicketSearch", "OTRS_ROUTE_SEARCH"},
+		{"OTRS_ROUTE_GET", "Ticket/:TicketID", "OTRS_ROUTE_GET"},
+		{"OTRS_URL", "mock", "mock"}, // mock solo con LDAP_HOST=mock
+	} {
+		base(t)
+		t.Setenv(tc.key, tc.val)
+		if _, err := Load(); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s=%q: atteso errore con %q, ottenuto %v", tc.key, tc.val, tc.want, err)
+		}
+	}
+}
+
+func TestLoadOTRSMock(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("OTRS_URL", "mock")
+	cfg, err := Load()
+	if err != nil || !cfg.OTRS.Mock() || !cfg.OTRS.Enabled() {
+		t.Fatalf("mock: %v %+v", err, cfg.OTRS)
+	}
+}
+
+func TestLoadOTRSURLTrailingSlash(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("OTRS_URL", "https://otrs.example.it/ws/Prova/")
+	t.Setenv("OTRS_USER", "a")
+	t.Setenv("OTRS_PASSWORD", "b")
+	t.Setenv("OTRS_QUEUE", "c")
+	cfg, err := Load()
+	if err != nil || cfg.OTRS.URL != "https://otrs.example.it/ws/Prova" {
+		t.Fatalf("slash finale non tolta: %v %q", err, cfg.OTRS.URL)
+	}
 }
 
 func clearEnv(t *testing.T) {
@@ -170,5 +243,35 @@ func TestLoadGuideRefresh(t *testing.T) {
 	t.Setenv("GUIDE_REFRESH_HOURS", "-1")
 	if _, err := Load(); err == nil {
 		t.Error("GUIDE_REFRESH_HOURS=-1: atteso errore")
+	}
+}
+
+// TicketGet su una route senza parametro (es. /TicketGet): il TicketID va nel corpo.
+func TestLoadOTRSRouteGetWithoutParam(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("OTRS_URL", "https://otrs.example.it/ws/Prova")
+	t.Setenv("OTRS_USER", "a")
+	t.Setenv("OTRS_PASSWORD", "b")
+	t.Setenv("OTRS_QUEUE", "c")
+	t.Setenv("OTRS_ROUTE_GET", "/TicketGet")
+	if cfg, err := Load(); err != nil || cfg.OTRS.RouteGet != "/TicketGet" {
+		t.Fatalf("route senza parametro: %v %+v", err, cfg.OTRS)
+	}
+}
+
+// IP del PC: suffisso DNS del dominio e, facoltativo, il DNS da interrogare.
+func TestLoadPCDNS(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	t.Setenv("PC_DNS_SUFFIX", " .intranet.example.it. ")
+	t.Setenv("PC_DNS_SERVER", "192.0.2.53")
+	cfg, err := Load()
+	if err != nil || cfg.PCDNSSuffix != "intranet.example.it" || cfg.PCDNSServer != "192.0.2.53:53" {
+		t.Fatalf("PC DNS: %v %q %q", err, cfg.PCDNSSuffix, cfg.PCDNSServer)
+	}
+	t.Setenv("PC_DNS_SERVER", "dns.example.it:5353")
+	if cfg, _ := Load(); cfg.PCDNSServer != "dns.example.it:5353" {
+		t.Fatalf("porta esplicita: %q", cfg.PCDNSServer)
 	}
 }

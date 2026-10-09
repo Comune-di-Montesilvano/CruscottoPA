@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -27,6 +28,49 @@ type LDAP struct {
 	AdminUsers     []string
 }
 
+// OTRS: invio dei ticket dalla plancia (GenericInterface REST). URL vuota = modulo spento.
+type OTRS struct {
+	URL           string // base del web service, senza "/" finale; "mock" = client finto (solo sviluppo)
+	RouteCreate   string // route POST di TicketCreate
+	RouteUpdate   string // route PATCH di TicketUpdate
+	RouteSearch   string // route POST di TicketSearch
+	RouteGet      string // route GET di TicketGet: con :TicketID nel percorso, oppure senza (ID nel corpo)
+	User          string
+	Password      string
+	Queue         string
+	FallbackEmail string // casella mostrata se OTRS non risponde
+}
+
+func (o OTRS) Enabled() bool { return o.URL != "" }
+func (o OTRS) Mock() bool    { return o.URL == "mock" }
+
+func (o OTRS) validate(ldapMock bool) error {
+	if !o.Enabled() {
+		return nil
+	}
+	if o.Mock() {
+		if !ldapMock {
+			return errors.New("OTRS_URL=mock ammesso solo con LDAP_HOST=mock")
+		}
+		return nil
+	}
+	if !strings.HasPrefix(o.URL, "https://") {
+		return errors.New("OTRS_URL deve iniziare con https://")
+	}
+	for _, r := range []struct{ name, val string }{{"OTRS_ROUTE_CREATE", o.RouteCreate}, {"OTRS_ROUTE_UPDATE", o.RouteUpdate},
+		{"OTRS_ROUTE_SEARCH", o.RouteSearch}, {"OTRS_ROUTE_GET", o.RouteGet}} {
+		if !strings.HasPrefix(r.val, "/") {
+			return fmt.Errorf("%s deve iniziare con /", r.name)
+		}
+	}
+	for _, r := range []struct{ name, val string }{{"OTRS_USER", o.User}, {"OTRS_PASSWORD", o.Password}, {"OTRS_QUEUE", o.Queue}} {
+		if r.val == "" {
+			return fmt.Errorf("%s obbligatorio quando OTRS_URL è impostato", r.name)
+		}
+	}
+	return nil
+}
+
 // Config è la configurazione completa del server.
 type Config struct {
 	Port                string
@@ -42,8 +86,14 @@ type Config struct {
 	LDAP              LDAP
 	// NTLMDomain: dominio NetBIOS accettato da /io (vuoto = riconoscimento spento).
 	NTLMDomain string
+	// PCDNSSuffix: suffisso DNS del dominio per l'IP del PC (vuoto = niente IP).
+	PCDNSSuffix string
+	// PCDNSServer: DNS da interrogare, host:porta (vuoto = quello del container).
+	PCDNSServer string
 	// VAPIDSubject: contatto VAPID (mailto: o https:); vuoto = Web Push spento.
 	VAPIDSubject string
+	// OTRS: modulo ticket (vuoto = spento).
+	OTRS OTRS
 }
 
 // Load legge le variabili d'ambiente, applica i default e valida i valori.
@@ -65,6 +115,19 @@ func Load() (Config, error) {
 		},
 		NTLMDomain:   strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
 		VAPIDSubject: strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
+		PCDNSSuffix:  strings.Trim(strings.TrimSpace(os.Getenv("PC_DNS_SUFFIX")), "."),
+		PCDNSServer:  dnsServer(os.Getenv("PC_DNS_SERVER")),
+		OTRS: OTRS{
+			URL:           strings.TrimRight(strings.TrimSpace(os.Getenv("OTRS_URL")), "/"),
+			RouteCreate:   getEnv("OTRS_ROUTE_CREATE", "/TicketCreate"),
+			RouteUpdate:   getEnv("OTRS_ROUTE_UPDATE", "/TicketUpdate"),
+			RouteSearch:   getEnv("OTRS_ROUTE_SEARCH", "/TicketSearch"),
+			RouteGet:      getEnv("OTRS_ROUTE_GET", "/Ticket/:TicketID"),
+			User:          os.Getenv("OTRS_USER"),
+			Password:      os.Getenv("OTRS_PASSWORD"),
+			Queue:         strings.TrimSpace(os.Getenv("OTRS_QUEUE")),
+			FallbackEmail: strings.TrimSpace(os.Getenv("OTRS_FALLBACK_EMAIL")),
+		},
 	}
 
 	var err error
@@ -97,6 +160,9 @@ func Load() (Config, error) {
 	if cfg.LDAP.Host != "mock" && len(cfg.SessionSecret) < 32 {
 		return Config{}, errors.New("SESSION_SECRET obbligatorio (almeno 32 caratteri) quando LDAP_HOST non è mock")
 	}
+	if err := cfg.OTRS.validate(cfg.LDAP.Host == "mock"); err != nil {
+		return Config{}, err
+	}
 	if cfg.SessionSecret == "" {
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
@@ -105,6 +171,18 @@ func Load() (Config, error) {
 		cfg.SessionSecret = hex.EncodeToString(b)
 	}
 	return cfg, nil
+}
+
+// dnsServer: "10.0.0.1" → "10.0.0.1:53"; con la porta resta com'è.
+func dnsServer(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	if _, _, err := net.SplitHostPort(v); err == nil {
+		return v
+	}
+	return net.JoinHostPort(v, "53")
 }
 
 func getEnv(key, fallback string) string {

@@ -1,0 +1,79 @@
+{{define "ticket_dialog"}}{{if .Enabled}}
+<dialog class="ticket" aria-labelledby="ticket-title">
+	<h2 id="ticket-title">Apri un ticket</h2>
+	{{if eq .Problem ""}}
+	<form data-ticket-form novalidate>
+		<p class="ticket-who"><span class="material-icons" aria-hidden="true">person</span><span><strong>{{.Name}}</strong><br><small>Le risposte arriveranno a {{.Email}}</small></span></p>
+		<p class="ticket-pc" data-ticket-pc><span class="material-icons" aria-hidden="true">computer</span><small>Aggiungeremo queste informazioni tecniche, raccolte automaticamente dal tuo PC:<br>PC <strong>{{with .PC}}{{.}}{{else}}non rilevato{{end}}</strong>{{with .PCIP}} · IP <strong>{{.}}</strong>{{end}} · <span data-pc-info></span></small></p>
+		<label>Oggetto<input name="oggetto" maxlength="120" required autocomplete="off"></label>
+		<small class="ticket-err" data-campo="oggetto" hidden></small>
+		<label>Descrizione del problema<textarea name="descrizione" rows="7" maxlength="10000" required></textarea></label>
+		<small class="ticket-err" data-campo="descrizione" hidden></small>
+		<label>Telefono / interno<input name="telefono" maxlength="40" value="{{.Phone}}" autocomplete="off"></label>
+		<small class="ticket-err" data-campo="telefono" hidden></small>
+		<div class="ticket-files">
+			<button type="button" data-ticket-attach><span class="material-icons" aria-hidden="true">attach_file</span>Allega</button>
+			<small>PNG, JPEG, WebP o PDF, fino a 3 file (5 MB ciascuno). Puoi anche incollare uno screenshot.</small>
+			<input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple hidden data-ticket-input>
+			<ul data-ticket-files></ul>
+			<small class="ticket-err" data-campo="allegati" hidden></small>
+		</div>
+		<p class="ticket-err ticket-general" data-ticket-error hidden></p>
+		<div class="ticket-actions">
+			<button type="button" data-ticket-close>Annulla</button>
+			<button type="submit" class="primary" data-ticket-submit>Invia</button>
+		</div>
+	</form>
+	<div class="ticket-done" data-ticket-done hidden>
+		<span class="material-icons" aria-hidden="true">check_circle</span>
+		<p>Ticket <strong data-ticket-number></strong> aperto.<br>Le risposte arriveranno per mail a {{.Email}}.</p>
+		<div class="ticket-actions"><button type="button" class="primary" data-ticket-close>Chiudi</button></div>
+	</div>
+	{{else}}
+	<p>{{if eq .Problem "mail"}}Non posso aprire un ticket a tuo nome: nella rete del Comune manca la mail del tuo account.{{else if eq .Problem "ad"}}Non riesco a leggere i tuoi dati dalla rete del Comune: riprova tra poco.{{else}}Per aprire un ticket dalla plancia il Cruscotto deve riconoscerti (accesso dal PC dell'ufficio con Edge o Chrome; su Firefox segui l'aiuto in alto nella pagina).{{end}}</p>
+	{{with .Fallback}}<p>Puoi sempre scrivere a <a href="mailto:{{.}}">{{.}}</a>.</p>{{end}}
+	<div class="ticket-actions"><button type="button" class="primary" data-ticket-close>Chiudi</button></div>
+	{{end}}
+</dialog>
+{{end}}{{end}}
+
+{{define "widget_ticket"}}
+<div class="tw-head">
+	<h3 class="widget-title">I miei ticket</h3>
+	{{if .Total}}<a class="tw-all" href="/ticket">Tutti i miei ticket ({{.Total}})<span class="material-icons" aria-hidden="true">chevron_right</span></a>{{end}}
+</div>
+{{if .Down}}<p class="tw-note"><span class="material-icons" aria-hidden="true">cloud_off</span>Assistenza non raggiungibile: riprova più tardi.</p>
+{{else if .Rows}}<ul class="ticket-list">{{range .Rows}}{{template "ticket_row" .}}{{end}}</ul>
+{{else}}<p class="tw-note"><span class="material-icons" aria-hidden="true">task_alt</span>Nessun ticket aperto.</p>{{end}}
+{{end}}
+
+{{define "ticket_row"}}<li><a href="/ticket/{{.TicketID}}" class="ticket-link {{stateClass .StateType}}{{if .Unread}} is-unread{{end}}">
+	<span class="ticket-title">{{.Title}}</span>
+	<span class="ticket-meta">{{if .Unread}}<span class="ticket-unread">Nuova risposta</span>{{else}}<span class="st-label">{{ticketState .StateType}}</span>{{end}}<span>{{ago .Changed}}</span></span>
+</a></li>{{end}}
+
+{{/* Testata delle pagine dei ticket: briciole e titolo sulla banda blu. */}}
+{{define "ticket_hero"}}
+<header class="thero">
+	<div class="thero-bar">{{if .Sub}}<a class="back-btn" href="/ticket"><span class="material-icons" aria-hidden="true">arrow_back</span>I miei ticket</a>{{else}}<a class="back-btn" href="/"><span class="material-icons" aria-hidden="true">arrow_back</span>Torna alla plancia</a>{{end}}</div>
+	<div class="thero-main">
+		<div>
+			<h1>{{.Title}}</h1>
+			{{with .Meta}}<p class="thero-meta">{{.}}</p>{{end}}
+		</div>
+		{{if .Action}}<button type="button" class="thero-action" data-ticket-open><span class="material-icons" aria-hidden="true">add</span>Apri un ticket</button>{{end}}
+	</div>
+</header>
+{{end}}
+
+{{define "widget_assist"}}{{if .Enabled}}
+<section class="widget assist" aria-labelledby="assist-title">
+	<div class="assist-top">
+		<span class="assist-icon material-icons" aria-hidden="true">support_agent</span>
+		<h2 id="assist-title">Assistenza</h2>
+		<p>Un problema con il PC o con un programma? Scrivi al CED.</p>
+		<button type="button" class="assist-open" data-ticket-open><span class="material-icons" aria-hidden="true">add</span>Apri un ticket</button>
+	</div>
+	{{if eq .Problem ""}}<div class="assist-mine" id="widget-ticket" hx-get="/partials/ticket" hx-trigger="load, every 300s, ticket from:body" hx-swap="innerHTML"><h3 class="widget-title">I miei ticket</h3></div>{{end}}
+</section>
+{{end}}{{end}}

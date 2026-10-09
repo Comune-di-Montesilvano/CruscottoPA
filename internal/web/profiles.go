@@ -80,6 +80,17 @@ func (s *Server) profileFor(username string) (p audience.Profile, ok, down bool)
 	for i, a := range attrs {
 		names[i] = a.Name
 	}
+	// Nome, mail e telefono servono al modulo ticket anche se non sono
+	// attributi dei gruppi. Senza ripetizioni (AD non distingue le maiuscole).
+	seen := map[string]bool{}
+	uniq := names[:0]
+	for _, n := range append(names, "displayName", "mail", "telephoneNumber") {
+		if k := strings.ToLower(n); !seen[k] {
+			seen[k] = true
+			uniq = append(uniq, n)
+		}
+	}
+	names = uniq
 	return s.profiles.get(username, func() (audience.Profile, error) { return s.directory.Profile(username, names) })
 }
 

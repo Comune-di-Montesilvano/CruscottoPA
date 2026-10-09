@@ -314,3 +314,176 @@ dialog.notify-blocked { width: min(600px, 94vw); max-height: 90vh; overflow-y: a
 .guida-body a { color: var(--p-blue-2); }
 .guida-fonte { margin-top: .8rem; font-size: .88rem; color: var(--p-text-2); word-break: break-all; }
 .guida-fonte a { color: inherit; }
+
+/* Ticket: dialog «Apri un ticket». */
+dialog.ticket { border: 0; border-radius: 16px; padding: 1.3rem 1.4rem; width: min(560px, 94vw); max-height: 92vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); color: var(--p-text); }
+dialog.ticket::backdrop { background: rgba(16, 24, 40, .45); }
+dialog.ticket h2 { margin: 0 0 .8rem; font-size: 1.15rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
+dialog.ticket label { display: block; margin: .7rem 0 .2rem; font-weight: 600; }
+dialog.ticket input:not([type=file]), dialog.ticket textarea { display: block; width: 100%; box-sizing: border-box; margin-top: .25rem; font: inherit; padding: .5rem .6rem; border: 1px solid #c5ccd6; border-radius: 8px; }
+.ticket-who { display: flex; gap: .6rem; align-items: center; margin: 0 0 .4rem; color: var(--p-text-2); }
+.ticket-err { color: #b3261e; display: block; margin-top: .2rem; }
+.ticket-files { margin-top: .9rem; }
+.ticket-files ul { list-style: none; padding: 0; margin: .4rem 0 0; }
+.ticket-files li { display: flex; align-items: center; gap: .4rem; }
+.ticket-remove { border: 0; background: none; font-size: 1.2rem; cursor: pointer; }
+.ticket-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.1rem; }
+dialog.ticket button { border: 1px solid var(--p-line); background: #fff; border-radius: 10px; padding: .55rem 1rem; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: .3rem; }
+dialog.ticket button:disabled { opacity: .6; cursor: progress; }
+.ticket-actions .primary { background: var(--p-blue-2); border-color: var(--p-blue-2); color: #fff; font-weight: 600; }
+.ticket-files small { color: var(--p-text-3); }
+dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; font-size: 1.2rem; }
+.ticket-done { text-align: center; }
+.ticket-done > .material-icons { font-size: 3rem; color: #2e7d32; }
+
+/* Nome del PC nella testata: per i collegamenti VNC dell'assistenza. */
+.hero-center { flex-direction: column; align-items: center; gap: .5rem; }
+.hero-pc { display: inline-flex; align-items: center; gap: .55rem; padding: .35rem .4rem .35rem .7rem; border: 1px solid rgba(255, 255, 255, .28); border-radius: 12px; background: rgba(255, 255, 255, .12); color: #fff; }
+.hero-pc-text { display: flex; flex-direction: column; line-height: 1.15; }
+.hero-pc-text small { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+.hero-pc-text strong { font-size: .95rem; letter-spacing: .03em; white-space: nowrap; }
+.hero-pc { flex-shrink: 0; }
+.hero-pc button { border: 0; background: rgba(255, 255, 255, .16); color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.hero-pc button .material-icons { font-size: 1rem; }
+.hero-pc button.copied { background: #2e7d32; }
+.ticket-pc { display: flex; gap: .5rem; align-items: flex-start; line-height: 1.45; margin: 0 0 .4rem; color: var(--p-text-3); }
+.ticket-pc .material-icons { font-size: 1.1rem; }
+
+/* ── Ticket: stati, widget, elenco, conversazione ───────────────────────── */
+/* Ogni stato ha un colore: barra a sinistra delle righe ed etichetta. */
+.st-new { --st: #1570ef; --st-bg: #eff8ff; }
+.st-open { --st: #0e9384; --st-bg: #f0fdf9; }
+.st-pending { --st: #b54708; --st-bg: #fef0c7; }
+.st-closed { --st: #667085; --st-bg: #f2f4f7; }
+
+/* Widget «I miei ticket» */
+.tw-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
+.tw-head .widget-title { margin: 0; }
+.tw-all { display: inline-flex; align-items: center; font-size: .78rem; font-weight: 600; color: var(--p-blue-2); text-decoration: none; white-space: nowrap; }
+.tw-all .material-icons { font-size: 1rem; }
+.tw-all:hover { text-decoration: underline; }
+.tw-note { display: flex; gap: .45rem; align-items: center; margin: 0; color: var(--p-text-3); font-size: .85rem; }
+.tw-note .material-icons { font-size: 1.1rem; }
+.tw-empty { display: grid; justify-items: center; gap: .4rem; padding: .6rem 0 .3rem; text-align: center; }
+.tw-empty p { margin: 0; color: var(--p-text-3); font-size: .88rem; }
+.tw-empty-icon { width: 44px; height: 44px; border-radius: 50%; background: #e8f0fe; color: var(--p-blue-2); display: grid; place-items: center; font-size: 1.4rem; }
+.tw-open { border: 1px solid var(--p-blue-2); background: #fff; color: var(--p-blue-2); border-radius: 999px; padding: .35rem .9rem; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.tw-open:hover { background: #eff6ff; }
+
+.ticket-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
+.ticket-link { display: grid; gap: .15rem; padding: .5rem .6rem .5rem .75rem; border-left: 3px solid var(--st, var(--p-line)); border-radius: 4px 10px 10px 4px; color: inherit; text-decoration: none; background: #fff; }
+.ticket-link:hover, .ticket-link:focus-visible { background: var(--st-bg, var(--p-page)); }
+.ticket-title { font-size: .9rem; font-weight: 550; color: var(--p-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ticket-link.is-unread .ticket-title { font-weight: 700; }
+.ticket-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .6rem; font-size: .76rem; color: var(--p-text-3); }
+.st-label { color: var(--st); font-weight: 600; }
+.ticket-unread { display: inline-flex; align-items: center; gap: .3rem; color: var(--p-blue-2); font-weight: 700; }
+.ticket-unread::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: var(--p-blue-2); }
+
+/* Pagine dei ticket: banda blu come la plancia, contenuto che vi si appoggia. */
+.thero { background: linear-gradient(120deg, var(--p-blue-1) 0%, var(--p-blue-2) 60%, var(--p-blue-3) 100%); color: #fff; padding: 1rem 0 3.4rem; }
+.thero > * { max-width: 820px; margin-left: auto; margin-right: auto; padding: 0 16px; box-sizing: border-box; }
+.thero-crumbs { display: flex; align-items: center; gap: .15rem; font-size: .82rem; opacity: .9; }
+.thero-crumbs a { color: #fff; text-decoration: none; }
+.thero-crumbs a:hover { text-decoration: underline; }
+.thero-crumbs .material-icons { font-size: 1rem; opacity: .7; }
+.thero-main { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-top: .6rem; }
+.thero h1 { margin: 0; font-size: 1.55rem; font-weight: 650; line-height: 1.25; text-transform: none; letter-spacing: normal; color: #fff; }
+.thero-meta { margin: .3rem 0 0; font-size: .88rem; opacity: .85; }
+.thero-action { display: inline-flex; align-items: center; gap: .3rem; border: 0; background: #fff; color: var(--p-blue-1); border-radius: 999px; padding: .5rem 1rem .5rem .75rem; font: inherit; font-weight: 650; cursor: pointer; }
+.thero-action:hover { background: #eff6ff; }
+.tpage { max-width: 820px; margin: -2.4rem auto 3rem; padding: 0 16px; box-sizing: border-box; position: relative; }
+.tpage-note { display: flex; gap: .5rem; align-items: center; background: #fff; border-radius: 12px; padding: .7rem .9rem; box-shadow: var(--p-shadow); color: var(--p-text-2); font-size: .88rem; }
+.tpage-empty { display: grid; justify-items: center; gap: .5rem; background: #fff; border-radius: 16px; padding: 2rem 1rem; box-shadow: var(--p-shadow); text-align: center; color: var(--p-text-2); }
+.tpage-empty > .material-icons { font-size: 2.2rem; color: var(--p-text-4); }
+.tpage-empty p { margin: 0; max-width: 46ch; }
+.tpage-back { color: var(--p-blue-2); font-weight: 600; }
+
+/* Elenco */
+.tlist { background: #fff; border-radius: 16px; box-shadow: var(--p-shadow); padding: 1rem 1.1rem; margin-bottom: 1rem; }
+.tlist h2 { display: flex; align-items: center; gap: .5rem; margin: 0 0 .6rem; font-size: 1rem; text-transform: none; letter-spacing: normal; color: var(--p-text); }
+.tlist-count { min-width: 1.5rem; padding: 0 .4rem; border-radius: 999px; background: var(--p-page); color: var(--p-text-3); font-size: .78rem; text-align: center; }
+.ticket-list-wide .ticket-link { padding: .65rem .8rem .65rem .9rem; }
+.ticket-list-wide .ticket-title { font-size: .95rem; white-space: normal; }
+
+/* Tracciato dello stato: unico elemento forte della pagina. */
+.tracker { list-style: none; margin: 0 0 1.2rem; padding: 1rem 1.2rem; background: #fff; border-radius: 16px; box-shadow: var(--p-shadow); display: grid; grid-template-columns: repeat(3, 1fr); }
+.tracker li { position: relative; display: grid; justify-items: center; gap: .35rem; font-size: .82rem; color: var(--p-text-4); text-align: center; }
+.tracker li::before { content: ""; position: absolute; top: .55rem; right: 50%; width: 100%; height: 3px; background: var(--p-line); z-index: 0; }
+.tracker li:first-child::before { display: none; }
+.tracker li.is-done::before { background: var(--p-blue-2); }
+.tracker-dot { position: relative; z-index: 1; width: 1.1rem; height: 1.1rem; border-radius: 50%; background: #fff; border: 3px solid var(--p-line); box-sizing: border-box; }
+.tracker li.is-done { color: var(--p-text-2); }
+.tracker li.is-done .tracker-dot { border-color: var(--p-blue-2); background: var(--p-blue-2); }
+.tracker li[aria-current="step"] { color: var(--p-blue-1); font-weight: 700; }
+.tracker li[aria-current="step"] .tracker-dot { width: 1.4rem; height: 1.4rem; margin-top: -.15rem; background: #fff; border-width: 5px; box-shadow: 0 0 0 4px #dbeafe; }
+
+/* Conversazione */
+.thread { list-style: none; margin: 0 0 1.2rem; padding: 0; display: grid; gap: .9rem; }
+.msg { display: grid; grid-template-columns: 2.2rem 1fr; gap: .6rem; align-items: start; }
+.msg-avatar { width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; font-size: 1.15rem; background: #fff; color: var(--p-text-3); box-shadow: var(--p-shadow); }
+.msg.from-agent .msg-avatar { background: var(--p-blue-2); color: #fff; }
+.msg-card { background: #fff; border-radius: 4px 14px 14px 14px; padding: .75rem .95rem; box-shadow: var(--p-shadow); min-width: 0; }
+.msg.from-agent .msg-card { background: #eff6ff; box-shadow: inset 0 0 0 1px #d1e0ff; }
+.msg-head { display: flex; justify-content: space-between; gap: .8rem; font-size: .85rem; color: var(--p-text-2); }
+.msg-head time { color: var(--p-text-3); font-size: .8rem; }
+.msg-body { margin-top: .35rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; color: var(--p-text); }
+.msg-files { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.msg-files li { display: inline-flex; align-items: center; gap: .35rem; background: #fff; border: 1px solid var(--p-line); border-radius: 999px; padding: .2rem .7rem .2rem .45rem; font-size: .82rem; }
+.msg-files a { display: inline-flex; align-items: center; gap: .2rem; color: var(--p-blue-2); text-decoration: none; }
+.msg-files .material-icons { font-size: 1rem; }
+.msg-files small { color: var(--p-text-4); }
+.msg-pc { margin-top: .55rem; font-size: .78rem; color: var(--p-text-3); }
+.msg-pc summary { cursor: pointer; }
+.msg-pc div { white-space: pre-wrap; margin-top: .3rem; padding-left: .8rem; border-left: 2px solid var(--p-line); }
+
+/* Risposta */
+.reply { background: #fff; border-radius: 16px; box-shadow: var(--p-shadow); padding: 1rem 1.1rem; margin-left: 2.8rem; }
+.reply-label { display: block; font-weight: 600; color: var(--p-text-2); margin-bottom: .45rem; }
+.reply textarea { display: block; width: 100%; box-sizing: border-box; font: inherit; padding: .6rem .7rem; border: 1px solid #c5ccd6; border-radius: 10px; resize: vertical; min-height: 5.5rem; }
+.reply textarea:focus { outline: 2px solid var(--p-blue-3); outline-offset: 1px; border-color: transparent; }
+.reply-files { list-style: none; padding: 0; margin: .5rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.reply-files li { display: inline-flex; align-items: center; gap: .2rem; background: var(--p-page); border-radius: 999px; padding: .15rem .3rem .15rem .7rem; font-size: .82rem; }
+.reply-actions { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-top: .7rem; }
+.reply-attach, .reply-send { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .5rem 1rem; font: inherit; cursor: pointer; }
+.reply-attach { border: 1px solid var(--p-line); background: #fff; color: var(--p-text-2); }
+.reply-send { border: 0; background: var(--p-blue-2); color: #fff; font-weight: 650; }
+.reply-send:disabled { opacity: .6; cursor: progress; }
+.reply .ticket-remove { border: 0; background: none; cursor: pointer; font-size: 1.1rem; }
+.reply-attach .material-icons, .reply-send .material-icons { font-size: 1.1rem; }
+
+@media (max-width: 640px) {
+	.thero h1 { font-size: 1.3rem; }
+	.reply { margin-left: 0; }
+	.msg { grid-template-columns: 1fr; }
+	.msg-avatar { display: none; }
+}
+
+/* Bottone «indietro» delle pagine secondarie (avvisi, guide, ticket): sulla banda blu. */
+.back-btn { display: inline-flex; align-items: center; gap: .4rem; min-height: 40px; box-sizing: border-box; padding: .45rem 1rem .45rem .7rem; border-radius: 999px; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .28); color: #fff; font-size: .95rem; font-weight: 600; text-decoration: none; opacity: 1; }
+.back-btn .material-icons { font-size: 1.2rem; }
+.back-btn:hover { background: rgba(255, 255, 255, .26); }
+.back-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.hero-bar:has(.back-btn) { opacity: 1; }
+.hero-bar .brand { opacity: .8; }
+.thero-bar { display: flex; }
+
+/* Widget Assistenza: in cima alla colonna destra, parte alta in risalto. */
+.widget.assist { padding: 0; overflow: hidden; }
+.assist-top { display: grid; grid-template-columns: auto 1fr; column-gap: .75rem; align-items: center; padding: 1.05rem 1.1rem 1.1rem; background: linear-gradient(135deg, var(--p-blue-1) 0%, var(--p-blue-2) 70%, var(--p-blue-3) 100%); color: #fff; }
+.assist-icon { grid-row: span 2; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .16); font-size: 1.5rem; }
+.assist-top h2 { margin: 0; font-size: 1.1rem; font-weight: 700; text-transform: none; letter-spacing: normal; color: #fff; }
+.assist-top p { margin: .1rem 0 0; font-size: .85rem; line-height: 1.35; opacity: .9; }
+.assist-open { grid-column: 1 / -1; margin-top: .9rem; display: flex; align-items: center; justify-content: center; gap: .35rem; width: 100%; min-height: 44px; border: 0; border-radius: 12px; background: #fff; color: var(--p-blue-1); font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(11, 58, 126, .35); }
+.assist-open:hover { background: #eff6ff; }
+.assist-open:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.assist-mine { padding: .85rem 1.05rem 1rem; }
+.assist-mine .widget-title { margin: 0; }
+
+/* Smartphone: «Questo PC» su una riga sua, sotto la data. */
+@media (max-width: 640px) {
+	.hero-center { order: 3; flex-basis: 100%; align-items: flex-start; }
+}
+
+/* IP del PC sotto il nome, in «Questo PC». */
+.hero-pc-ip { font-size: .78rem; opacity: .85; font-variant-numeric: tabular-nums; }

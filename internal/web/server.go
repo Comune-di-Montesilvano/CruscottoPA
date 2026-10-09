@@ -8,8 +8,10 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 )
 
 // repoURL: repository del progetto, linkato dal footer della plancia.
@@ -42,32 +45,43 @@ type Options struct {
 	Now          func() time.Time
 	// GuideFetch scarica un file raw da GitHub (nil = guidesrc.NewFetcher().Fetch).
 	GuideFetch func(ctx context.Context, rawURL string) (string, error)
+	// PCLookup: risoluzione DNS del nome del PC (nil = resolver con PC_DNS_SERVER).
+	PCLookup func(ctx context.Context, host string) ([]string, error)
+	// Tickets: invio dei ticket a OTRS (nil = modulo spento).
+	Tickets otrs.Client
 }
 
 type Server struct {
-	db           *database.DB
-	cfg          config.Config
-	auth         auth.Authenticator
-	directory    identity.Directory
-	cookies      *identity.CookieCodec
-	profiles     *profileCache
-	membersCache *membersCache
-	limiter      *auth.RateLimiter
-	media        mediaUploads // caricamenti a pezzi in corso (immagini e PDF)
-	backup       *backup.Service
-	restoreDelay time.Duration
-	branding     atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
-	tmpl         *template.Template
-	store        *sessions.CookieStore
-	version      string
-	webDir       string
-	now          func() time.Time
-	fetchGuide   func(ctx context.Context, rawURL string) (string, error)
-	mux          *http.ServeMux
-	hub          *notify.Hub   // plance collegate a /eventi
-	pusher       notify.Pusher // nil = Web Push spento
-	vapidPublic  string
-	notifyDone   chan struct{} // chiuso quando il dispatcher è terminato
+	db              *database.DB
+	cfg             config.Config
+	auth            auth.Authenticator
+	directory       identity.Directory
+	cookies         *identity.CookieCodec
+	profiles        *profileCache
+	membersCache    *membersCache
+	limiter         *auth.RateLimiter
+	media           mediaUploads  // caricamenti a pezzi in corso (immagini e PDF)
+	ticketFiles     ticketUploads // allegati dei ticket in caricamento
+	backup          *backup.Service
+	restoreDelay    time.Duration
+	branding        atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
+	tmpl            *template.Template
+	store           *sessions.CookieStore
+	version         string
+	webDir          string
+	now             func() time.Time
+	fetchGuide      func(ctx context.Context, rawURL string) (string, error)
+	mux             *http.ServeMux
+	hub             *notify.Hub   // plance collegate a /eventi
+	pusher          notify.Pusher // nil = Web Push spento
+	vapidPublic     string
+	notifyDone      chan struct{}                                            // chiuso quando il dispatcher è terminato
+	tickets         otrs.Client                                              // nil = modulo ticket spento
+	ticketSending   sync.Map                                                 // username → invio a OTRS in corso
+	ticketCache     *ticketCache                                             // letture da OTRS
+	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
+	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
+	pcIPs           pcIPCache
 }
 
 func New(o Options) (*Server, error) {
@@ -93,12 +107,14 @@ func New(o Options) (*Server, error) {
 		directory:    o.Directory,
 		limiter:      auth.NewRateLimiter(5, 15*time.Minute),
 		media:        mediaUploads{byID: map[string]*mediaUpload{}},
+		ticketFiles:  ticketUploads{byID: map[string]*ticketUpload{}},
 		backup:       o.Backup,
 		restoreDelay: o.RestoreDelay,
 		version:      strings.TrimPrefix(o.Version, "v"), // tag "v0.3.0": la "v" la aggiungono i template
 		webDir:       o.WebDir,
 		now:          o.Now,
 		fetchGuide:   o.GuideFetch,
+		tickets:      o.Tickets,
 		mux:          http.NewServeMux(),
 	}
 	b, err := o.DB.GetBranding()
@@ -114,6 +130,13 @@ func New(o Options) (*Server, error) {
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.profiles = newProfileCache(o.Now)
+	s.ticketCache = newTicketCache(o.Now)
+	s.ticketDownloads = make(chan struct{}, 4)
+	s.pcLookup = o.PCLookup
+	if s.pcLookup == nil {
+		s.pcLookup = newPCLookup(o.Config.PCDNSServer)
+	}
+	s.pcIPs = pcIPCache{m: map[string]cachedIP{}}
 	s.membersCache = newMembersCache(o.Now)
 	s.hub = notify.NewHub(2000)
 	if o.Config.VAPIDSubject != "" {
@@ -125,6 +148,8 @@ func New(o Options) (*Server, error) {
 		s.pusher = &notify.WebPusher{Subject: o.Config.VAPIDSubject, PublicKey: pub, PrivateKey: priv}
 	}
 	s.routes()
+	// Allegati dei ticket lasciati a metà da un riavvio: nessuno li userà più.
+	os.RemoveAll(s.ticketTmpDir())
 	return s, nil
 }
 
@@ -185,6 +210,15 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
+	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
+	s.mux.HandleFunc("GET /partials/ticket", s.handleTicketWidget)
+	s.mux.HandleFunc("GET /ticket", s.handleTicketList)
+	s.mux.HandleFunc("GET /ticket/{id}", s.handleTicketPage)
+	s.mux.HandleFunc("POST /ticket/{id}/risposta", s.handleTicketReply)
+	s.mux.HandleFunc("GET /ticket/{id}/allegati/{art}/{file}", s.handleTicketAttachment)
+	s.mux.HandleFunc("POST /ticket/allegati", s.handleTicketFileStart)
+	s.mux.HandleFunc("POST /ticket/allegati/{id}/pezzo", s.handleTicketFileChunk)
+	s.mux.HandleFunc("POST /ticket/allegati/{id}/fine", s.handleTicketFileFinish)
 	s.mux.HandleFunc("GET /guide/{id}", s.handleGuidePage)
 	s.mux.HandleFunc("GET /guide/{id}/pdf", s.handleGuidePDF)
 	s.mux.HandleFunc("GET /admin/login", s.handleLoginForm)
@@ -245,6 +279,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/calendario/{id}", s.requireAdmin(s.handleCalendarSave))
 	s.mux.HandleFunc("POST /admin/calendario/{id}/elimina", s.requireAdmin(s.handleCalendarDelete))
 	s.mux.HandleFunc("GET /admin/assistenza", s.requireAdmin(s.handleSupportPage))
+	s.mux.HandleFunc("GET /admin/ticket", s.requireAdmin(s.handleAdminTickets))
 	s.mux.HandleFunc("GET /admin/assistenza/{id}/modifica", s.requireAdmin(s.handleSupportEdit))
 	s.mux.HandleFunc("POST /admin/assistenza", s.requireAdmin(s.handleSupportSave))
 	s.mux.HandleFunc("POST /admin/assistenza/{id}", s.requireAdmin(s.handleSupportSave))
