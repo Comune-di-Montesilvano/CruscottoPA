@@ -498,13 +498,17 @@
 		try { due = !sessionStorage.getItem("cruscotto-pc"); sessionStorage.setItem("cruscotto-pc", "1"); } catch (_) { due = false; }
 		if (due) fetch("/io?aggiorna=1", { credentials: "same-origin" }).catch(() => {});
 	}
-	const pcCopy = document.querySelector("[data-pc-copy]");
-	if (pcCopy) {
-		pcCopy.addEventListener("click", () => {
-			const done = () => { pcCopy.classList.add("copied"); setTimeout(() => pcCopy.classList.remove("copied"), 1500); };
-			if (navigator.clipboard) navigator.clipboard.writeText(pcCopy.dataset.pcCopy).then(done, () => {});
+	// Nome del PC e indirizzo IP: ognuno con il suo «Copia».
+	document.querySelectorAll("[data-pc-copy]").forEach((btn) => {
+		btn.addEventListener("click", () => {
+			const done = () => {
+				btn.classList.add("copied");
+				btn.querySelector(".material-icons").textContent = "check";
+				setTimeout(() => { btn.classList.remove("copied"); btn.querySelector(".material-icons").textContent = "content_copy"; }, 1500);
+			};
+			if (navigator.clipboard) navigator.clipboard.writeText(btn.dataset.pcCopy).then(done, () => {});
 		});
-	}
+	});
 
 	// "Mostra tutto": preferenza in un cookie letto dal server, poi ricarica.
 	const audienceToggle = document.querySelector("[data-mostra-tutto]");

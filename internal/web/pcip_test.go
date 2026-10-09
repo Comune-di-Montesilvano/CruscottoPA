@@ -69,11 +69,23 @@ func TestPCIPInHeaderAndTicket(t *testing.T) {
 	s, _ := pcipServer(t, m)
 	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", PC: "PC-PROVA-001"})
 	page := do(t, s, "GET", "/", nil, c, nil).Body.String()
-	if !strings.Contains(page, `<span class="hero-pc-ip">192.0.2.15</span>`) {
-		t.Error("testata: IP del PC mancante")
+	for _, want := range []string{
+		`<strong class="hero-pc-name">PC-PROVA-001</strong>`,
+		`<span class="hero-pc-ip">Indirizzo IP 192.0.2.15</span>`,
+		`data-pc-copy="PC-PROVA-001" aria-label="Copia il nome del PC"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("testata: manca %s", want)
+		}
+	}
+	if strings.Contains(page, `data-pc-copy="192.0.2.15"`) {
+		t.Error("testata: l'IP non ha il bottone «Copia»")
 	}
 	if !strings.Contains(page, "IP <strong>192.0.2.15</strong>") {
 		t.Error("dialog: IP mancante fra le informazioni allegate")
+	}
+	if !strings.Contains(page, "dal tuo PC:<br><strong>PC-PROVA-001</strong> · IP") || strings.Contains(page, "PC <strong>PC-PROVA-001") {
+		t.Error("dialog: «PC» ripetuto davanti al nome")
 	}
 	if out := postTicket(t, s, c, validTicket()); out["ok"] != true {
 		t.Fatalf("invio: %v", out)

@@ -338,14 +338,17 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 
 /* Nome del PC nella testata: per i collegamenti VNC dell'assistenza. */
 .hero-center { flex-direction: column; align-items: center; gap: .5rem; }
-.hero-pc { display: inline-flex; align-items: center; gap: .55rem; padding: .35rem .4rem .35rem .7rem; border: 1px solid rgba(255, 255, 255, .28); border-radius: 12px; background: rgba(255, 255, 255, .12); color: #fff; }
-.hero-pc-text { display: flex; flex-direction: column; line-height: 1.15; }
-.hero-pc-text small { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
-.hero-pc-text strong { font-size: .95rem; letter-spacing: .03em; white-space: nowrap; }
-.hero-pc { flex-shrink: 0; }
-.hero-pc button { border: 0; background: rgba(255, 255, 255, .16); color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-.hero-pc button .material-icons { font-size: 1rem; }
-.hero-pc button.copied { background: #2e7d32; }
+/* Stesso linguaggio del riquadro di «oggi»: vetro chiaro sulla banda blu,
+   righe etichetta/valore allineate, un «Copia» per riga. */
+.hero-pc { display: inline-flex; align-items: center; gap: .75rem; flex-shrink: 0; padding: .5rem .55rem .5rem .6rem; border: 1px solid rgba(255, 255, 255, .2); border-radius: 16px; background: rgba(255, 255, 255, .12); color: #fff; }
+.hero-pc-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: #fff; color: var(--p-blue-2); font-size: 1.4rem; }
+.hero-pc-text { display: flex; flex-direction: column; gap: .1rem; line-height: 1.15; }
+.hero-pc-name { font-size: 1.2rem; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.hero-pc-ip { font-size: .78rem; opacity: .8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hero-pc-copy { align-self: center; border: 0; background: transparent; color: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; opacity: .75; }
+.hero-pc-copy:hover, .hero-pc-copy:focus-visible { opacity: 1; background: rgba(255, 255, 255, .18); }
+.hero-pc-copy .material-icons { font-size: 1.05rem; }
+.hero-pc-copy.copied { opacity: 1; background: #2e7d32; }
 .ticket-pc { display: flex; gap: .5rem; align-items: flex-start; line-height: 1.45; margin: 0 0 .4rem; color: var(--p-text-3); }
 .ticket-pc .material-icons { font-size: 1.1rem; }
 
@@ -485,5 +488,3 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 	.hero-center { order: 3; flex-basis: 100%; align-items: flex-start; }
 }
 
-/* IP del PC sotto il nome, in «Questo PC». */
-.hero-pc-ip { font-size: .78rem; opacity: .85; font-variant-numeric: tabular-nums; }
