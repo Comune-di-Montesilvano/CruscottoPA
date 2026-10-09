@@ -84,6 +84,9 @@ func TestPCIPInHeaderAndTicket(t *testing.T) {
 	if !strings.Contains(page, "IP <strong>192.0.2.15</strong>") {
 		t.Error("dialog: IP mancante fra le informazioni allegate")
 	}
+	if !strings.Contains(page, "dal tuo PC:<br><strong>PC-PROVA-001</strong> · IP") || strings.Contains(page, "PC <strong>PC-PROVA-001") {
+		t.Error("dialog: «PC» ripetuto davanti al nome")
+	}
 	if out := postTicket(t, s, c, validTicket()); out["ok"] != true {
 		t.Fatalf("invio: %v", out)
 	}

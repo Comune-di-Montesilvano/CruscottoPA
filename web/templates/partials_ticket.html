@@ -4,7 +4,7 @@
 	{{if eq .Problem ""}}
 	<form data-ticket-form novalidate>
 		<p class="ticket-who"><span class="material-icons" aria-hidden="true">person</span><span><strong>{{.Name}}</strong><br><small>Le risposte arriveranno a {{.Email}}</small></span></p>
-		<p class="ticket-pc" data-ticket-pc><span class="material-icons" aria-hidden="true">computer</span><small>Aggiungeremo queste informazioni tecniche, raccolte automaticamente dal tuo PC:<br>PC <strong>{{with .PC}}{{.}}{{else}}non rilevato{{end}}</strong>{{with .PCIP}} · IP <strong>{{.}}</strong>{{end}} · <span data-pc-info></span></small></p>
+		<p class="ticket-pc" data-ticket-pc><span class="material-icons" aria-hidden="true">computer</span><small>Aggiungeremo queste informazioni tecniche, raccolte automaticamente dal tuo PC:<br>{{with .PC}}<strong>{{.}}</strong>{{else}}nome del PC non rilevato{{end}}{{with .PCIP}} · IP <strong>{{.}}</strong>{{end}} · <span data-pc-info></span></small></p>
 		<label>Oggetto<input name="oggetto" maxlength="120" required autocomplete="off"></label>
 		<small class="ticket-err" data-campo="oggetto" hidden></small>
 		<label>Descrizione del problema<textarea name="descrizione" rows="7" maxlength="10000" required></textarea></label>
