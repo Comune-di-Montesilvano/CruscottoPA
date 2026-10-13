@@ -53,6 +53,10 @@ func TestReplyOpenTicket(t *testing.T) {
 		art["From"] != `"Mario Rossi" <mrossi@example.it>` || len(u["Attachment"].([]any)) != 1 {
 		t.Fatalf("update: %v", u)
 	}
+	// Come una mail di seguito: notifica agli operatori, non «nota aggiunta».
+	if art["HistoryType"] != "FollowUp" {
+		t.Fatalf("HistoryType: %v", art["HistoryType"])
+	}
 	if _, reopened := u["Ticket"]; reopened {
 		t.Fatal("ticket aperto: nessun cambio di stato")
 	}

@@ -158,9 +158,11 @@ func (c *HTTPClient) Create(ctx context.Context, t NewTicket) (Created, error) {
 			"Title": t.Subject, "Queue": c.Config.Queue, "State": "new", "Priority": "3 normal",
 			"CustomerUser": t.Email,
 		},
+		// HistoryType: il default del web service (NewTicket) non fa partire
+		// la notifica «nuovo ticket» agli operatori.
 		"Article": map[string]any{
 			"Subject": t.Subject, "Body": body, "ContentType": "text/plain; charset=utf8",
-			"ArticleType": "webrequest", "SenderType": "customer",
+			"ArticleType": "webrequest", "SenderType": "customer", "HistoryType": "WebRequestCustomer",
 			"From": (&mail.Address{Name: t.Name, Address: t.Email}).String(),
 		},
 	}

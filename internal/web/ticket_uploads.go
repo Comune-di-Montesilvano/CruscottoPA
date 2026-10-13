@@ -20,7 +20,7 @@ import (
 // utenti riconosciuti e legati allo username del cookie. Monouso: un id
 // passa a OTRS una volta sola, poi il file si cancella.
 const (
-	ticketMaxFile    = 5 << 20
+	ticketMaxFile    = 10 << 20
 	ticketMaxFiles   = 3
 	ticketMaxTotal   = 10 << 20
 	ticketMaxPending = 100 // caricamenti aperti in tutto il server
@@ -143,7 +143,7 @@ func (s *Server) handleTicketFileChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rerr != nil || len(data) > mediaChunk || u.size+int64(len(data)) > ticketMaxFile {
-		abort("File troppo grande (massimo 5 MB).")
+		abort("File troppo grande (massimo 10 MB).")
 		return
 	}
 	u.writing = true

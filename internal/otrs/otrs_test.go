@@ -85,6 +85,10 @@ func TestCreateSendsExpectedRequests(t *testing.T) {
 		article["SenderType"] != "customer" || article["ContentType"] != "text/plain; charset=utf8" {
 		t.Fatalf("articolo: %v", article)
 	}
+	// Senza, OTRS usa NewTicket e non notifica gli operatori.
+	if article["HistoryType"] != "WebRequestCustomer" {
+		t.Fatalf("HistoryType: %v", article["HistoryType"])
+	}
 	if article["Body"] != "Non stampa più.\nÈ urgente: perché?\n\nTelefono / interno: 731" {
 		t.Fatalf("corpo: %q", article["Body"])
 	}

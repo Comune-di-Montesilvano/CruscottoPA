@@ -337,9 +337,11 @@ func (c *HTTPClient) Reply(ctx context.Context, email, id string, rep NewReply) 
 	if !c.owned(r, email) {
 		return ErrNotYours
 	}
+	// HistoryType FollowUp come una mail di seguito: il default (AddNote)
+	// manderebbe la notifica «nota aggiunta» invece di quella di seguito.
 	upd := map[string]any{"TicketID": string(r.TicketID), "Article": map[string]any{
 		"Subject": "Re: " + string(r.Title), "Body": rep.Body, "ContentType": "text/plain; charset=utf8",
-		"ArticleType": "webrequest", "SenderType": "customer",
+		"ArticleType": "webrequest", "SenderType": "customer", "HistoryType": "FollowUp",
 		"From": (&mail.Address{Name: rep.Name, Address: rep.Email}).String(),
 	}}
 	if string(r.StateType) == "closed" {
