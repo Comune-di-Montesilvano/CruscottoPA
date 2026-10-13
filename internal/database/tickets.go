@@ -15,7 +15,7 @@ type TicketSent struct {
 	CustomerSet                    bool
 	Attachments                    int
 	PC                             string
-	Kind                           string // TicketOpen | TicketReply
+	Kind                           string // TicketOpen | TicketReply | TicketClose
 	CreatedAt                      time.Time
 }
 
@@ -66,6 +66,7 @@ FROM tickets_sent ORDER BY created_at DESC, id DESC LIMIT ?`, limit)
 const (
 	TicketOpen           = "apertura"
 	TicketReply          = "risposta"
+	TicketClose          = "chiusura"
 	ticketStateRetention = 30 * 24 * time.Hour
 )
 

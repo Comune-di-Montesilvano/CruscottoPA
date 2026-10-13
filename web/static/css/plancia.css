@@ -454,10 +454,15 @@ dialog.ticket .ticket-remove { border: 0; padding: 0 .3rem; background: none; fo
 .reply-send:disabled { opacity: .6; cursor: progress; }
 .reply .ticket-remove { border: 0; background: none; cursor: pointer; font-size: 1.1rem; }
 .reply-attach .material-icons, .reply-send .material-icons { font-size: 1.1rem; }
+.close-row { display: flex; justify-content: flex-end; margin: .8rem 0 0 2.8rem; }
+.close-open { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--p-line); background: #fff; color: var(--p-text-2); border-radius: 999px; padding: .45rem .95rem; font: inherit; cursor: pointer; }
+.close-open:hover { color: #1b7f3b; border-color: #1b7f3b; }
+.close-open .material-icons { font-size: 1.1rem; }
+dialog.ticket-close p { margin: 0 0 .4rem; color: var(--p-text-2); line-height: 1.5; }
 
 @media (max-width: 640px) {
 	.thero h1 { font-size: 1.3rem; }
-	.reply { margin-left: 0; }
+	.reply, .close-row { margin-left: 0; }
 	.msg { grid-template-columns: 1fr; }
 	.msg-avatar { display: none; }
 }

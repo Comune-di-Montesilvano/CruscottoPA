@@ -360,3 +360,47 @@ func (c *HTTPClient) Reply(ctx context.Context, email, id string, rep NewReply) 
 	defer cancel()
 	return c.call(cctx, http.MethodPatch, c.Config.RouteUpdate, upd, &ignored, 1<<20)
 }
+
+// CloseState: stato in cui l'utente chiude il proprio ticket.
+const CloseState = "closed successful"
+
+// closeNote: riga fissa del messaggio di chiusura; il testo dell'utente segue.
+const closeNote = "Ticket chiuso dall'utente tramite CruscottoPA."
+
+// NewClose: chiusura chiesta dall'utente, con un testo facoltativo.
+type NewClose struct {
+	Name, Email, Body string
+}
+
+func closeBody(text string) string {
+	if text = strings.TrimSpace(text); text != "" {
+		return closeNote + "\n\n" + text
+	}
+	return closeNote
+}
+
+// Close chiude un ticket dell'utente con un messaggio del cliente (gli
+// operatori ricevono la notifica di seguito). Già chiuso: nulla da fare.
+// Serve il permesso close (o rw) dell'agente sulla coda.
+func (c *HTTPClient) Close(ctx context.Context, email, id string, cl NewClose) error {
+	r, err := c.getRaw(ctx, id, false)
+	if err != nil {
+		return err
+	}
+	if !c.owned(r, email) {
+		return ErrNotYours
+	}
+	if string(r.StateType) == "closed" {
+		return nil
+	}
+	upd := map[string]any{"TicketID": string(r.TicketID), "Ticket": map[string]any{"State": CloseState},
+		"Article": map[string]any{
+			"Subject": "Chiuso dall'utente: " + string(r.Title), "Body": closeBody(cl.Body), "ContentType": "text/plain; charset=utf8",
+			"ArticleType": "webrequest", "SenderType": "customer", "HistoryType": "FollowUp",
+			"From": (&mail.Address{Name: cl.Name, Address: cl.Email}).String(),
+		}}
+	var ignored map[string]any
+	cctx, cancel := context.WithTimeout(ctx, orDefault(c.UpdateTimeout, UpdateTimeout))
+	defer cancel()
+	return c.call(cctx, http.MethodPatch, c.Config.RouteUpdate, upd, &ignored, 1<<20)
+}

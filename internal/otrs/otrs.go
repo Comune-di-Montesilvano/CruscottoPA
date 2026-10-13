@@ -44,6 +44,7 @@ type Client interface {
 	Changed(ctx context.Context, since time.Time) ([]Ticket, error)
 	Attachment(ctx context.Context, email, ticketID, articleID, fileID string) (Attachment, error)
 	Reply(ctx context.Context, email, ticketID string, r NewReply) error
+	Close(ctx context.Context, email, ticketID string, c NewClose) error
 }
 
 type NewTicket struct {
