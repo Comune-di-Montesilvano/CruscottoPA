@@ -14,6 +14,7 @@
 		spento: "L'apertura dei ticket non è attiva",
 		in_corso: "Stai già inviando un messaggio: attendi la risposta",
 		non_tuo: "Questo ticket non è disponibile",
+		permesso: "Questo ticket non si può aggiornare dal Cruscotto: rispondi alla mail dell'assistenza",
 	};
 
 	async function post(url, body, type) {
@@ -124,7 +125,7 @@
 	}
 
 	// --- Dialog «Apri un ticket» (plancia) ---
-	const dlg = document.querySelector("dialog.ticket");
+	const dlg = document.querySelector("dialog.ticket:not(.ticket-close)");
 	if (dlg) {
 		const form = dlg.querySelector("[data-ticket-form]");
 
@@ -217,6 +218,36 @@
 				failure(replyForm, r);
 			} catch (err) {
 				general(replyForm, "Invio non riuscito: controlla la connessione e riprova.");
+			} finally {
+				btn.disabled = false;
+			}
+		});
+	}
+
+	// --- Chiusura del ticket dalla sua pagina ---
+	const closeBtn = document.querySelector("[data-ticket-close]");
+	const closeDlg = document.querySelector("dialog.ticket-close");
+	if (closeBtn && closeDlg) {
+		const closeForm = closeDlg.querySelector("[data-close-form]");
+		closeBtn.addEventListener("click", function () {
+			clearErrors(closeDlg);
+			closeDlg.showModal();
+		});
+		closeDlg.querySelector("[data-close-cancel]").addEventListener("click", function () { closeDlg.close(); });
+		closeForm.addEventListener("input", function (e) {
+			if (e.target.name) showErr(closeDlg, e.target.name, "");
+		});
+		closeForm.addEventListener("submit", async function (e) {
+			e.preventDefault();
+			clearErrors(closeDlg);
+			const btn = closeDlg.querySelector("[data-close-submit]");
+			btn.disabled = true;
+			try {
+				const r = await post("/ticket/" + closeBtn.dataset.ticketClose + "/chiudi", new URLSearchParams({ descrizione: closeForm.descrizione.value }));
+				if (r.ok) { location.reload(); return; }
+				failure(closeDlg, r);
+			} catch (err) {
+				general(closeDlg, "Chiusura non riuscita: controlla la connessione e riprova.");
 			} finally {
 				btn.disabled = false;
 			}

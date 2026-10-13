@@ -26,6 +26,10 @@ import (
 // come la pagina di cortesia del proxy, oppure {"Error":…}).
 var ErrOTRS = errors.New("OTRS non disponibile")
 
+// ErrDenied: OTRS ha negato il permesso all'agente (*.AccessDenied), es. una
+// risposta o una chiusura su un ticket arrivato per mail senza note/close.
+var ErrDenied = fmt.Errorf("%w: permesso negato", ErrOTRS)
+
 // errTooLarge: risposta oltre il limite (di solito per gli allegati).
 var errTooLarge = fmt.Errorf("%w: risposta troppo grande", ErrOTRS)
 
@@ -44,6 +48,7 @@ type Client interface {
 	Changed(ctx context.Context, since time.Time) ([]Ticket, error)
 	Attachment(ctx context.Context, email, ticketID, articleID, fileID string) (Attachment, error)
 	Reply(ctx context.Context, email, ticketID string, r NewReply) error
+	Close(ctx context.Context, email, ticketID string, c NewClose) error
 }
 
 type NewTicket struct {
@@ -139,6 +144,9 @@ func (c *HTTPClient) call(ctx context.Context, method, route string, body map[st
 	var e otrsError
 	if json.Unmarshal(raw, &e) == nil && e.Error != nil {
 		slog.Warn("otrs: errore", "route", route, "code", e.Error.ErrorCode, "message", e.Error.ErrorMessage)
+		if strings.HasSuffix(e.Error.ErrorCode, ".AccessDenied") {
+			return fmt.Errorf("%w: %s", ErrDenied, e.Error.ErrorCode)
+		}
 		return fmt.Errorf("%w: %s", ErrOTRS, e.Error.ErrorCode)
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
@@ -158,9 +166,11 @@ func (c *HTTPClient) Create(ctx context.Context, t NewTicket) (Created, error) {
 			"Title": t.Subject, "Queue": c.Config.Queue, "State": "new", "Priority": "3 normal",
 			"CustomerUser": t.Email,
 		},
+		// HistoryType: il default del web service (NewTicket) non fa partire
+		// la notifica «nuovo ticket» agli operatori.
 		"Article": map[string]any{
 			"Subject": t.Subject, "Body": body, "ContentType": "text/plain; charset=utf8",
-			"ArticleType": "webrequest", "SenderType": "customer",
+			"ArticleType": "webrequest", "SenderType": "customer", "HistoryType": "WebRequestCustomer",
 			"From": (&mail.Address{Name: t.Name, Address: t.Email}).String(),
 		},
 	}

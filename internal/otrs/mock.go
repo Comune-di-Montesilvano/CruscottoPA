@@ -17,6 +17,7 @@ type Mock struct {
 	FailUpdate bool               // simula il cliente non impostato
 	Tickets    map[string]*Ticket // per TicketID; nil = nessuna lettura
 	Replies    []MockReply        // risposte ricevute
+	Closes     []string           // TicketID chiusi dall'utente
 	demo       map[string]bool    // NewDemoMock: utenti con i ticket di esempio
 	next       int                // numerazione dei ticket di esempio
 }
@@ -126,5 +127,25 @@ func (m *Mock) Reply(_ context.Context, email, id string, r NewReply) error {
 	t.Changed = now
 	t.Articles = append(t.Articles, Article{ArticleID: fmt.Sprintf("%s%02d", id, len(t.Articles)+1), From: r.Name, Body: r.Body, Created: now})
 	m.Replies = append(m.Replies, MockReply{TicketID: id, Reply: r, Reopened: reopened})
+	return nil
+}
+
+func (m *Mock) Close(_ context.Context, email, id string, c NewClose) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Err != nil {
+		return m.Err
+	}
+	t, ok := m.Tickets[id]
+	if !ok || !strings.EqualFold(t.CustomerUserID, email) {
+		return ErrNotYours
+	}
+	if t.Closed {
+		return nil
+	}
+	now := time.Now()
+	t.Closed, t.State, t.StateType, t.Changed = true, CloseState, "closed", now
+	t.Articles = append(t.Articles, Article{ArticleID: fmt.Sprintf("%s%02d", id, len(t.Articles)+1), From: c.Name, Body: closeBody(c.Body), Created: now})
+	m.Closes = append(m.Closes, id)
 	return nil
 }

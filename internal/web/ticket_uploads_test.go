@@ -68,8 +68,11 @@ func TestTicketUploadRejects(t *testing.T) {
 	if out := uploadTicketFile(t, s, c, "a.svg", svg); out["ok"] != false {
 		t.Errorf("SVG: %v", out)
 	}
-	if out := uploadTicketFile(t, s, c, "big.png", append(append([]byte{}, pngBytes...), make([]byte, 5<<20)...)); out["ok"] != false {
-		t.Errorf("oltre 5 MB: %v", out)
+	if out := uploadTicketFile(t, s, c, "big.png", append(append([]byte{}, pngBytes...), make([]byte, 10<<20)...)); out["ok"] != false {
+		t.Errorf("oltre 10 MB: %v", out)
+	}
+	if out := uploadTicketFile(t, s, c, "medio.png", append(append([]byte{}, pngBytes...), make([]byte, 8<<20)...)); out["ok"] != true {
+		t.Errorf("8 MB: %v", out)
 	}
 	if out := uploadTicketFile(t, s, c, "doc.pdf", pdfBytes); out["ok"] != true {
 		t.Errorf("PDF valido: %v", out)
