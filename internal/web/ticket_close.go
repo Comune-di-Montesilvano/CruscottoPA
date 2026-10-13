@@ -65,11 +65,15 @@ func (s *Server) handleTicketClose(w http.ResponseWriter, r *http.Request) {
 			reply(map[string]any{"errore": "non_tuo"})
 			return
 		}
+		if errors.Is(err, otrs.ErrDenied) {
+			reply(map[string]any{"errore": "permesso"})
+			return
+		}
 		reply(map[string]any{"errore": "otrs"})
 		return
 	}
 	s.ticketCache.forget(req.Email)
-	slog.Info("ticket chiuso dall'utente", "ticket", id, "user", user, "testo", body != "")
+	slog.Info("ticket: chiuso dall'utente", "ticket", id, "user", user, "testo", body != "")
 	if err := s.db.RecordTicket(database.TicketSent{Username: user, Name: req.Name, Email: req.Email, Subject: "Chiusura",
 		TicketID: id, TicketNumber: id, CustomerSet: true, PC: req.PC, Kind: database.TicketClose,
 		CreatedAt: s.now()}); err != nil {

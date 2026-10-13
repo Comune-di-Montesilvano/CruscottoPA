@@ -98,3 +98,20 @@ func TestCloseScript(t *testing.T) {
 		}
 	}
 }
+
+// OTRS nega il permesso (es. ticket arrivato per mail senza note/close
+// all'agente): messaggio dedicato, uguale per chiusura e risposta.
+func TestTicketDenied(t *testing.T) {
+	m := mockConversation()
+	m.Err = otrs.ErrDenied
+	s, c := ticketTestServer(t, m)
+	if out := postClose(t, s, c, "5", nil); out["errore"] != "permesso" {
+		t.Errorf("chiusura: %v", out)
+	}
+	if out := postReply(t, s, c, "5", url.Values{"descrizione": {"x"}}); out["errore"] != "permesso" {
+		t.Errorf("risposta: %v", out)
+	}
+	if js := readFile(t, "../../web/static/js/ticket.js"); !strings.Contains(js, "permesso:") {
+		t.Error("ticket.js: manca il messaggio «permesso»")
+	}
+}

@@ -26,6 +26,10 @@ import (
 // come la pagina di cortesia del proxy, oppure {"Error":…}).
 var ErrOTRS = errors.New("OTRS non disponibile")
 
+// ErrDenied: OTRS ha negato il permesso all'agente (*.AccessDenied), es. una
+// risposta o una chiusura su un ticket arrivato per mail senza note/close.
+var ErrDenied = fmt.Errorf("%w: permesso negato", ErrOTRS)
+
 // errTooLarge: risposta oltre il limite (di solito per gli allegati).
 var errTooLarge = fmt.Errorf("%w: risposta troppo grande", ErrOTRS)
 
@@ -140,6 +144,9 @@ func (c *HTTPClient) call(ctx context.Context, method, route string, body map[st
 	var e otrsError
 	if json.Unmarshal(raw, &e) == nil && e.Error != nil {
 		slog.Warn("otrs: errore", "route", route, "code", e.Error.ErrorCode, "message", e.Error.ErrorMessage)
+		if strings.HasSuffix(e.Error.ErrorCode, ".AccessDenied") {
+			return fmt.Errorf("%w: %s", ErrDenied, e.Error.ErrorCode)
+		}
 		return fmt.Errorf("%w: %s", ErrOTRS, e.Error.ErrorCode)
 	}
 	if err := json.Unmarshal(raw, out); err != nil {

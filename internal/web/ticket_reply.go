@@ -76,6 +76,10 @@ func (s *Server) handleTicketReply(w http.ResponseWriter, r *http.Request) {
 			reply(map[string]any{"errore": "non_tuo"})
 			return
 		}
+		if errors.Is(err, otrs.ErrDenied) {
+			reply(map[string]any{"errore": "permesso"})
+			return
+		}
 		reply(map[string]any{"errore": "otrs"})
 		return
 	}

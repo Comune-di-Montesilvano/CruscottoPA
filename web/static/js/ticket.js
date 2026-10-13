@@ -14,6 +14,7 @@
 		spento: "L'apertura dei ticket non è attiva",
 		in_corso: "Stai già inviando un messaggio: attendi la risposta",
 		non_tuo: "Questo ticket non è disponibile",
+		permesso: "Questo ticket non si può aggiornare dal Cruscotto: rispondi alla mail dell'assistenza",
 	};
 
 	async function post(url, body, type) {
