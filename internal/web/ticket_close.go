@@ -69,6 +69,7 @@ func (s *Server) handleTicketClose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.ticketCache.forget(req.Email)
+	slog.Info("ticket chiuso dall'utente", "ticket", id, "user", user, "testo", body != "")
 	if err := s.db.RecordTicket(database.TicketSent{Username: user, Name: req.Name, Email: req.Email, Subject: "Chiusura",
 		TicketID: id, TicketNumber: id, CustomerSet: true, PC: req.PC, Kind: database.TicketClose,
 		CreatedAt: s.now()}); err != nil {

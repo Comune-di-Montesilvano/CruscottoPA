@@ -81,6 +81,7 @@ func (s *Server) handleTicketReply(w http.ResponseWriter, r *http.Request) {
 	}
 	s.consumeTicketFiles(ids)
 	s.ticketCache.forget(req.Email)
+	slog.Info("ticket: risposta inviata", "ticket", id, "user", user, "allegati", len(atts))
 	if err := s.db.RecordTicket(database.TicketSent{Username: user, Name: req.Name, Email: req.Email, Subject: "Risposta",
 		TicketID: id, TicketNumber: id, CustomerSet: true, Attachments: len(atts), PC: req.PC, Kind: database.TicketReply,
 		CreatedAt: s.now()}); err != nil {
