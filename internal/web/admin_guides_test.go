@@ -1,8 +1,10 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -186,5 +188,37 @@ func TestGuideEditWhileGitHubDown(t *testing.T) {
 	rec = do(t, s, "POST", "/admin/guide/"+id, url.Values{"kind": {"github"}, "title": {"X"}, "source_url": {"https://github.com/o/r/blob/main/b.md"}}, c, hx)
 	if !invalid(rec) {
 		t.Fatalf("link nuovo con GitHub giù: atteso 422, %d", rec.Code)
+	}
+}
+
+// Sostituito il PDF, chi l'aveva già aperto deve vedere il nuovo: l'indirizzo
+// resta lo stesso, quindi niente cache senza verifica (prima il browser
+// riusava la copia vecchia per ore, senza chiedere al server).
+func TestGuidePDFNotStaleAfterReplace(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	pdfB := append(append([]byte{}, pdfBytes...), []byte("\n% versione B\n")...)
+	a := uploadMedia(t, s, c, "pdf", pdfBytes)["name"].(string)
+	b := uploadMedia(t, s, c, "pdf", pdfB)["name"].(string)
+	do(t, s, "POST", "/admin/guide", url.Values{"kind": {"pdf"}, "title": {"M"}, "file": {a}, "enabled": {"1"}}, c, hx)
+	gs, _ := db.ListGuides()
+	id := itoa(gs[0].ID)
+	for _, u := range []string{"/guide/" + id + "/pdf", "/admin/guide/" + id + "/pdf"} {
+		rec := do(t, s, "GET", u, nil, c, nil)
+		if cc := rec.Header().Get("Cache-Control"); cc != "no-cache" {
+			t.Errorf("%s: Cache-Control %q", u, cc)
+		}
+		if et := rec.Header().Get("ETag"); et != `"`+a+`"` {
+			t.Errorf("%s: ETag %q", u, et)
+		}
+	}
+	etagA := `"` + a + `"`
+	if rec := do(t, s, "GET", "/guide/"+id+"/pdf", nil, c, map[string]string{"If-None-Match": etagA}); rec.Code != http.StatusNotModified {
+		t.Errorf("stesso PDF: %d, atteso 304", rec.Code)
+	}
+	do(t, s, "POST", "/admin/guide/"+id, url.Values{"kind": {"pdf"}, "title": {"M"}, "file": {b}, "enabled": {"1"}}, c, hx)
+	rec := do(t, s, "GET", "/guide/"+id+"/pdf", nil, c, map[string]string{"If-None-Match": etagA})
+	if rec.Code != 200 || !bytes.Equal(rec.Body.Bytes(), pdfB) {
+		t.Fatalf("dopo la sostituzione: %d, PDF nuovo %v", rec.Code, bytes.Equal(rec.Body.Bytes(), pdfB))
 	}
 }
