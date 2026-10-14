@@ -139,6 +139,11 @@ func (s *Server) serveGuidePDF(w http.ResponseWriter, r *http.Request, g *databa
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", pdfCSP)
 	h.Set("Content-Disposition", pdfDisposition(g.Title))
+	// L'indirizzo resta lo stesso quando il PDF viene sostituito: senza
+	// Cache-Control il browser riuserebbe la copia vecchia per ore. ETag = nome
+	// del file, nuovo a ogni caricamento: PDF invariato → 304.
+	h.Set("Cache-Control", "no-cache")
+	h.Set("ETag", `"`+g.File+`"`)
 	http.ServeFile(w, r, filepath.Join(s.uploadDir(uploadGuide), g.File))
 }
 
