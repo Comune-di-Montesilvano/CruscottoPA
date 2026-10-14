@@ -27,6 +27,19 @@ const BUTTONS = [
 	["Ripeti", "redo", (e) => e.chain().focus().redo().run()],
 ];
 
+// Incolla: ProseMirror tratta il testo semplice come testo, e «## » diventa un
+// titolo solo se digitato. Il Markdown incollato (es. un avviso scritto
+// altrove) si legge quindi col parser, salvo HTML ricco della sorgente.
+const MD_BLOCK = /^ {0,3}(#{1,6} |[-*+] |\d+[.)] |> |```|\|.*\|\s*$)/m;
+const MD_INLINE = /\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\s]+\)/;
+function looksMarkdown(text) {
+	return MD_BLOCK.test(text) || MD_INLINE.test(text);
+}
+// HTML con struttura (Word, pagine web): meglio l'incolla normale.
+function richHTML(html) {
+	return /<(h[1-6]|ul|ol|li|table|strong|b|em|i|blockquote)[\s>]/i.test(html);
+}
+
 function linkPrompt(e) {
 	const prev = e.getAttributes("link").href || "https://";
 	const href = window.prompt("Indirizzo del link (vuoto per toglierlo):", prev);
@@ -97,8 +110,15 @@ function mount(ta) {
 			attributes: { class: "md md-editor-area", "aria-label": label, "aria-multiline": "true", role: "textbox" },
 			handlePaste: (view, ev) => {
 				const files = [...(ev.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/"));
-				if (!files.length) return false;
-				insertImages(editor, files, status);
+				if (files.length) {
+					insertImages(editor, files, status);
+					return true;
+				}
+				const text = ev.clipboardData?.getData("text/plain") || "";
+				if (!text || editor.isActive("codeBlock") || !looksMarkdown(text) || richHTML(ev.clipboardData.getData("text/html") || "")) {
+					return false;
+				}
+				editor.commands.insertContent(text, { contentType: "markdown" });
 				return true;
 			},
 			handleDrop: (view, ev) => {
