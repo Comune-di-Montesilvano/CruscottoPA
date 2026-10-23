@@ -180,7 +180,6 @@ Contenuto, dall'alto:
 
 - Sempre 200 (proxy `revprx01`), `sendBeacon` best effort, CSP stretta (niente inline: nuovo JS in `dashboard.js`, stili in `plancia.css`).
 - Identità dichiarata: questi dati sono **indicativi e solo per personalizzare**, come le letture. Nessuna autorizzazione dipende da loro.
-- I nuovi dati raccolti (giorni di accesso, clic aggregati) rientrano nell'informativa dell'ente. **Prima del rilascio va informato il DPO** e va aggiornata l'informativa, se serve. Va scritto nel PR e nel README.
 - Test: `internal/database` (conteggi, deduplicazione, pulizia, traguardi senza festeggiare dati vecchi), `internal/web` (pastiglia per anonimi e riconosciuti, widget assente per anonimi, `/app/{id}/clic` sempre 200 e dedup, percentuale nascosta per gli avvisi riservati o sotto soglia, fiammella solo su app visibili), `internal/otrs` (stats con il server finto). Test di `internal/web` in container (vedi CLAUDE.md).
 - `CLAUDE.md`: aggiornare Architettura (tabelle v14, route pubbliche `/app/{id}/clic`, job).
 
