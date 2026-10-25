@@ -232,22 +232,9 @@ func pruneOpens(m map[string]time.Time, now time.Time) map[string]time.Time {
 // appVisibleTo: app in plancia (attiva, con indirizzo) e destinata a chi guarda
 // (senza «Mostra tutto»).
 func (s *Server) appVisibleTo(r *http.Request, id int64) bool {
-	d, err := s.db.GetDashboard(s.now())
-	if err != nil {
-		return false
-	}
-	f, err := s.contentFilterFor(r)
-	if err != nil {
-		return false
-	}
-	for _, c := range d.Categories {
-		for _, a := range c.Apps {
-			if a.ID == id {
-				return f.visible(f.apps[id])
-			}
-		}
-	}
-	return false
+	apps, err := s.targetedApps(r)
+	_, ok := apps[id]
+	return err == nil && ok
 }
 
 // markHot accende la fiammella sulle app più aperte tra quelle in pagina.
