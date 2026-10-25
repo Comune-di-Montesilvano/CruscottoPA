@@ -53,7 +53,8 @@ body.plancia {
 .hello { margin: 0; font-size: 2rem; font-weight: 600; letter-spacing: -.01em; }
 .hello-name { font-weight: 300; }
 /* «Oggi siamo in N»: senso di gruppo, discreto (niente animazioni). */
-.hero-together { display: inline-flex; align-items: center; gap: .35rem; margin: .45rem 0 0; padding: .2rem .75rem .2rem .55rem; border-radius: 999px; background: var(--navy-2); border: 1px solid var(--navy-line); color: #cfe0f7; font-size: .82rem; }
+/* Nella riga del marchio, a destra: nessuno spazio verticale in più. */
+.hero-together { display: inline-flex; align-items: center; gap: .35rem; margin: 0 0 0 .75rem; flex-shrink: 0; padding: .1rem .65rem .1rem .5rem; border-radius: 999px; background: var(--navy-2); border: 1px solid var(--navy-line); color: #cfe0f7; font-size: .82rem; }
 .hero-together .material-icons { font-size: 16px; opacity: .9; }
 .hero-together.is-milestone { color: #fff3c4; border-color: #8a6d1f; }
 .hero-compact { padding-bottom: 1.6rem; }
