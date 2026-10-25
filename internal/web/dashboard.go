@@ -47,7 +47,7 @@ type dashboardView struct {
 	Admin       bool       // link al pannello admin nel footer
 	Ticket      ticketView // tile e dialog «Apri un ticket»
 	Pill        pillView   // «Oggi siamo in N» (vuota = nascosta)
-	Month       *monthView // widget «Il tuo mese» (nil = solo riconosciuti)
+	Month       *monthView // widget «I tuoi ultimi 30 giorni» (nil = solo riconosciuti)
 }
 
 type avvisiView struct {

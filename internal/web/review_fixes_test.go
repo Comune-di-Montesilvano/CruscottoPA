@@ -30,7 +30,7 @@ func TestPlanciaReadKeepsOnlyTheDay(t *testing.T) {
 	}
 }
 
-// Un errore del widget «Il tuo mese» non deve far cadere la plancia.
+// Un errore del widget «I tuoi ultimi 30 giorni» non deve far cadere la plancia.
 func TestDashboardSurvivesMonthError(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	if _, err := db.Exec(`DROP TABLE push_subscriptions`); err != nil {
@@ -101,7 +101,7 @@ func TestUnknownViewerNoReads(t *testing.T) {
 // A inizio mese, senza richieste, niente «0 richieste, 0 risolte».
 func TestAssistLineHiddenWhenEmpty(t *testing.T) {
 	s, c := ticketTestServer(t, otrs.NewMock())
-	s.db.SaveTicketStats(database.TicketStats{Month: "2026-10", UpdatedAt: fixedNow})
+	s.db.SaveTicketStats(database.TicketStats{UpdatedAt: fixedNow})
 	if body := do(t, s, "GET", "/", nil, c, nil).Body.String(); strings.Contains(body, "month-assist") {
 		t.Fatal("riga dell'assistenza vuota mostrata")
 	}

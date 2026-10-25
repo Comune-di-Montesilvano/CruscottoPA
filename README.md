@@ -70,7 +70,7 @@ Con `OTRS_URL` e le altre variabili `OTRS_*` la plancia apre i ticket nella coda
 
 ## Noi del Comune
 
-Piccoli numeri per sentirsi parte di un gruppo, mai una gara: nella testata «Oggi siamo in N» (e, il giorno in cui succede, «Abbiamo superato 10.000 accessi»), sotto gli avvisi pubblici «Letto dal X% dei colleghi», una fiammella sui tre applicativi più aperti della settimana. Chi è riconosciuto vede anche il widget «Il tuo mese»: giorni di cruscotto, le sue richieste di assistenza, alcune spille (notifiche attive, app installata, avvisi del mese letti, prima richiesta) e i numeri dell'assistenza del mese, calcolati da OTRS ogni ora.
+Piccoli numeri per sentirsi parte di un gruppo, mai una gara: nella testata «Oggi siamo in N» (e, il giorno in cui succede, «Abbiamo superato 10.000 accessi»), sotto gli avvisi pubblici «Letto dal X% dei colleghi», una fiammella sui tre applicativi più aperti della settimana. Chi è riconosciuto vede anche il widget «I tuoi ultimi 30 giorni»: giorni di cruscotto, le sue richieste di assistenza, alcune spille (notifiche attive, app installata, avvisi recenti letti, prima richiesta) e i numeri dell'assistenza nello stesso periodo, calcolati da OTRS ogni ora.
 
 Nessuna classifica tra persone e nessun orario: dei giorni di accesso si salva solo il giorno, i clic sugli applicativi senza l'utente. `STATS_ENABLED=false` spegne tutto (raccolta compresa); `STATS_RETENTION_MONTHS` (default 13) fissa per quanto restano i giorni di accesso.
 

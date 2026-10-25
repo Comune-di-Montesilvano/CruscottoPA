@@ -8,7 +8,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
-// Widget «Il tuo mese»: numeri solo di chi guarda (mai confronti con altri),
+// Widget «I tuoi ultimi 30 giorni»: numeri solo di chi guarda (mai confronti con altri),
 // spille e la riga di gruppo dell'assistenza. Solo per gli utenti riconosciuti.
 
 // badgeView: spilla; Earned = presa, altrimenti Hint dice come ottenerla.
@@ -18,7 +18,6 @@ type badgeView struct {
 }
 
 type monthView struct {
-	MonthName      string
 	Days           int
 	Tickets        bool // modulo ticket attivo
 	Sent, Resolved int
@@ -32,12 +31,10 @@ func (s *Server) monthFor(username string, f *contentFilter) (*monthView, error)
 		return nil, nil
 	}
 	now := s.now()
-	from := s.monthStart(now)
-	to := from.AddDate(0, 1, 0)
-	month := from.Format("2006-01")
-	v := &monthView{MonthName: months[from.Month()-1], Tickets: s.ticketsEnabled()}
+	from := s.windowStart(now)
+	v := &monthView{Tickets: s.ticketsEnabled()}
 	var err error
-	if v.Days, err = s.db.UserDaysBetween(username, s.dayOf(from), s.dayOf(to.Add(-time.Second))); err != nil {
+	if v.Days, err = s.db.UserDaysBetween(username, s.dayOf(from), s.dayOf(now)); err != nil {
 		return nil, err
 	}
 
@@ -55,7 +52,7 @@ func (s *Server) monthFor(username string, f *contentFilter) (*monthView, error)
 		badgeView{Key: "app", Icon: "install_desktop", Label: "App installata", Earned: p.LastApp != nil,
 			Hint: "Installa il cruscotto come app dal menu del browser (⋯ → App → Installa)"})
 
-	// Avvisi del mese ancora attivi e destinati all'utente: chi era in ferie
+	// Avvisi degli ultimi 30 giorni ancora attivi e destinati all'utente: chi era in ferie
 	// quando uno è scaduto non perde la spilla per sempre.
 	alerts, err := s.db.ListActiveAlerts(now)
 	if err != nil {
@@ -74,17 +71,17 @@ func (s *Server) monthFor(username string, f *contentFilter) (*monthView, error)
 		allRead = allRead && read[a.ID]
 	}
 	if count > 0 {
-		v.Badges = append(v.Badges, badgeView{Key: "avvisi", Icon: "task_alt", Label: "Tutti gli avvisi del mese letti", Earned: allRead,
-			Hint: "Leggi tutti gli avvisi del mese"})
+		v.Badges = append(v.Badges, badgeView{Key: "avvisi", Icon: "task_alt", Label: "Tutti gli avvisi recenti letti", Earned: allRead,
+			Hint: "Leggi tutti gli avvisi degli ultimi 30 giorni"})
 	}
 
 	if v.Tickets {
-		ids, err := s.db.TicketsOpenedBetween(username, from, to)
+		ids, err := s.db.TicketsOpenedBetween(username, from, now.Add(time.Second))
 		if err != nil {
 			return nil, err
 		}
 		v.Sent = len(ids)
-		if v.Resolved, err = s.db.ClosedInMonth(month, ids); err != nil {
+		if v.Resolved, err = s.db.ClosedAmong(ids); err != nil {
 			return nil, err
 		}
 		opened, err := s.db.HasOpenedTicket(username)
@@ -93,7 +90,7 @@ func (s *Server) monthFor(username string, f *contentFilter) (*monthView, error)
 		}
 		v.Badges = append(v.Badges, badgeView{Key: "ticket", Icon: "confirmation_number", Label: "Prima richiesta di assistenza", Earned: opened,
 			Hint: "Quando ti serve aiuto, apri una richiesta dal riquadro Assistenza"})
-		st, ok, err := s.db.GetTicketStats(month)
+		st, ok, err := s.db.GetTicketStats()
 		if err != nil {
 			return nil, err
 		}

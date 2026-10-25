@@ -120,7 +120,7 @@ body.plancia {
 .news-read-done .material-icons { font-size: 18px; }
 .news-readers { margin: .5rem 0 0; font-size: .78rem; color: var(--p-text-3); }
 
-/* Il tuo mese: numeri di chi guarda e spille (prese colorate, da prendere grigie). */
+/* I tuoi ultimi 30 giorni: numeri di chi guarda e spille (prese colorate, da prendere grigie). */
 .widget-mese .month-big { margin: 0 0 .35rem; color: var(--p-text-2); font-size: .9rem; }
 .widget-mese .month-days { font-size: 1.7rem; font-weight: 700; color: var(--p-blue-2); line-height: 1; margin-right: .15rem; }
 .widget-mese .month-line { margin: 0 0 .4rem; font-size: .85rem; color: var(--p-text-2); }

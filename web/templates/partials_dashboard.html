@@ -134,17 +134,17 @@
 </section>
 {{end}}{{end}}
 
-{{/* Il tuo mese: numeri solo di chi guarda, spille, riga di gruppo dell'assistenza. */}}
+{{/* Ultimi 30 giorni: numeri solo di chi guarda, spille, riga di gruppo dell'assistenza. */}}
 {{define "widget_mese"}}{{with .}}
 <section class="widget widget-mese" aria-labelledby="mese-title">
-	<h2 class="widget-title" id="mese-title">Il tuo {{.MonthName}}</h2>
+	<h2 class="widget-title" id="mese-title">I tuoi ultimi 30 giorni</h2>
 	<p class="month-big"><span class="month-days">{{.Days}}</span> {{plural .Days "giorno di cruscotto" "giorni di cruscotto"}}</p>
-	{{if .Tickets}}{{if .Sent}}<p class="month-line">{{.Sent}} {{plural .Sent "richiesta inviata" "richieste inviate"}}, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}} questo mese</p>
+	{{if .Tickets}}{{if .Sent}}<p class="month-line">{{.Sent}} {{plural .Sent "richiesta inviata" "richieste inviate"}}, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}}</p>
 	{{else}}<p class="month-line">Hai bisogno di aiuto? <button type="button" class="link-btn" data-ticket-open>Apri un ticket</button></p>{{end}}{{end}}
 	<ul class="badges">{{range .Badges}}
 		<li><button type="button" class="badge{{if .Earned}} earned{{end}}" data-badge="{{.Key}}" data-hint="{{if .Earned}}{{.Label}}{{else}}{{.Hint}}{{end}}" aria-describedby="badge-hint" title="{{.Label}}"><span class="material-icons" aria-hidden="true">{{.Icon}}</span><span class="visually-hidden">{{.Label}}{{if not .Earned}} (da ottenere){{end}}</span></button></li>
 	{{end}}</ul>
 	<p id="badge-hint" class="badge-hint" aria-live="polite"></p>
-	{{with .Assist}}{{if .Requests}}<p class="month-assist">Assistenza a {{$.MonthName}}: {{.Requests}} {{plural .Requests "richiesta" "richieste"}}, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}}{{with .MedianFirst}} · prima risposta di solito entro {{roughDuration .}}{{end}}</p>{{end}}{{end}}
+	{{with .Assist}}{{if .Requests}}<p class="month-assist">Per tutti: {{.Requests}} {{plural .Requests "richiesta" "richieste"}} all'assistenza, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}}{{with .MedianFirst}} · prima risposta di solito entro {{roughDuration .}}{{end}}</p>{{end}}{{end}}
 </section>
 {{end}}{{end}}
