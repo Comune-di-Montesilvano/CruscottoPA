@@ -174,3 +174,170 @@ func (db *DB) HasOpenedTicket(username string) (bool, error) {
 		strings.ToLower(strings.TrimSpace(username)), TicketOpen).Scan(&n)
 	return n > 0, err
 }
+
+// Dati dei ticket della coda per le statistiche dell'assistenza: solo ID e
+// date, nessun contenuto. noCreated = creazione non ancora letta da OTRS.
+const noCreated = "1970-01-01T00:00:00Z"
+
+type TicketFact struct {
+	TicketID     string
+	CreatedAt    time.Time
+	FirstReplyAt *time.Time
+	ClosedMonth  string
+}
+
+// UpsertTicketCreated registra la creazione; non tocca la prima risposta.
+func (db *DB) UpsertTicketCreated(id string, created time.Time) error {
+	_, err := db.Exec(`INSERT INTO ticket_facts (ticket_id, created_at) VALUES (?, ?)
+ON CONFLICT(ticket_id) DO UPDATE SET created_at = excluded.created_at`, id, formatTime(created))
+	return err
+}
+
+// MissingTicketFacts: ID senza la data di creazione (da leggere in OTRS).
+func (db *DB) MissingTicketFacts(ids []string) ([]string, error) {
+	known := map[string]bool{}
+	rows, err := db.Query(`SELECT ticket_id FROM ticket_facts WHERE created_at <> ?`, noCreated)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		known[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := []string{}
+	for _, id := range ids {
+		if !known[id] {
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+// TicketsWithoutReply: ticket creati da createdFrom senza prima risposta.
+func (db *DB) TicketsWithoutReply(createdFrom time.Time, limit int) ([]TicketFact, error) {
+	rows, err := db.Query(`SELECT ticket_id, created_at, COALESCE(closed_month, '') FROM ticket_facts
+WHERE created_at >= ? AND first_reply_at IS NULL ORDER BY created_at, ticket_id LIMIT ?`, formatTime(createdFrom), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []TicketFact{}
+	for rows.Next() {
+		var f TicketFact
+		var created string
+		if err := rows.Scan(&f.TicketID, &created, &f.ClosedMonth); err != nil {
+			return nil, err
+		}
+		f.CreatedAt, _ = parseTime(created)
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+func (db *DB) SetFirstReply(id string, at time.Time) error {
+	_, err := db.Exec(`UPDATE ticket_facts SET first_reply_at = ? WHERE ticket_id = ?`, formatTime(at), id)
+	return err
+}
+
+// SetClosedMonth: i ticket chiusi nel mese sono esattamente closedIDs; quelli
+// segnati prima e non più in elenco (riaperti) tornano aperti.
+func (db *DB) SetClosedMonth(month string, closedIDs []string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE ticket_facts SET closed_month = NULL WHERE closed_month = ?`, month); err != nil {
+		return err
+	}
+	for _, id := range closedIDs {
+		if _, err := tx.Exec(`INSERT INTO ticket_facts (ticket_id, created_at, closed_month) VALUES (?, ?, ?)
+ON CONFLICT(ticket_id) DO UPDATE SET closed_month = excluded.closed_month`, id, noCreated, month); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// ClosedInMonth: quanti degli ids risultano chiusi nel mese.
+func (db *DB) ClosedInMonth(month string, ids []string) (int, error) {
+	n := 0
+	for _, id := range ids {
+		var c int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM ticket_facts WHERE ticket_id = ? AND closed_month = ?`, id, month).Scan(&c); err != nil {
+			return 0, err
+		}
+		n += c
+	}
+	return n, nil
+}
+
+// FirstReplyDurations: tempi di prima risposta dei ticket creati in [from, to).
+func (db *DB) FirstReplyDurations(createdFrom, createdTo time.Time) ([]time.Duration, error) {
+	rows, err := db.Query(`SELECT created_at, first_reply_at FROM ticket_facts
+WHERE created_at >= ? AND created_at < ? AND first_reply_at IS NOT NULL`, formatTime(createdFrom), formatTime(createdTo))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []time.Duration{}
+	for rows.Next() {
+		var c, r string
+		if err := rows.Scan(&c, &r); err != nil {
+			return nil, err
+		}
+		ct, err1 := parseTime(c)
+		rt, err2 := parseTime(r)
+		if err1 == nil && err2 == nil && !rt.Before(ct) {
+			out = append(out, rt.Sub(ct))
+		}
+	}
+	return out, rows.Err()
+}
+
+// TicketStats: numeri del mese dell'assistenza (coda configurata), dal job OTRS.
+type TicketStats struct {
+	Month              string // YYYY-MM
+	Requests, Resolved int
+	MedianFirst        *time.Duration // nil = nessun ticket con risposta
+	UpdatedAt          time.Time
+}
+
+func (db *DB) SaveTicketStats(st TicketStats) error {
+	var med sql.NullInt64
+	if st.MedianFirst != nil {
+		med = sql.NullInt64{Int64: int64(*st.MedianFirst / time.Second), Valid: true}
+	}
+	_, err := db.Exec(`INSERT INTO ticket_stats (month, requests, resolved, median_first_sec, updated_at) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(month) DO UPDATE SET requests = excluded.requests, resolved = excluded.resolved,
+	median_first_sec = excluded.median_first_sec, updated_at = excluded.updated_at`,
+		st.Month, st.Requests, st.Resolved, med, formatTime(st.UpdatedAt))
+	return err
+}
+
+func (db *DB) GetTicketStats(month string) (TicketStats, bool, error) {
+	st := TicketStats{Month: month}
+	var med sql.NullInt64
+	var updated string
+	err := db.QueryRow(`SELECT requests, resolved, median_first_sec, updated_at FROM ticket_stats WHERE month = ?`, month).
+		Scan(&st.Requests, &st.Resolved, &med, &updated)
+	if errors.Is(err, sql.ErrNoRows) {
+		return TicketStats{}, false, nil
+	}
+	if err != nil {
+		return TicketStats{}, false, err
+	}
+	if med.Valid {
+		d := time.Duration(med.Int64) * time.Second
+		st.MedianFirst = &d
+	}
+	st.UpdatedAt, _ = parseTime(updated)
+	return st, true, nil
+}
