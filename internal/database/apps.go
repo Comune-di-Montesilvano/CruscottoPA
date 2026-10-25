@@ -91,6 +91,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
 func (db *DB) UpdateApp(a App) error { return updateApp(db, a) }
 
 func updateApp(q execer, a App) error {
+	// Cambio di categoria: l'ordine personale della vecchia non vale più (in fondo alla nuova).
+	if _, err := q.Exec(`DELETE FROM user_app_order WHERE app_id = ? AND (SELECT category_id FROM apps WHERE id = ?) <> ?`,
+		a.ID, a.ID, a.CategoryID); err != nil {
+		return err
+	}
 	return checkAffected(q.Exec(`
 UPDATE apps SET
 	sort_order  = CASE WHEN category_id = ? THEN sort_order
