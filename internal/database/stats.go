@@ -220,10 +220,12 @@ func (db *DB) MissingTicketFacts(ids []string) ([]string, error) {
 	return out, nil
 }
 
-// TicketsWithoutReply: ticket creati da createdFrom senza prima risposta.
+// TicketsWithoutReply: ticket aperti, creati da createdFrom, senza prima
+// risposta; prima i più recenti (con più di limit in attesa i nuovi non
+// restano mai fuori). Un ticket chiuso senza risposta non si rilegge.
 func (db *DB) TicketsWithoutReply(createdFrom time.Time, limit int) ([]TicketFact, error) {
 	rows, err := db.Query(`SELECT ticket_id, created_at, COALESCE(closed_month, '') FROM ticket_facts
-WHERE created_at >= ? AND first_reply_at IS NULL ORDER BY created_at, ticket_id LIMIT ?`, formatTime(createdFrom), limit)
+WHERE created_at >= ? AND first_reply_at IS NULL AND closed_month IS NULL ORDER BY created_at DESC, ticket_id LIMIT ?`, formatTime(createdFrom), limit)
 	if err != nil {
 		return nil, err
 	}

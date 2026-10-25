@@ -102,8 +102,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	me, _ := s.viewerName(r)
 	month, err := s.monthFor(me, f)
 	if err != nil {
-		s.serverError(w, err)
-		return
+		slog.Warn("widget del mese", "err", err)
+		month = nil
 	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {

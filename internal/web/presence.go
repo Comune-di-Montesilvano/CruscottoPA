@@ -65,7 +65,11 @@ func (s *Server) markViewerReads(username string, alerts []database.Alert) []dat
 			short = append(short, a.ID)
 		}
 	}
-	if err := s.db.MarkReadMany(short, username, database.ReadPlancia, s.now()); err != nil {
+	// Solo il giorno (mezzanotte di Roma): l'ora della lettura in plancia
+	// sarebbe l'ora di arrivo del dipendente.
+	now := s.now().In(s.loc())
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, s.loc())
+	if err := s.db.MarkReadMany(short, username, database.ReadPlancia, day); err != nil {
 		slog.Warn("lettura avvisi in plancia", "err", err)
 	}
 	return s.withReadState(username, alerts)

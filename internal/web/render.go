@@ -57,6 +57,7 @@ func (s *Server) funcs() template.FuncMap {
 		"guideHref":     guideHref,
 		"guideNewTab":   guideNewTab,
 		"fmtDate":       func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
+		"fmtDay":        func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006") },
 		"fmtDatePtr": func(t *time.Time) string {
 			if t == nil {
 				return ""

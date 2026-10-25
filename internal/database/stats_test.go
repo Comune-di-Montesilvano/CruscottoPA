@@ -199,8 +199,13 @@ func TestTicketsWithoutReply(t *testing.T) {
 	}
 	db.UpsertTicketCreated("1", mustTime(t, "2026-10-02T08:00:00Z")) // non azzera la risposta
 	fs, err := db.TicketsWithoutReply(from, 1)
-	if err != nil || len(fs) != 1 || fs[0].TicketID != "2" {
-		t.Fatalf("senza risposta: %+v %v", fs, err)
+	if err != nil || len(fs) != 1 || fs[0].TicketID != "3" {
+		t.Fatalf("senza risposta, prima i più recenti: %+v %v", fs, err)
+	}
+	// Chiuso senza risposta: non si rilegge più ogni ora.
+	db.SetClosedMonth("2026-10", []string{"3"})
+	if fs, _ := db.TicketsWithoutReply(from, 5); len(fs) != 1 || fs[0].TicketID != "2" {
+		t.Fatalf("chiusi esclusi: %+v", fs)
 	}
 	ds, _ := db.FirstReplyDurations(from, mustTime(t, "2026-11-01T00:00:00Z"))
 	if len(ds) != 1 || ds[0] != time.Hour {
@@ -237,7 +242,7 @@ func TestMissingTicketFacts(t *testing.T) {
 		t.Fatalf("mancanti: %v %v", got, err)
 	}
 	db.UpsertTicketCreated("2", mustTime(t, "2026-10-05T08:00:00Z"))
-	if fs, _ := db.TicketsWithoutReply(mustTime(t, "2026-10-01T00:00:00Z"), 10); len(fs) != 2 || fs[1].TicketID != "2" || fs[1].ClosedMonth != "2026-10" {
+	if fs, _ := db.TicketsWithoutReply(mustTime(t, "2026-10-01T00:00:00Z"), 10); len(fs) != 1 || fs[0].TicketID != "1" { // il 2 è chiuso: letto una volta con la creazione, poi basta
 		t.Fatalf("dopo la lettura: %+v", fs)
 	}
 }
