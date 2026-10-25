@@ -49,6 +49,9 @@ type Client interface {
 	Attachment(ctx context.Context, email, ticketID, articleID, fileID string) (Attachment, error)
 	Reply(ctx context.Context, email, ticketID string, r NewReply) error
 	Close(ctx context.Context, email, ticketID string, c NewClose) error
+	// Statistiche dell'assistenza (solo ID e date).
+	MonthTicketIDs(ctx context.Context, from time.Time) (createdIDs, closedIDs []string, err error)
+	FirstReply(ctx context.Context, ticketID string) (created time.Time, reply *time.Time, err error)
 }
 
 type NewTicket struct {
