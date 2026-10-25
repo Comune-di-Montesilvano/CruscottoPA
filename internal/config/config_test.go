@@ -12,6 +12,7 @@ var allVars = []string{
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
 	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT", "GUIDE_REFRESH_HOURS",
 	"PC_DNS_SUFFIX", "PC_DNS_SERVER", "OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
+	"STATS_ENABLED", "STATS_RETENTION_MONTHS",
 }
 
 func TestLoadOTRSDisabledByDefault(t *testing.T) {
@@ -273,5 +274,26 @@ func TestLoadPCDNS(t *testing.T) {
 	t.Setenv("PC_DNS_SERVER", "dns.example.it:5353")
 	if cfg, _ := Load(); cfg.PCDNSServer != "dns.example.it:5353" {
 		t.Fatalf("porta esplicita: %q", cfg.PCDNSServer)
+	}
+}
+
+func TestStatsConfig(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.StatsEnabled || cfg.StatsRetentionMonths != 13 {
+		t.Fatalf("default: enabled=%v mesi=%d", cfg.StatsEnabled, cfg.StatsRetentionMonths)
+	}
+	t.Setenv("STATS_ENABLED", "false")
+	t.Setenv("STATS_RETENTION_MONTHS", "6")
+	if cfg, err = Load(); err != nil || cfg.StatsEnabled || cfg.StatsRetentionMonths != 6 {
+		t.Fatalf("impostati: %+v %v", cfg.StatsEnabled, err)
+	}
+	t.Setenv("STATS_RETENTION_MONTHS", "0")
+	if _, err = Load(); err == nil || !strings.Contains(err.Error(), "STATS_RETENTION_MONTHS: almeno 1") {
+		t.Fatalf("0 mesi: %v", err)
 	}
 }
