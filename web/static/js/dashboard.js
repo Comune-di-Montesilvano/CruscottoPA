@@ -15,6 +15,14 @@
 		sentReads.add(id);
 		beacon(`/avvisi/${id}/letto`, { come: how });
 	}
+	// Apertura di un'app dalla tile (anche col tasto centrale): il server conta
+	// un clic per utente, app e giorno, senza salvare chi.
+	const appClick = (e) => {
+		const a = e.target.closest?.("a.tile-main[data-app]");
+		if (a && (e.type === "click" || e.button === 1)) beacon(`/app/${a.dataset.app}/clic`, {});
+	};
+	document.addEventListener("click", appClick);
+	document.addEventListener("auxclick", appClick);
 	beacon("/presenza", {
 		app: window.matchMedia("(display-mode: standalone)").matches ? "1" : "0",
 		permesso: "Notification" in window ? Notification.permission : "",

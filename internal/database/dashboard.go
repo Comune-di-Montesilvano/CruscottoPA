@@ -6,6 +6,7 @@ type AppWithGuides struct {
 	App
 	Guides  []Guide
 	Support []SupportChannel // canali di assistenza attivi
+	Hot     bool             // calcolato dal web: tra i più aperti della settimana
 }
 
 type CategoryWithApps struct {

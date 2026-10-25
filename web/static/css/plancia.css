@@ -193,6 +193,9 @@ dialog.urgent::backdrop { background: rgba(60, 8, 8, .72); }
 /* Aperta, la card esce dalla griglia e copre ciò che sta sotto: la tile resta
    alta com'era (altezza fissata da dashboard.js), nulla si sposta. */
 .tile { display: flex; flex-direction: column; }
+/* Fiammella: tra i più aperti della settimana (in basso a destra: in alto c'è il badge delle guide). */
+.tile-hot { position: absolute; bottom: .45rem; right: .55rem; z-index: 1; display: inline-flex; color: #e8590c; opacity: .8; pointer-events: auto; }
+.tile-hot .material-icons { font-size: 18px; }
 .tile-card { position: relative; flex: 1; display: flex; flex-direction: column; border-radius: 18px; background: inherit; }
 .tile-card > .tile-main { flex: 1; }
 .tile.open { z-index: 30; }

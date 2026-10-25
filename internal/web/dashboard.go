@@ -97,6 +97,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		d.Alerts = s.markViewerReads(u.Username, d.Alerts)
 	}
 	d.Alerts = s.withReadPct(d.Alerts, f)
+	s.markHot(&d)
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
 		attrs, err := s.db.HeroAttributes()

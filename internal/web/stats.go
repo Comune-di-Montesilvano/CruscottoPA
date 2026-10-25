@@ -3,6 +3,8 @@ package web
 import (
 	"errors"
 	"log/slog"
+	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -24,6 +26,12 @@ const (
 	readPctMinActive = 10
 	readPctMinAge    = time.Hour
 	readPctMin       = 10
+	// Fiammella: le prime hotCount app degli ultimi hotDays giorni con almeno
+	// hotMinClicks clic (un clic per utente, app e giorno).
+	hotTTL       = 10 * time.Minute
+	hotDays      = 7
+	hotCount     = 3
+	hotMinClicks = 5
 )
 
 // statsCache: numeri di gruppo letti dal DB al massimo una volta per TTL.
@@ -36,6 +44,10 @@ type statsCache struct {
 	reads       map[int64]int // letture per avviso
 	active      int           // utenti attivi (ActiveWindow)
 	readsAt     time.Time
+	clicks      map[int64]int // clic per app negli ultimi hotDays giorni
+	clicksAt    time.Time
+	clickDay    string
+	clickSeen   map[string]bool // username|app del giorno clickDay: già contati
 }
 
 // reset svuota la cache (test).
@@ -44,6 +56,7 @@ func (c *statsCache) reset() {
 	defer c.mu.Unlock()
 	c.pill, c.pillDay, c.pillAt, c.milestoneAt = pillView{}, "", time.Time{}, time.Time{}
 	c.reads, c.active, c.readsAt = nil, 0, time.Time{}
+	c.clicks, c.clicksAt, c.clickDay, c.clickSeen = nil, time.Time{}, "", nil
 }
 
 // pillView: «Oggi siamo in N» nella testata; Count 0 = nascosta. Con un
@@ -142,6 +155,96 @@ func (s *Server) withReadPct(alerts []database.Alert, f *contentFilter) []databa
 		}
 	}
 	return alerts
+}
+
+// handleAppClick conta l'apertura di un'app dalla plancia: un clic per
+// utente, app e giorno, salvato senza l'utente. Sempre 200.
+func (s *Server) handleAppClick(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	user, _ := s.viewerName(r)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if !s.cfg.StatsEnabled || user == "" || err != nil || !s.appVisibleTo(r, id) {
+		return
+	}
+	day := s.dayOf(s.now())
+	key := user + "|" + strconv.FormatInt(id, 10)
+	s.stats.mu.Lock()
+	if s.stats.clickDay != day {
+		s.stats.clickDay, s.stats.clickSeen = day, map[string]bool{}
+	}
+	seen := s.stats.clickSeen[key]
+	s.stats.clickSeen[key] = true
+	s.stats.mu.Unlock()
+	if seen {
+		return
+	}
+	if err := s.db.AddAppClick(id, day); err != nil {
+		slog.Warn("statistiche clic", "err", err)
+	}
+}
+
+// appVisibleTo: app in plancia (attiva, con indirizzo) e destinata a chi guarda
+// (senza «Mostra tutto»).
+func (s *Server) appVisibleTo(r *http.Request, id int64) bool {
+	d, err := s.db.GetDashboard(s.now())
+	if err != nil {
+		return false
+	}
+	f, err := s.contentFilterFor(r)
+	if err != nil {
+		return false
+	}
+	for _, c := range d.Categories {
+		for _, a := range c.Apps {
+			if a.ID == id {
+				return f.visible(f.apps[id])
+			}
+		}
+	}
+	return false
+}
+
+// markHot accende la fiammella sulle app più aperte tra quelle in pagina.
+func (s *Server) markHot(d *database.Dashboard) {
+	if !s.cfg.StatsEnabled {
+		return
+	}
+	now := s.now()
+	s.stats.mu.Lock()
+	if s.stats.clicks == nil || now.Sub(s.stats.clicksAt) >= hotTTL {
+		m, err := s.db.AppClicksSince(s.dayOf(now.AddDate(0, 0, -(hotDays - 1))))
+		if err != nil {
+			s.stats.mu.Unlock()
+			slog.Warn("statistiche clic", "err", err)
+			return
+		}
+		s.stats.clicks, s.stats.clicksAt = m, now
+	}
+	clicks := s.stats.clicks
+	s.stats.mu.Unlock()
+	var ids []int64
+	for _, c := range d.Categories {
+		for _, a := range c.Apps {
+			if clicks[a.ID] >= hotMinClicks {
+				ids = append(ids, a.ID)
+			}
+		}
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		if clicks[ids[i]] != clicks[ids[j]] {
+			return clicks[ids[i]] > clicks[ids[j]]
+		}
+		return ids[i] < ids[j]
+	})
+	hot := map[int64]bool{}
+	for _, id := range ids[:min(len(ids), hotCount)] {
+		hot[id] = true
+	}
+	for ci := range d.Categories {
+		for ai := range d.Categories[ci].Apps {
+			d.Categories[ci].Apps[ai].Hot = hot[d.Categories[ci].Apps[ai].ID]
+		}
+	}
 }
 
 // thousands: 10000 → "10.000".

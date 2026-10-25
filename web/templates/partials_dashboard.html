@@ -70,7 +70,8 @@
 {{define "app_tile"}}
 <div class="tile" style="background:{{tint .IconColor}}">
 	<div class="tile-card">
-	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
+	{{if .Hot}}<span class="tile-hot" title="Tra i più aperti questa settimana"><span class="material-icons" aria-hidden="true">local_fire_department</span><span class="visually-hidden">Tra i più aperti questa settimana</span></span>{{end}}
+	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener" data-app="{{.ID}}">
 		{{template "tile_icon" .App}}
 		<span class="tile-text">
 			<span class="tile-title">{{.Title}}</span>
