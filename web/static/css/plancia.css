@@ -119,6 +119,19 @@ body.plancia {
 .news-read-done { display: inline-flex; align-items: center; gap: .2rem; margin: .6rem 0 0 .5rem; font-size: .85rem; font-weight: 600; color: #027a48; }
 .news-read-done .material-icons { font-size: 18px; }
 .news-readers { margin: .5rem 0 0; font-size: .78rem; color: var(--p-text-3); }
+
+/* Il tuo mese: numeri di chi guarda e spille (prese colorate, da prendere grigie). */
+.widget-mese .month-big { margin: 0 0 .35rem; color: var(--p-text-2); font-size: .9rem; }
+.widget-mese .month-days { font-size: 1.7rem; font-weight: 700; color: var(--p-blue-2); line-height: 1; margin-right: .15rem; }
+.widget-mese .month-line { margin: 0 0 .4rem; font-size: .85rem; color: var(--p-text-2); }
+.widget-mese .link-btn { border: 0; background: none; padding: 0; font: inherit; color: var(--p-blue-2); font-weight: 600; cursor: pointer; }
+.badges { list-style: none; display: flex; flex-wrap: wrap; gap: .45rem; margin: .5rem 0 0; padding: 0; }
+.badge { width: 34px; height: 34px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; background: #eef1f5; color: var(--p-text-4); }
+.badge .material-icons { font-size: 18px; }
+.badge.earned { background: #e3eefc; color: var(--p-blue-2); }
+.badge:focus-visible { outline: 2px solid var(--p-blue-3); outline-offset: 2px; }
+.badge-hint { min-height: 1.1em; margin: .35rem 0 0; font-size: .78rem; color: var(--p-text-3); }
+.month-assist { margin: .7rem 0 0; padding-top: .6rem; border-top: 1px solid #e4e7ec; font-size: .8rem; color: var(--p-text-3); }
 .news-expand > summary { list-style: none; display: inline-block; margin-top: .3rem; cursor: pointer; }
 .news-expand > summary::-webkit-details-marker { display: none; }
 .news-expand > summary > span { display: inline-flex; align-items: center; gap: .25rem; font-size: .88rem; font-weight: 600; border-radius: 999px; }

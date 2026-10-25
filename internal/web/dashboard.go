@@ -47,6 +47,7 @@ type dashboardView struct {
 	Admin       bool       // link al pannello admin nel footer
 	Ticket      ticketView // tile e dialog «Apri un ticket»
 	Pill        pillView   // «Oggi siamo in N» (vuota = nascosta)
+	Month       *monthView // widget «Il tuo mese» (nil = solo riconosciuti)
 }
 
 type avvisiView struct {
@@ -98,6 +99,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Alerts = s.withReadPct(d.Alerts, f)
 	s.markHot(&d)
+	me, _ := s.viewerName(r)
+	month, err := s.monthFor(me, f)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
 		attrs, err := s.db.HeroAttributes()
@@ -110,6 +117,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
 		Pill:        s.pill(),
+		Month:       month,
 		SearchIndex: buildSearchIndex(d),
 		Dashboard:   d,
 		Greeting:    greeting(now.Hour()),

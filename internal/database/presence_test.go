@@ -93,3 +93,17 @@ func TestMigrationV9OnPopulatedV8(t *testing.T) {
 		t.Fatalf("letture dopo la v9: %v", err)
 	}
 }
+
+func TestGetPresence(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Date(2026, 10, 6, 8, 0, 0, 0, time.UTC)
+	if _, ok, err := db.GetPresence("mrossi"); ok || err != nil {
+		t.Fatalf("assente: %v %v", ok, err)
+	}
+	db.TouchPresence("mrossi", "Mario", now)
+	db.SetPresenceClient("mrossi", true, "granted", now)
+	p, ok, err := db.GetPresence("MRossi")
+	if !ok || err != nil || p.LastApp == nil || p.Permission != "granted" {
+		t.Fatalf("presenza: %+v %v %v", p, ok, err)
+	}
+}
