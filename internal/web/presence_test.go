@@ -82,3 +82,19 @@ func TestReadOnlyActiveAlerts(t *testing.T) {
 		}
 	}
 }
+
+func TestCleanupRemovesUserDays(t *testing.T) {
+	s, db := newTestServerWith(t, nil, func(o *Options) { o.Config.StatsRetentionMonths = 1 })
+	db.TouchPresence("cessato", "Ex", fixedNow)
+	db.RecordDay("cessato", "2026-10-05")
+	db.RecordDay("mrossi", "2026-08-01") // oltre un mese fa
+	db.RecordDay("mrossi", "2026-10-05")
+	s.CleanupPresence()
+	s.cleanupStats()
+	if n, _ := db.UserDaysBetween("cessato", "2026-01-01", "2026-12-31"); n != 0 {
+		t.Fatalf("giorni di chi AD non conosce più: %d", n)
+	}
+	if n, _ := db.UserDaysBetween("mrossi", "2026-01-01", "2026-12-31"); n != 1 {
+		t.Fatalf("giorni di mrossi dopo la pulizia: %d", n)
+	}
+}

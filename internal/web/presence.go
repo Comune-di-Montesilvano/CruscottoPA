@@ -117,9 +117,25 @@ func (s *Server) CleanupPresence() {
 			if err := s.db.DeletePresence(p.Username); err != nil {
 				slog.Warn("pulizia presenza", "err", err)
 			}
+			if err := s.db.DeleteUserDays(p.Username); err != nil {
+				slog.Warn("pulizia presenza", "err", err)
+			}
 		case err != nil:
 			return // AD non raggiungibile: si riprova al prossimo giro
 		}
+	}
+}
+
+// clicksRetention: i clic sulle tile servono solo per l'ultima settimana.
+const clicksRetention = 90 * 24 * time.Hour
+
+// cleanupStats: giorni di accesso e dati dei ticket oltre STATS_RETENTION_MONTHS,
+// clic oltre 90 giorni. Il contatore dei traguardi resta.
+func (s *Server) cleanupStats() {
+	now := s.now()
+	days := s.dayOf(now.AddDate(0, -s.cfg.StatsRetentionMonths, 0))
+	if err := s.db.CleanupStats(days, s.dayOf(now.Add(-clicksRetention))); err != nil {
+		slog.Warn("pulizia statistiche", "err", err)
 	}
 }
 
@@ -133,6 +149,7 @@ func (s *Server) StartPresenceCleanup(ctx context.Context) {
 			if err := s.db.CleanupTicketState(s.now()); err != nil {
 				slog.Warn("pulizia stato ticket", "err", err)
 			}
+			s.cleanupStats()
 			select {
 			case <-ctx.Done():
 				return
