@@ -209,6 +209,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
+	s.mux.HandleFunc("GET /partials/preferiti", s.handleFavoritesPartial)
 	s.mux.HandleFunc("GET /avvisi", s.handleAvvisi)
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)

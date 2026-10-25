@@ -1,6 +1,8 @@
 package web
 
 import (
+	"log/slog"
+	"net/http"
 	"sort"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
@@ -102,4 +104,66 @@ func favorites(d database.Dashboard, pinned []int64, opens map[int64]int) []tile
 		out = append(out, tileView{AppWithGuides: a, Prefix: "fav-", Fav: true, Pinnable: true})
 	}
 	return out
+}
+
+// layoutView: preferiti in cima alla plancia e stato per i riquadri.
+type layoutView struct {
+	Favorites []tileView
+	Full      bool           // favMax fissati visibili: «Fissa» disattivato
+	pinned    map[int64]bool // fissati visibili
+}
+
+// Tile: riquadro di una categoria. Su nil (non riconosciuto) niente puntina.
+func (l *layoutView) Tile(a database.AppWithGuides) tileView {
+	t := tileView{AppWithGuides: a}
+	if l != nil && !a.NotForViewer {
+		t.Pinnable, t.Pinned = true, l.pinned[a.ID]
+	}
+	return t
+}
+
+// layoutFor applica l'ordine personale a d e calcola i preferiti; nil per chi
+// non è riconosciuto. Un errore del DB lascia la plancia com'è.
+func (s *Server) layoutFor(user string, d *database.Dashboard) *layoutView {
+	if user == "" {
+		return nil
+	}
+	l, err := s.db.UserLayout(user)
+	if err != nil {
+		slog.Warn("preferiti", "err", err)
+		return nil
+	}
+	opens, err := s.db.AppOpens(user)
+	if err != nil {
+		slog.Warn("preferiti", "err", err)
+		return nil
+	}
+	applyLayout(d, l)
+	v := &layoutView{Favorites: favorites(*d, l.Favorites, opens), pinned: map[int64]bool{}}
+	for _, f := range v.Favorites {
+		if f.Pinned {
+			v.pinned[f.ID] = true
+		}
+	}
+	v.Full = len(v.pinned) >= favMax
+	return v
+}
+
+// handleFavoritesPartial: la sola sezione dei preferiti (dopo un salvataggio
+// in «Personalizza»). Vuota per chi non è riconosciuto, sempre 200.
+func (s *Server) handleFavoritesPartial(w http.ResponseWriter, r *http.Request) {
+	d, err := s.db.GetDashboard(s.now())
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	f, err := s.contentFilterFor(r)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	f.dashboard(&d)
+	s.markHot(&d)
+	user, _ := s.viewerName(r)
+	s.render(w, http.StatusOK, "favorites", s.layoutFor(user, &d))
 }

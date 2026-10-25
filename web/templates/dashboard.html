@@ -80,13 +80,14 @@
 
 	<main class="layout">
 		<div class="main-col">
+		{{template "favorites" .Layout}}
 		<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
-		<section class="apps" aria-label="Applicativi">
+		<section class="apps" aria-label="Applicativi" data-sortable="categorie">
 			{{range .Categories}}
-			<div class="category" data-category>
-				<h2 class="section-title">{{.Name}} <span>{{len .Apps}}</span></h2>
-				<div class="grid">
-					{{range .Apps}}{{template "app_tile" .}}{{end}}
+			<div class="category" data-category data-id="{{.ID}}">
+				<h2 class="section-title"><span class="drag-handle material-icons" aria-hidden="true">drag_indicator</span>{{.Name}} <span>{{len .Apps}}</span></h2>
+				<div class="grid" data-sortable="categoria" data-id="{{.ID}}">
+					{{range .Apps}}{{template "app_tile" ($.Layout.Tile .)}}{{end}}
 				</div>
 			</div>
 			{{else}}

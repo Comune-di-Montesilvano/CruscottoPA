@@ -67,9 +67,13 @@
 
 {{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="/uploads/icons/{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else if eq .IconKind "url"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
+{{/* Riquadro di un'app (tileView): nelle categorie e, con Prefix "fav-", nei preferiti. */}}
 {{define "app_tile"}}
-<div class="tile" style="background:{{tint .IconColor}}">
+<div class="tile" data-tile-id="{{.ID}}"{{if .Pinned}} data-pinned{{end}}{{if .NotForViewer}} data-altri{{end}} style="background:{{tint .IconColor}}">
 	<div class="tile-card">
+	<span class="drag-handle material-icons" aria-hidden="true">drag_indicator</span>
+	{{if and .Fav .Pinned}}<span class="tile-pin-mark material-icons" title="Fissato" aria-hidden="true">push_pin</span>{{end}}
+	{{if .Pinnable}}<button type="button" class="tile-pin" data-pin="{{.ID}}" aria-pressed="{{if .Pinned}}true{{else}}false{{end}}" title="{{if .Pinned}}Sblocca{{else if .Fav}}Fissa{{else}}Aggiungi ai preferiti{{end}}"><span class="material-icons" aria-hidden="true">push_pin</span><span class="visually-hidden">{{if .Pinned}}Sblocca {{.Title}}{{else}}Fissa {{.Title}} nei preferiti{{end}}</span></button>{{end}}
 	{{if .Hot}}<span class="tile-hot" title="Tra i più aperti questa settimana"><span class="material-icons" aria-hidden="true">local_fire_department</span><span class="visually-hidden">Tra i più aperti questa settimana</span></span>{{end}}
 	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener" data-app="{{.ID}}">
 		{{template "tile_icon" .App}}
@@ -78,8 +82,8 @@
 			{{with .Description}}<span class="tile-desc">{{.}}</span>{{end}}
 		</span>
 	</a>
-	{{if or .Guides .Support}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="guide-app-{{.ID}}">{{if .Support}}<span class="tile-support-flag material-icons" title="Assistenza disponibile" aria-hidden="true">support_agent</span><span class="visually-hidden">Assistenza disponibile</span>{{end}}{{with .Guides}}{{len .}} {{if eq (len .) 1}}guida{{else}}guide{{end}}{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
-	<div class="tile-more" id="guide-app-{{.ID}}">
+	{{if or .Guides .Support}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="{{.Prefix}}guide-app-{{.ID}}">{{if .Support}}<span class="tile-support-flag material-icons" title="Assistenza disponibile" aria-hidden="true">support_agent</span><span class="visually-hidden">Assistenza disponibile</span>{{end}}{{with .Guides}}{{len .}} {{if eq (len .) 1}}guida{{else}}guide{{end}}{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
+	<div class="tile-more" id="{{.Prefix}}guide-app-{{.ID}}">
 		{{with .Guides}}<ul>{{range .}}<li>{{template "guide_link" .}}</li>{{end}}</ul>{{end}}
 		{{$app := .Title}}{{range .Support}}<div class="tile-support">
 			<span class="material-icons" aria-hidden="true">support_agent</span>
@@ -146,5 +150,21 @@
 	{{end}}</ul>
 	<p id="badge-hint" class="badge-hint" aria-live="polite"></p>
 	{{with .Assist}}{{if .Requests}}<p class="month-assist">Per tutti: {{.Requests}} {{plural .Requests "richiesta" "richieste"}} all'assistenza, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}}{{with .MedianFirst}} · prima risposta di solito entro {{roughDuration .}}{{end}}</p>{{end}}{{end}}
+</section>
+{{end}}{{end}}
+
+{{/* Preferiti: fissati + più aperti, in cima alla colonna degli applicativi.
+   Vuota (favorites-empty) mostra solo «Personalizza». */}}
+{{define "favorites"}}{{with .}}
+<section class="favorites{{if not .Favorites}} favorites-empty{{end}}" id="preferiti" data-personalizza{{if .Full}} data-full{{end}} aria-labelledby="preferiti-title">
+	<div class="favorites-bar">
+		<h2 class="section-title" id="preferiti-title"><span class="material-icons" aria-hidden="true">star</span>Preferiti</h2>
+		<div class="favorites-tools">
+			<button type="button" class="pers-btn pers-reset" data-personalizza-reset hidden><span class="material-icons" aria-hidden="true">restart_alt</span>Ripristina</button>
+			<button type="button" class="pers-btn" data-personalizza-toggle aria-pressed="false"><span class="material-icons" aria-hidden="true">tune</span><span data-label>Personalizza</span></button>
+		</div>
+	</div>
+	<p class="personalizza-hint">Trascina per riordinare applicativi e categorie. Con la puntina fissi un applicativo nei preferiti: gli altri posti si riempiono con quelli che apri di più.</p>
+	<div class="grid" data-sortable="preferiti">{{range .Favorites}}{{template "app_tile" .}}{{end}}</div>
 </section>
 {{end}}{{end}}

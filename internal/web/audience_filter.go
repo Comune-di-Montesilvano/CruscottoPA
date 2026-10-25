@@ -57,9 +57,11 @@ func (f *contentFilter) dashboard(d *database.Dashboard) {
 	for _, c := range d.Categories {
 		kept := c.Apps[:0]
 		for _, a := range c.Apps {
-			if !f.keep(f.visible(f.apps[a.ID])) {
+			v := f.visible(f.apps[a.ID])
+			if !f.keep(v) {
 				continue
 			}
+			a.NotForViewer = !v
 			gs := a.Guides[:0]
 			for _, g := range a.Guides {
 				if f.keep(f.visible(f.guides[g.ID])) {
