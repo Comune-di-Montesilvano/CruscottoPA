@@ -18,6 +18,7 @@
 		<div class="news-body md">{{md .Body}}</div>
 		{{if .ReadByViewer}}<span class="news-read-done"><span class="material-icons" aria-hidden="true">check</span>Letto</span>{{else}}<button type="button" class="news-read" data-read disabled>Ho letto</button>{{end}}
 	</details>{{end}}
+	{{if .ReadPct}}<p class="news-readers">Letto dal {{.ReadPct}}% dei colleghi</p>{{end}}
 </article>
 {{end}}
 

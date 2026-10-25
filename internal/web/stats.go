@@ -1,11 +1,13 @@
 package web
 
 import (
+	"errors"
 	"log/slog"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
@@ -16,6 +18,12 @@ import (
 const (
 	pillTTL        = time.Minute
 	milestoneEvery = time.Minute
+	readPctTTL     = 5 * time.Minute
+	// «Letto dal X%»: solo con abbastanza colleghi attivi, avviso in giro da un
+	// po' e una percentuale che non mette a disagio.
+	readPctMinActive = 10
+	readPctMinAge    = time.Hour
+	readPctMin       = 10
 )
 
 // statsCache: numeri di gruppo letti dal DB al massimo una volta per TTL.
@@ -25,6 +33,9 @@ type statsCache struct {
 	pillDay     string
 	pillAt      time.Time
 	milestoneAt time.Time
+	reads       map[int64]int // letture per avviso
+	active      int           // utenti attivi (ActiveWindow)
+	readsAt     time.Time
 }
 
 // reset svuota la cache (test).
@@ -32,6 +43,7 @@ func (c *statsCache) reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.pill, c.pillDay, c.pillAt, c.milestoneAt = pillView{}, "", time.Time{}, time.Time{}
+	c.reads, c.active, c.readsAt = nil, 0, time.Time{}
 }
 
 // pillView: «Oggi siamo in N» nella testata; Count 0 = nascosta. Con un
@@ -96,6 +108,40 @@ func (s *Server) pill() pillView {
 	}
 	s.stats.pill, s.stats.pillDay, s.stats.pillAt = p, day, now
 	return p
+}
+
+// withReadPct: «Letto dal X% dei colleghi» sugli avvisi pubblici. Per quelli
+// riservati il denominatore giusto richiederebbe AD per ogni utente.
+func (s *Server) withReadPct(alerts []database.Alert, f *contentFilter) []database.Alert {
+	if !s.cfg.StatsEnabled {
+		return alerts
+	}
+	now := s.now()
+	s.stats.mu.Lock()
+	if s.stats.reads == nil || now.Sub(s.stats.readsAt) >= readPctTTL {
+		reads, err := s.db.ReadCounts()
+		active, err2 := s.db.ActiveUsernames(now)
+		if err != nil || err2 != nil {
+			s.stats.mu.Unlock()
+			slog.Warn("statistiche letture", "err", errors.Join(err, err2))
+			return alerts
+		}
+		s.stats.reads, s.stats.active, s.stats.readsAt = reads, len(active), now
+	}
+	reads, active := s.stats.reads, s.stats.active
+	s.stats.mu.Unlock()
+	if active < readPctMinActive {
+		return alerts
+	}
+	for i, a := range alerts {
+		if f.alerts[a.ID].Mode != audience.ModePublic || now.Sub(a.StartsAt) < readPctMinAge {
+			continue
+		}
+		if pct := min(100, (reads[a.ID]*100+active/2)/active); pct >= readPctMin {
+			alerts[i].ReadPct = pct
+		}
+	}
+	return alerts
 }
 
 // thousands: 10000 → "10.000".

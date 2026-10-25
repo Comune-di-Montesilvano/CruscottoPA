@@ -118,6 +118,7 @@ body.plancia {
 }
 .news-read-done { display: inline-flex; align-items: center; gap: .2rem; margin: .6rem 0 0 .5rem; font-size: .85rem; font-weight: 600; color: #027a48; }
 .news-read-done .material-icons { font-size: 18px; }
+.news-readers { margin: .5rem 0 0; font-size: .78rem; color: var(--p-text-3); }
 .news-expand > summary { list-style: none; display: inline-block; margin-top: .3rem; cursor: pointer; }
 .news-expand > summary::-webkit-details-marker { display: none; }
 .news-expand > summary > span { display: inline-flex; align-items: center; gap: .25rem; font-size: .88rem; font-weight: 600; border-radius: 999px; }

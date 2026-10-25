@@ -1,10 +1,13 @@
 package web
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
@@ -86,4 +89,70 @@ func pillSnippet(body string) string {
 		return body[i:min(len(body), i+600)]
 	}
 	return body
+}
+
+// readPctSetup: n utenti attivi, reads letture dell'avviso id.
+func readPctSetup(t *testing.T, db *database.DB, id int64, n, reads int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		u := "u" + strconv.Itoa(i)
+		db.TouchPresence(u, u, fixedNow)
+		if i < reads {
+			db.MarkRead(id, u, database.ReadConfirm, fixedNow)
+		}
+	}
+}
+
+func TestReadPct(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	id := newAlert(t, db, "Cedolini", longBody, database.LevelNews)
+	readPctSetup(t, db, id, 20, 15)
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, "Letto dal 75% dei colleghi") {
+		t.Fatal("percentuale assente in plancia")
+	}
+	if body := do(t, s, "GET", "/partials/alerts", nil, nil, hx).Body.String(); !strings.Contains(body, "Letto dal 75% dei colleghi") {
+		t.Fatal("percentuale assente nel refresh")
+	}
+}
+
+func TestReadPctHidden(t *testing.T) {
+	cases := map[string]func(t *testing.T, s *Server, db *database.DB){
+		"riservato": func(t *testing.T, s *Server, db *database.DB) {
+			id := newAlert(t, db, "X", longBody, database.LevelNews)
+			g, _ := db.CreateAudienceGroup("Nessuno")
+			db.SetContentAudience(database.ContentAlert, id, database.ContentAudience{Mode: audience.ModeHide, Groups: []int64{g}})
+			readPctSetup(t, db, id, 20, 15)
+		},
+		"pochi_utenti": func(t *testing.T, s *Server, db *database.DB) {
+			id := newAlert(t, db, "X", longBody, database.LevelNews)
+			readPctSetup(t, db, id, 8, 8) // con mrossi che guarda: 9 attivi
+		},
+		"appena_iniziato": func(t *testing.T, s *Server, db *database.DB) {
+			id, _ := db.CreateAlert(database.Alert{Title: "X", Body: longBody, Level: database.LevelNews, StartsAt: fixedNow.Add(-30 * time.Minute), CreatedAt: fixedNow})
+			readPctSetup(t, db, id, 20, 15)
+		},
+		"sotto_soglia": func(t *testing.T, s *Server, db *database.DB) {
+			id := newAlert(t, db, "X", longBody, database.LevelNews)
+			readPctSetup(t, db, id, 20, 1)
+		},
+		"statistiche_spente": func(t *testing.T, s *Server, db *database.DB) {
+			s.cfg.StatsEnabled = false
+			id := newAlert(t, db, "X", longBody, database.LevelNews)
+			readPctSetup(t, db, id, 20, 15)
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			s, db := newTestServer(t, nil)
+			setup(t, s, db)
+			// mrossi vede anche l'avviso riservato (ModeHide di un gruppo non suo).
+			body := do(t, s, "GET", "/", nil, viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario"}), nil).Body.String()
+			if !strings.Contains(body, "news-title") {
+				t.Fatal("avviso non in pagina: il caso non prova nulla")
+			}
+			if strings.Contains(body, "news-readers") {
+				t.Fatal("percentuale mostrata")
+			}
+		})
+	}
 }
