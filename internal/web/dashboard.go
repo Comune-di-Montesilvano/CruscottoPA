@@ -94,6 +94,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		if s.cfg.StatsEnabled {
 			s.recordAccess(u.Username)
 		}
+		d.Alerts = s.markViewerReads(u.Username, d.Alerts)
 	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
@@ -139,6 +140,8 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.dashboard(&d)
+	user, _ := s.viewerName(r)
+	d.Alerts = s.withReadState(user, d.Alerts) // il refresh non è una nuova apertura
 	s.render(w, http.StatusOK, "alerts_partial", struct {
 		Alerts []database.Alert
 		Filter *contentFilter

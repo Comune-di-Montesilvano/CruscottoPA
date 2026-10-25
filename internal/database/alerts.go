@@ -27,6 +27,7 @@ type Alert struct {
 	NotifiedAt *time.Time // quando è partita la notifica; nil = non ancora
 
 	NotForViewer bool // calcolato dal web: avviso non destinato a chi guarda (niente popup)
+	ReadByViewer bool // calcolato dal web: già letto da chi guarda (dal DB, non dal browser)
 }
 
 const alertCols = `id, title, body, level, source, starts_at, ends_at, notify, created_at, created_by, notified_at`

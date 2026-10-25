@@ -310,10 +310,19 @@ func TestNotifyOffAlert(t *testing.T) {
 // Presenza e letture dal browser; ricevuta della notifica dal service worker.
 func TestPresenceAndReadJS(t *testing.T) {
 	js, _ := os.ReadFile("../../web/static/js/dashboard.js")
-	for _, want := range []string{`beacon("/presenza"`, `matchMedia("(display-mode: standalone)")`, "function sendRead(", `sendRead(next.dataset.urgent, "conferma")`, `sendRead(card.dataset.alert, "apertura")`, "navigator.sendBeacon("} {
+	for _, want := range []string{`beacon("/presenza"`, `matchMedia("(display-mode: standalone)")`, "function sendRead(", `sendRead(next.dataset.urgent, "conferma")`, `sendRead(card?.dataset.alert, "conferma")`, "navigator.sendBeacon(",
+		"const READ_DELAY_MS = 6000;", "armRead(more)", "armRead(next)", `hasAttribute("data-letto")`} {
 		if !strings.Contains(string(js), want) {
 			t.Errorf("dashboard.js: manca %q", want)
 		}
+	}
+	// Aprire un avviso non è leggerlo: niente lettura «apertura» dal carosello.
+	if strings.Contains(string(js), `"apertura")`) {
+		t.Error("dashboard.js: l'apertura del carosello non deve registrare la lettura")
+	}
+	css, _ := os.ReadFile("../../web/static/css/plancia.css")
+	if !strings.Contains(string(css), "animation: read-fill 6s linear forwards") {
+		t.Error("plancia.css: il riempimento di «Ho letto» deve durare 6 s come READ_DELAY_MS")
 	}
 	sw, _ := os.ReadFile("../../web/static/sw.js")
 	for _, want := range []string{`"/push/ricevuta"`, "pushManager.getSubscription()", `startsWith("avviso-")`, "renotify: true"} {

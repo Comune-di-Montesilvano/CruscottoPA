@@ -227,7 +227,9 @@ func readLabel(how string) string {
 	case database.ReadConfirm:
 		return "«Ho letto»"
 	case database.ReadOpen:
-		return "testo aperto"
+		return "pagina aperta"
+	case database.ReadPlancia:
+		return "in plancia"
 	}
 	return how
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
@@ -52,6 +53,38 @@ func (s *Server) markRead(username string, alertID int64, how string) {
 	if err := s.db.MarkRead(alertID, username, how, s.now()); err != nil {
 		slog.Warn("lettura avviso", "err", err)
 	}
+}
+
+// markViewerReads: alla plancia gli avvisi brevi non urgenti (letti per intero
+// nel carosello) destinati a chi guarda risultano letti; poi segna lo stato di
+// lettura di tutti. Gli urgenti si leggono solo con «Ho letto».
+func (s *Server) markViewerReads(username string, alerts []database.Alert) []database.Alert {
+	var short []int64
+	for _, a := range alerts {
+		if a.Level != database.LevelUrgent && !a.NotForViewer && !needsMore(a.Body) {
+			short = append(short, a.ID)
+		}
+	}
+	if err := s.db.MarkReadMany(short, username, database.ReadPlancia, s.now()); err != nil {
+		slog.Warn("lettura avvisi in plancia", "err", err)
+	}
+	return s.withReadState(username, alerts)
+}
+
+// withReadState segna gli avvisi già letti da username (nessuna scrittura).
+func (s *Server) withReadState(username string, alerts []database.Alert) []database.Alert {
+	if username == "" {
+		return alerts
+	}
+	read, err := s.db.ReadAlertIDs(username)
+	if err != nil {
+		slog.Warn("letture", "err", err)
+		return alerts
+	}
+	for i := range alerts {
+		alerts[i].ReadByViewer = read[alerts[i].ID]
+	}
+	return alerts
 }
 
 func (s *Server) handleAlertRead(w http.ResponseWriter, r *http.Request) {

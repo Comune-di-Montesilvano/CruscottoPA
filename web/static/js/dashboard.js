@@ -186,6 +186,24 @@
 	// ── Carosello avvisi ─────────────────────────────────
 	const ROTATE_MS = 12000;
 	const NEWS_HOVER_MS = 500;
+	// «Ho letto» si abilita dopo qualche secondo: aprire un avviso (anche solo
+	// col mouse sopra) non vuol dire averlo letto.
+	const READ_DELAY_MS = 6000;
+	function armRead(scope) {
+		const btn = scope.querySelector("[data-read]");
+		if (!btn) return;
+		clearTimeout(btn._readTimer);
+		btn.disabled = true;
+		btn.classList.add("waiting");
+		btn._readTimer = setTimeout(() => { btn.disabled = false; btn.classList.remove("waiting"); }, READ_DELAY_MS);
+	}
+	function disarmRead(scope) {
+		const btn = scope.querySelector("[data-read]");
+		if (!btn) return;
+		clearTimeout(btn._readTimer);
+		btn.disabled = true;
+		btn.classList.remove("waiting");
+	}
 	const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 	let carousel = null;
 
@@ -237,11 +255,22 @@
 			clearTimeout(newsTimer);
 			if (!more.open) track.style.height = `${track.offsetHeight}px`;
 			more.dataset.via = via;
+			if (!more.open) armRead(more);
 			more.open = true;
-			const card = more.closest(".news");
-			if (card) sendRead(card.dataset.alert, "apertura");
 		}
 		root.addEventListener("click", (e) => {
+			const readBtn = e.target.closest(".news-read");
+			if (readBtn) {
+				if (readBtn.disabled) return;
+				const card = readBtn.closest(".news");
+				sendRead(card?.dataset.alert, "conferma");
+				card?.setAttribute("data-letto", "");
+				const done = document.createElement("span");
+				done.className = "news-read-done";
+				done.innerHTML = '<span class="material-icons" aria-hidden="true">check</span>Letto';
+				readBtn.replaceWith(done);
+				return;
+			}
 			const summary = e.target.closest(".news-expand > summary");
 			if (summary) {
 				// Aperto dal mouse: il clic lo fissa invece di chiuderlo.
@@ -273,7 +302,8 @@
 			const more = card.querySelector(":scope > .news-expand[open]");
 			if (more && more.dataset.via === "hover") more.open = false;
 		});
-		root.addEventListener("toggle", () => {
+		root.addEventListener("toggle", (e) => {
+			if (e.target.matches?.(".news-expand:not([open])")) disarmRead(e.target);
 			state.expanded = !!root.querySelector(".news-expand[open]");
 			if (!state.expanded) track.style.height = "";
 			root.querySelectorAll(".news-expand:not([open])").forEach((d) => { delete d.dataset.via; });
@@ -296,6 +326,7 @@
 	// letto non si riapre al refresh HTMX ogni 5 minuti, solo al ricaricamento.
 	const readInPage = new Set();
 	function isRead(d) {
+		if (d.hasAttribute("data-letto")) return true; // dal DB: vale su ogni browser
 		if (readInPage.has(readKey(d))) return true;
 		try { return localStorage.getItem(readKey(d)) === "1"; } catch (_) { return false; }
 	}
@@ -317,6 +348,7 @@
 			showUrgents();
 		}, { once: true });
 		next.showModal();
+		armRead(next);
 	}
 
 	// Il refresh degli avvisi non deve far sparire un urgente aperto né

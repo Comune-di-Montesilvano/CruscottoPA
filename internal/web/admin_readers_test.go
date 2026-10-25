@@ -97,19 +97,21 @@ func TestReadersADDownStops(t *testing.T) {
 	}
 }
 
-// Avviso breve non urgente: si legge tutto nel carosello, la lettura non è
-// rilevabile e non si elenca chi «non l'ha letto».
-func TestReadersShortAlertNotTrackable(t *testing.T) {
+// Avviso breve non urgente: letto all'apertura della plancia («in plancia»),
+// quindi rilevabile come gli altri.
+func TestReadersShortAlertTrackable(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	c := login(t, s)
 	id, _ := db.CreateAlert(database.Alert{Title: "Breve", Body: "Solo testo.", Level: database.LevelNews, StartsAt: fixedNow.Add(-time.Hour), CreatedAt: fixedNow})
 	db.TouchPresence("mrossi", "Mario Rossi", fixedNow)
+	db.TouchPresence("anna", "Anna Verdi", fixedNow)
+	db.MarkRead(id, "anna", database.ReadPlancia, fixedNow)
 	page := do(t, s, "GET", "/admin/avvisi/"+itoa(id)+"/letture", nil, c, nil).Body.String()
-	if !strings.Contains(page, "lettura non rilevabile") || strings.Contains(page, "Non ancora letto da") {
+	if strings.Contains(page, "lettura non rilevabile") || !strings.Contains(page, "Non ancora letto da") || !strings.Contains(page, "in plancia") {
 		t.Fatalf("avviso breve:\n%s", page)
 	}
-	if list := do(t, s, "GET", "/admin/avvisi", nil, c, nil).Body.String(); !strings.Contains(list, "lettura non rilevabile") {
-		t.Fatal("lista: avviso breve senza indicazione")
+	if list := do(t, s, "GET", "/admin/avvisi", nil, c, nil).Body.String(); strings.Contains(list, "lettura non rilevabile") || !strings.Contains(list, "Letto da 1") {
+		t.Fatal("lista: avviso breve senza conteggio")
 	}
 }
 
