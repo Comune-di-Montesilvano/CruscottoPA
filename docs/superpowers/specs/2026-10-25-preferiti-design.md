@@ -32,7 +32,8 @@ L'ente non può sapere quali applicativi usa di più ciascun dipendente, e alcun
 ## Decisioni prese con l'utente
 
 - Modalità con pulsante **«Personalizza»** (opzione B delle bozze), non trascinamento sempre attivo.
-- Preferiti: **6** posti, fissati + riempiti in automatico con i più aperti dall'utente.
+- Preferiti: **6** posti, fissati + riempiti in automatico con i più aperti dall'utente, **da 10 aperture in su**.
+- Aperture a **meno di 30 secondi** l'una dall'altra sullo stesso applicativo contano come una.
 - Si riordinano **preferiti fissati, applicativi dentro le categorie e categorie**.
 - Conteggio delle aperture **per utente e per applicativo**: accettato.
 - In modalità modifica i riquadri **tremano** (come le icone dei telefoni) con un bordo azzurro; con «effetti di animazione» spenti nel sistema (`prefers-reduced-motion: reduce`) **niente tremolio, solo il bordo**.
@@ -42,8 +43,8 @@ L'ente non può sapere quali applicativi usa di più ciascun dipendente, e alcun
 
 ### Sezione Preferiti
 
-- Compare solo agli **utenti riconosciuti** (cookie `cruscotto_utente`, non anonimo) e solo se ha **almeno un elemento** (un fissato o un applicativo aperto almeno una volta). Un utente nuovo non la vede finché non apre o fissa qualcosa. In modalità modifica si vede comunque (vuota, con la spiegazione), così si può fissare qualcosa subito.
-- Ordine: prima i **fissati** nell'ordine dell'utente, poi gli **automatici** per numero di aperture decrescente, a parità nell'ordine della plancia (categoria, poi applicativo, come li vede l'utente).
+- Compare solo agli **utenti riconosciuti** (cookie `cruscotto_utente`, non anonimo) e solo se ha **almeno un elemento** (un fissato o un applicativo con almeno 10 aperture). Un utente nuovo non la vede finché non fissa qualcosa o non apre un applicativo 10 volte. In modalità modifica si vede comunque (vuota, con la spiegazione), così si può fissare qualcosa subito.
+- Ordine: prima i **fissati** nell'ordine dell'utente, poi gli **automatici**: solo applicativi con **almeno 10 aperture**, per numero di aperture decrescente, a parità nell'ordine della plancia (categoria, poi applicativo, come li vede l'utente).
 - Solo applicativi **destinati all'utente** (attivi, con URL, destinati a lui: la stessa regola di `appVisibleTo` per i clic). «Mostra tutto» non cambia i preferiti: un applicativo non destinato non si conta, non si fissa e non entra nei preferiti. Un fissato che non è più visibile (disattivato, senza URL, non più destinato) **non occupa un posto** e non si vede; resta salvato e ricompare se torna visibile. Un applicativo eliminato sparisce dai fissati (cascade).
 - Un applicativo nei preferiti **resta anche nella sua categoria**. Il riquadro copiato nei preferiti non ripete gli `id` HTML dell'originale (es. `guide-app-N`): servono `id` diversi.
 - Il riquadro di un preferito è lo stesso riquadro della plancia (`a.tile-main` con icona, colore, guide e assistenza come nella categoria), così si apre e si comporta come l'originale. Sui fissati, fuori dalla modifica, una puntina piccola.
@@ -53,7 +54,7 @@ L'ente non può sapere quali applicativi usa di più ciascun dipendente, e alcun
 - Si conta un'apertura per ogni clic (anche tasto centrale) su un riquadro di un applicativo, nei preferiti o nelle categorie, e per ogni apertura di un applicativo dalla **ricerca a tendina**.
 - Si salva **solo** `username`, `app_id`, `opens` (numero). Nessuna data, nessun orario.
 - Lo stesso beacon di oggi (`POST /app/{id}/clic`, sempre 200) fa anche questo conteggio, solo per utenti riconosciuti e applicativi visibili a loro. Il conteggio personale **non dipende da `STATS_ENABLED`**: è personalizzazione, non statistica. Il conteggio aggregato «Noi del Comune» (`app_clicks`, un clic per utente/app/giorno) resta com'è.
-- Per non crescere senza limiti per errore: al massimo un incremento per utente e app ogni 10 secondi (in memoria, indipendente dal dedup giornaliero del conteggio aggregato).
+- **Due aperture dello stesso applicativo a meno di 30 secondi l'una dall'altra contano come una** (doppio clic, ripensamenti): per utente e app si ricorda in memoria l'ultima apertura contata; indipendente dal dedup giornaliero del conteggio aggregato.
 - La ricerca a tendina oggi non conosce l'ID dell'applicativo: `searchItem` riceve l'ID per le voci `app`, e `dashboard.js` manda il beacon quando si apre una voce `app`.
 - Pulizia: quando un utente esce da `user_presence` perché AD non lo conosce più (pulizia giornaliera esistente), si cancellano anche i suoi conteggi e il suo ordine personale.
 
