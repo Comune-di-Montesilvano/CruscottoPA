@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 )
 
 // «Noi del Comune»: numeri di gruppo e traguardi personali. Dati indicativi
@@ -110,4 +111,66 @@ func (db *DB) CleanupStats(daysBefore, clicksBefore string) error {
 		}
 	}
 	return nil
+}
+
+// AddAppClick conta un clic aggregato (nessun utente). App inesistente = errore FK.
+func (db *DB) AddAppClick(appID int64, day string) error {
+	_, err := db.Exec(`INSERT INTO app_clicks (app_id, day, clicks) VALUES (?, ?, 1)
+ON CONFLICT(app_id, day) DO UPDATE SET clicks = clicks + 1`, appID, day)
+	return err
+}
+
+// AppClicksSince: clic per app da fromDay in poi.
+func (db *DB) AppClicksSince(fromDay string) (map[int64]int, error) {
+	rows, err := db.Query(`SELECT app_id, SUM(clicks) FROM app_clicks WHERE day >= ? GROUP BY app_id`, fromDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]int{}
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}
+
+func (db *DB) HasPushSubscription(username string) (bool, error) {
+	u := strings.ToLower(strings.TrimSpace(username))
+	if u == "" {
+		return false, nil
+	}
+	var n int
+	err := db.QueryRow(`SELECT COUNT(*) FROM push_subscriptions WHERE username = ?`, u).Scan(&n)
+	return n > 0, err
+}
+
+// TicketsOpenedBetween: ticket aperti dall'utente dalla plancia in [from, to).
+func (db *DB) TicketsOpenedBetween(username string, from, to time.Time) ([]string, error) {
+	rows, err := db.Query(`SELECT ticket_id FROM tickets_sent WHERE username = ? AND kind = ? AND created_at >= ? AND created_at < ?
+ORDER BY created_at`, strings.ToLower(strings.TrimSpace(username)), TicketOpen, formatTime(from), formatTime(to))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+func (db *DB) HasOpenedTicket(username string) (bool, error) {
+	var n int
+	err := db.QueryRow(`SELECT COUNT(*) FROM tickets_sent WHERE username = ? AND kind = ?`,
+		strings.ToLower(strings.TrimSpace(username)), TicketOpen).Scan(&n)
+	return n > 0, err
 }

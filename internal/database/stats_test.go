@@ -3,6 +3,7 @@ package database
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestRecordDayOncePerDay(t *testing.T) {
@@ -89,4 +90,81 @@ func TestDeleteUserDays(t *testing.T) {
 	if n, _ := db.UsersOnDay("2026-10-23"); n != 1 {
 		t.Fatalf("utenti: %d", n)
 	}
+}
+
+func newTestApp(t *testing.T, db *DB, title string) int64 {
+	t.Helper()
+	cats, _ := db.ListCategories()
+	id, err := db.CreateApp(App{CategoryID: cats[0].ID, Title: title, URL: "https://" + title + ".local",
+		IconKind: IconPack, IconValue: "apps", IconColor: "#475569", Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestAppClicks(t *testing.T) {
+	db := newTestDB(t)
+	a, b := newTestApp(t, db, "a"), newTestApp(t, db, "b")
+	db.AddAppClick(a, "2026-10-23")
+	db.AddAppClick(a, "2026-10-23")
+	db.AddAppClick(b, "2026-10-23")
+	db.AddAppClick(a, "2026-10-13")
+	if err := db.AddAppClick(99999, "2026-10-23"); err == nil {
+		t.Fatal("app inesistente accettata")
+	}
+	got, err := db.AppClicksSince("2026-10-17")
+	if err != nil || !reflect.DeepEqual(got, map[int64]int{a: 2, b: 1}) {
+		t.Fatalf("clic: %v %v", got, err)
+	}
+	db.DeleteApp(a)
+	if got, _ = db.AppClicksSince("2026-10-17"); !reflect.DeepEqual(got, map[int64]int{b: 1}) {
+		t.Fatalf("dopo l'eliminazione: %v", got)
+	}
+}
+
+func TestTicketsOpenedBetween(t *testing.T) {
+	db := newTestDB(t)
+	oct := mustTime(t, "2026-10-10T08:00:00Z")
+	for _, r := range []TicketSent{
+		{Username: "mrossi", TicketID: "1", Kind: TicketOpen, CreatedAt: oct},
+		{Username: "mrossi", TicketID: "1", Kind: TicketReply, CreatedAt: oct},
+		{Username: "mrossi", TicketID: "2", Kind: TicketClose, CreatedAt: oct},
+		{Username: "anna", TicketID: "3", Kind: TicketOpen, CreatedAt: oct},
+		{Username: "mrossi", TicketID: "4", Kind: TicketOpen, CreatedAt: mustTime(t, "2026-09-10T08:00:00Z")},
+	} {
+		if err := db.RecordTicket(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids, err := db.TicketsOpenedBetween("MRossi", mustTime(t, "2026-10-01T00:00:00Z"), mustTime(t, "2026-11-01T00:00:00Z"))
+	if err != nil || !reflect.DeepEqual(ids, []string{"1"}) {
+		t.Fatalf("ticket: %v %v", ids, err)
+	}
+	if ok, _ := db.HasOpenedTicket("mrossi"); !ok {
+		t.Fatal("mrossi ha aperto ticket")
+	}
+	if ok, _ := db.HasOpenedTicket("luca"); ok {
+		t.Fatal("luca non ne ha")
+	}
+}
+
+func TestHasPushSubscription(t *testing.T) {
+	db := newTestDB(t)
+	db.SavePushSubscription(PushSubscription{Endpoint: "https://fcm.googleapis.com/x", P256dh: "p", Auth: "a", Username: "mrossi", CreatedAt: mustTime(t, "2026-10-10T08:00:00Z")}, 100)
+	if ok, _ := db.HasPushSubscription("MRossi"); !ok {
+		t.Fatal("iscrizione non trovata")
+	}
+	if ok, _ := db.HasPushSubscription(""); ok {
+		t.Fatal("username vuoto")
+	}
+}
+
+func mustTime(t *testing.T, s string) time.Time {
+	t.Helper()
+	v, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
 }

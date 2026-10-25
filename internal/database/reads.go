@@ -11,7 +11,8 @@ import (
 
 const (
 	ReadConfirm = "conferma" // «Ho letto» sul popup urgente
-	ReadOpen    = "apertura" // testo completo aperto (carosello o pagina dell'avviso)
+	ReadOpen    = "apertura" // pagina dell'avviso aperta (di solito dalla notifica)
+	ReadPlancia = "plancia"  // avviso breve: letto per intero nel carosello
 
 	DeliverySent   = "inviata"
 	DeliveryFailed = "non_riuscita"
@@ -36,7 +37,7 @@ type DeliveryCount struct{ Sent, Received int }
 // MarkRead registra la prima lettura; le successive sono ignorate.
 func (db *DB) MarkRead(alertID int64, username, how string, now time.Time) error {
 	u := strings.ToLower(strings.TrimSpace(username))
-	if u == "" || (how != ReadConfirm && how != ReadOpen) {
+	if u == "" || !validReadHow(how) {
 		return nil
 	}
 	_, err := db.Exec(`INSERT OR IGNORE INTO alert_reads (alert_id, username, read_at, how) VALUES (?, ?, ?, ?)`,
@@ -173,6 +174,48 @@ WHERE received_at IS NOT NULL AND username <> '' GROUP BY username`)
 		if t, err := parseTime(at); err == nil {
 			out[u] = t
 		}
+	}
+	return out, rows.Err()
+}
+
+func validReadHow(how string) bool {
+	return how == ReadConfirm || how == ReadOpen || how == ReadPlancia
+}
+
+// MarkReadMany registra le letture in una transazione; la prima lettura vince.
+func (db *DB) MarkReadMany(alertIDs []int64, username, how string, now time.Time) error {
+	u := strings.ToLower(strings.TrimSpace(username))
+	if u == "" || !validReadHow(how) || len(alertIDs) == 0 {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, id := range alertIDs {
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO alert_reads (alert_id, username, read_at, how) VALUES (?, ?, ?, ?)`,
+			id, u, formatTime(now), how); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// ReadAlertIDs: avvisi già letti dall'utente.
+func (db *DB) ReadAlertIDs(username string) (map[int64]bool, error) {
+	rows, err := db.Query(`SELECT alert_id FROM alert_reads WHERE username = ?`, strings.ToLower(strings.TrimSpace(username)))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]bool{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
 	}
 	return out, rows.Err()
 }
