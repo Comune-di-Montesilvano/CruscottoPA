@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestMonthTicketIDs(t *testing.T) {
+func TestTicketIDsSince(t *testing.T) {
 	c, searches := otrsRead(t, func(body map[string]any) string {
 		if body["StateType"] != nil {
 			return `{"TicketID":["7"]}`
@@ -16,7 +16,7 @@ func TestMonthTicketIDs(t *testing.T) {
 		return `{"TicketID":["5","6"]}`
 	}, nil)
 	from := time.Date(2026, 10, 1, 0, 0, 0, 0, rome)
-	created, closed, err := c.MonthTicketIDs(context.Background(), from)
+	created, closed, err := c.TicketIDsSince(context.Background(), from)
 	if err != nil || !reflect.DeepEqual(created, []string{"5", "6"}) || !reflect.DeepEqual(closed, []string{"7"}) {
 		t.Fatalf("id: %v %v %v", created, closed, err)
 	}
@@ -77,7 +77,7 @@ func TestMockStats(t *testing.T) {
 		Articles: []Article{{FromAgent: true, Created: at(2, 8)}, {Created: at(2, 9)}, {FromAgent: true, ToThirdParty: true, Created: at(2, 10)}, {FromAgent: true, Created: at(2, 11)}}}
 	m.Tickets["2"] = &Ticket{Summary: Summary{TicketID: "2", Created: time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC), Changed: at(4, 8), Closed: true}}
 	m.Tickets["3"] = &Ticket{Summary: Summary{TicketID: "3", Created: time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC), Changed: at(4, 8)}}
-	created, closed, _ := m.MonthTicketIDs(context.Background(), from)
+	created, closed, _ := m.TicketIDsSince(context.Background(), from)
 	if !reflect.DeepEqual(created, []string{"1"}) || !reflect.DeepEqual(closed, []string{"1", "2"}) {
 		t.Fatalf("mock id: %v %v", created, closed)
 	}

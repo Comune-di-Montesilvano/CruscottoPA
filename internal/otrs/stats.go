@@ -11,8 +11,8 @@ import (
 
 const maxStatsSearch = 10000
 
-// MonthTicketIDs: ticket della coda creati da from e ticket chiusi da from.
-func (c *HTTPClient) MonthTicketIDs(ctx context.Context, from time.Time) (createdIDs, closedIDs []string, err error) {
+// TicketIDsSince: ticket della coda creati da from e ticket chiusi da from.
+func (c *HTTPClient) TicketIDsSince(ctx context.Context, from time.Time) (createdIDs, closedIDs []string, err error) {
 	since := from.In(c.loc()).Format(timeLayout)
 	if createdIDs, err = c.search(ctx, map[string]any{"TicketCreateTimeNewerDate": since, "Limit": maxStatsSearch}); err != nil {
 		return nil, nil, err
@@ -43,7 +43,7 @@ func (c *HTTPClient) FirstReply(ctx context.Context, id string) (created time.Ti
 	return c.parseTime(r.Created), nil, nil
 }
 
-func (m *Mock) MonthTicketIDs(_ context.Context, from time.Time) (createdIDs, closedIDs []string, err error) {
+func (m *Mock) TicketIDsSince(_ context.Context, from time.Time) (createdIDs, closedIDs []string, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.Err != nil {

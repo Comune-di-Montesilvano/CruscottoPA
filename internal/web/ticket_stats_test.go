@@ -9,7 +9,8 @@ import (
 )
 
 // statsMock: tre ticket di ottobre (risposta dopo 1 h, dopo 3 h, nessuna),
-// uno chiuso; uno di settembre chiuso a ottobre.
+// uno chiuso; uno del 20 settembre (negli ultimi 30 giorni dal 6 ottobre)
+// chiuso; uno di agosto, fuori dal periodo.
 func statsMock() *otrs.Mock {
 	m := otrs.NewMock()
 	oct := func(d, h int) time.Time { return time.Date(2026, 10, d, h, 0, 0, 0, time.UTC) }
@@ -25,6 +26,7 @@ func statsMock() *otrs.Mock {
 	add("2", oct(3, 8), false, 3*time.Hour)
 	add("3", oct(4, 8), false, 0)
 	add("0", time.Date(2026, 9, 20, 8, 0, 0, 0, time.UTC), true, time.Hour)
+	add("9", time.Date(2026, 8, 20, 8, 0, 0, 0, time.UTC), false, time.Hour)
 	return m
 }
 
@@ -33,8 +35,8 @@ func TestTicketStatsOnce(t *testing.T) {
 	if err := s.ticketStatsOnce(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	st, ok, _ := s.db.GetTicketStats("2026-10")
-	if !ok || st.Requests != 3 || st.Resolved != 2 || st.MedianFirst == nil || *st.MedianFirst != 2*time.Hour {
+	st, ok, _ := s.db.GetTicketStats()
+	if !ok || st.Requests != 4 || st.Resolved != 2 || st.MedianFirst == nil || *st.MedianFirst != time.Hour {
 		t.Fatalf("statistiche: %+v", st)
 	}
 }
@@ -67,7 +69,7 @@ func TestTicketStatsDisabled(t *testing.T) {
 	s.StartTicketStats(ctx)
 	time.Sleep(50 * time.Millisecond)
 	cancel()
-	if _, ok, _ := s.db.GetTicketStats("2026-10"); ok {
+	if _, ok, _ := s.db.GetTicketStats(); ok {
 		t.Fatal("statistiche scritte con STATS_ENABLED=false")
 	}
 }

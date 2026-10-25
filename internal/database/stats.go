@@ -109,10 +109,10 @@ func (db *DB) CleanupStats(daysBefore, clicksBefore string) error {
 			return err
 		}
 	}
-	// I segnaposto (creazione non ancora letta) si tengono finché il mese di
-	// chiusura è nel periodo: il job li reinserirebbe a ogni giro.
-	_, err := db.Exec(`DELETE FROM ticket_facts WHERE created_at < ? AND (created_at <> ? OR COALESCE(closed_month, '') < ?)`,
-		daysBefore+"T00:00:00Z", noCreated, daysBefore[:7])
+	// I segnaposto (creazione non ancora letta) si tengono finché sono tra i
+	// chiusi degli ultimi 30 giorni: il job li reinserirebbe a ogni giro.
+	_, err := db.Exec(`DELETE FROM ticket_facts WHERE created_at < ? AND (created_at <> ? OR closed_month IS NULL)`,
+		daysBefore+"T00:00:00Z", noCreated)
 	return err
 }
 
@@ -251,32 +251,36 @@ func (db *DB) SetFirstReply(id string, at time.Time) error {
 	return err
 }
 
-// SetClosedMonth: i ticket chiusi nel mese sono esattamente closedIDs; quelli
+// closedMark: valore di closed_month per i ticket chiusi negli ultimi 30 giorni
+// (la colonna nella 0.14.0 teneva il mese di chiusura).
+const closedMark = "30g"
+
+// SetClosed: i ticket chiusi negli ultimi 30 giorni sono esattamente closedIDs; quelli
 // segnati prima e non più in elenco (riaperti) tornano aperti.
-func (db *DB) SetClosedMonth(month string, closedIDs []string) error {
+func (db *DB) SetClosed(closedIDs []string) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`UPDATE ticket_facts SET closed_month = NULL WHERE closed_month = ?`, month); err != nil {
+	if _, err := tx.Exec(`UPDATE ticket_facts SET closed_month = NULL WHERE closed_month IS NOT NULL`); err != nil {
 		return err
 	}
 	for _, id := range closedIDs {
 		if _, err := tx.Exec(`INSERT INTO ticket_facts (ticket_id, created_at, closed_month) VALUES (?, ?, ?)
-ON CONFLICT(ticket_id) DO UPDATE SET closed_month = excluded.closed_month`, id, noCreated, month); err != nil {
+ON CONFLICT(ticket_id) DO UPDATE SET closed_month = excluded.closed_month`, id, noCreated, closedMark); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
 }
 
-// ClosedInMonth: quanti degli ids risultano chiusi nel mese.
-func (db *DB) ClosedInMonth(month string, ids []string) (int, error) {
+// ClosedAmong: quanti degli ids risultano chiusi negli ultimi 30 giorni.
+func (db *DB) ClosedAmong(ids []string) (int, error) {
 	n := 0
 	for _, id := range ids {
 		var c int
-		if err := db.QueryRow(`SELECT COUNT(*) FROM ticket_facts WHERE ticket_id = ? AND closed_month = ?`, id, month).Scan(&c); err != nil {
+		if err := db.QueryRow(`SELECT COUNT(*) FROM ticket_facts WHERE ticket_id = ? AND closed_month = ?`, id, closedMark).Scan(&c); err != nil {
 			return 0, err
 		}
 		n += c
@@ -307,9 +311,9 @@ WHERE created_at >= ? AND created_at < ? AND first_reply_at IS NOT NULL`, format
 	return out, rows.Err()
 }
 
-// TicketStats: numeri del mese dell'assistenza (coda configurata), dal job OTRS.
+// TicketStats: numeri degli ultimi 30 giorni dell'assistenza (coda
+// configurata), dal job OTRS. Una sola riga (month = closedMark).
 type TicketStats struct {
-	Month              string // YYYY-MM
 	Requests, Resolved int
 	MedianFirst        *time.Duration // nil = nessun ticket con risposta
 	UpdatedAt          time.Time
@@ -320,18 +324,28 @@ func (db *DB) SaveTicketStats(st TicketStats) error {
 	if st.MedianFirst != nil {
 		med = sql.NullInt64{Int64: int64(*st.MedianFirst / time.Second), Valid: true}
 	}
-	_, err := db.Exec(`INSERT INTO ticket_stats (month, requests, resolved, median_first_sec, updated_at) VALUES (?, ?, ?, ?, ?)
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM ticket_stats WHERE month <> ?`, closedMark); err != nil { // righe per mese della 0.14.0
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO ticket_stats (month, requests, resolved, median_first_sec, updated_at) VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(month) DO UPDATE SET requests = excluded.requests, resolved = excluded.resolved,
 	median_first_sec = excluded.median_first_sec, updated_at = excluded.updated_at`,
-		st.Month, st.Requests, st.Resolved, med, formatTime(st.UpdatedAt))
-	return err
+		closedMark, st.Requests, st.Resolved, med, formatTime(st.UpdatedAt)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
-func (db *DB) GetTicketStats(month string) (TicketStats, bool, error) {
-	st := TicketStats{Month: month}
+func (db *DB) GetTicketStats() (TicketStats, bool, error) {
+	var st TicketStats
 	var med sql.NullInt64
 	var updated string
-	err := db.QueryRow(`SELECT requests, resolved, median_first_sec, updated_at FROM ticket_stats WHERE month = ?`, month).
+	err := db.QueryRow(`SELECT requests, resolved, median_first_sec, updated_at FROM ticket_stats WHERE month = ?`, closedMark).
 		Scan(&st.Requests, &st.Resolved, &med, &updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TicketStats{}, false, nil

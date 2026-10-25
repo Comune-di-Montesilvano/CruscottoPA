@@ -172,17 +172,17 @@ func mustTime(t *testing.T, s string) time.Time {
 func TestTicketFactsReopen(t *testing.T) {
 	db := newTestDB(t)
 	db.UpsertTicketCreated("1", mustTime(t, "2026-10-02T08:00:00Z"))
-	if err := db.SetClosedMonth("2026-10", []string{"1", "2"}); err != nil {
+	if err := db.SetClosed([]string{"1", "2"}); err != nil {
 		t.Fatal(err)
 	}
-	if n, _ := db.ClosedInMonth("2026-10", []string{"1", "2", "3"}); n != 2 {
+	if n, _ := db.ClosedAmong([]string{"1", "2", "3"}); n != 2 {
 		t.Fatalf("chiusi: %d", n)
 	}
-	db.SetClosedMonth("2026-10", []string{"1"}) // il 2 è stato riaperto
-	if n, _ := db.ClosedInMonth("2026-10", []string{"1", "2"}); n != 1 {
+	db.SetClosed([]string{"1"}) // il 2 è stato riaperto
+	if n, _ := db.ClosedAmong([]string{"1", "2"}); n != 1 {
 		t.Fatalf("dopo la riapertura: %d", n)
 	}
-	if n, _ := db.ClosedInMonth("2026-10", nil); n != 0 {
+	if n, _ := db.ClosedAmong(nil); n != 0 {
 		t.Fatalf("nessun id: %d", n)
 	}
 }
@@ -203,7 +203,7 @@ func TestTicketsWithoutReply(t *testing.T) {
 		t.Fatalf("senza risposta, prima i più recenti: %+v %v", fs, err)
 	}
 	// Chiuso senza risposta: non si rilegge più ogni ora.
-	db.SetClosedMonth("2026-10", []string{"3"})
+	db.SetClosed([]string{"3"})
 	if fs, _ := db.TicketsWithoutReply(from, 5); len(fs) != 1 || fs[0].TicketID != "2" {
 		t.Fatalf("chiusi esclusi: %+v", fs)
 	}
@@ -215,20 +215,27 @@ func TestTicketsWithoutReply(t *testing.T) {
 
 func TestTicketStatsRoundTrip(t *testing.T) {
 	db := newTestDB(t)
-	if _, ok, _ := db.GetTicketStats("2026-10"); ok {
+	if _, ok, _ := db.GetTicketStats(); ok {
 		t.Fatal("statistiche inesistenti")
 	}
+	// Righe per mese della 0.14.0: sostituite dalla riga unica degli ultimi 30 giorni.
+	db.Exec(`INSERT INTO ticket_stats (month, requests, resolved, updated_at) VALUES ('2026-09', 9, 9, '2026-09-30T08:00:00Z')`)
 	now := mustTime(t, "2026-10-10T08:00:00Z")
-	if err := db.SaveTicketStats(TicketStats{Month: "2026-10", Requests: 3, Resolved: 1, UpdatedAt: now}); err != nil {
+	if err := db.SaveTicketStats(TicketStats{Requests: 3, Resolved: 1, UpdatedAt: now}); err != nil {
 		t.Fatal(err)
 	}
-	st, ok, _ := db.GetTicketStats("2026-10")
+	var rows int
+	db.QueryRow(`SELECT COUNT(*) FROM ticket_stats`).Scan(&rows)
+	if rows != 1 {
+		t.Fatalf("righe: %d", rows)
+	}
+	st, ok, _ := db.GetTicketStats()
 	if !ok || st.Requests != 3 || st.Resolved != 1 || st.MedianFirst != nil || !st.UpdatedAt.Equal(now) {
 		t.Fatalf("senza mediana: %+v", st)
 	}
 	d := 2 * time.Hour
-	db.SaveTicketStats(TicketStats{Month: "2026-10", Requests: 4, Resolved: 2, MedianFirst: &d, UpdatedAt: now})
-	if st, _, _ = db.GetTicketStats("2026-10"); st.Requests != 4 || st.MedianFirst == nil || *st.MedianFirst != d {
+	db.SaveTicketStats(TicketStats{Requests: 4, Resolved: 2, MedianFirst: &d, UpdatedAt: now})
+	if st, _, _ = db.GetTicketStats(); st.Requests != 4 || st.MedianFirst == nil || *st.MedianFirst != d {
 		t.Fatalf("con mediana: %+v", st)
 	}
 }
@@ -236,7 +243,7 @@ func TestTicketStatsRoundTrip(t *testing.T) {
 func TestMissingTicketFacts(t *testing.T) {
 	db := newTestDB(t)
 	db.UpsertTicketCreated("1", mustTime(t, "2026-10-02T08:00:00Z"))
-	db.SetClosedMonth("2026-10", []string{"2"}) // chiuso ma creazione non ancora letta
+	db.SetClosed([]string{"2"}) // chiuso ma creazione non ancora letta
 	got, err := db.MissingTicketFacts([]string{"1", "2", "3"})
 	if err != nil || !reflect.DeepEqual(got, []string{"2", "3"}) {
 		t.Fatalf("mancanti: %v %v", got, err)
@@ -247,19 +254,32 @@ func TestMissingTicketFacts(t *testing.T) {
 	}
 }
 
-// I segnaposto (chiusi, creazione non ancora letta) del periodo restano: il job
-// li reinserirebbe a ogni giro. Quelli di mesi oltre la conservazione no.
+// I segnaposto (chiusi, creazione non ancora letta) ancora chiusi nel periodo
+// restano: il job li reinserirebbe a ogni giro. Quelli usciti dal periodo no.
 func TestCleanupKeepsCurrentPlaceholders(t *testing.T) {
 	db := newTestDB(t)
-	db.SetClosedMonth("2026-10", []string{"9"})
-	db.SetClosedMonth("2025-08", []string{"8"})
+	db.SetClosed([]string{"8"})
+	db.SetClosed([]string{"9"}) // l'8 non è più tra i chiusi del periodo
 	if err := db.CleanupStats("2025-09-25", "2026-07-25"); err != nil {
 		t.Fatal(err)
 	}
-	if n, _ := db.ClosedInMonth("2026-10", []string{"9"}); n != 1 {
-		t.Fatal("segnaposto del mese cancellato")
+	if n, _ := db.ClosedAmong([]string{"9"}); n != 1 {
+		t.Fatal("segnaposto del periodo cancellato")
 	}
-	if n, _ := db.ClosedInMonth("2025-08", []string{"8"}); n != 0 {
-		t.Fatal("segnaposto vecchio rimasto")
+	var n int
+	db.QueryRow(`SELECT COUNT(*) FROM ticket_facts WHERE ticket_id = '8'`).Scan(&n)
+	if n != 0 {
+		t.Fatal("segnaposto fuori dal periodo rimasto")
+	}
+}
+
+// Le chiusure per mese della 0.14.0 non contano più come chiuse nel periodo.
+func TestSetClosedResetsMonthlyMarks(t *testing.T) {
+	db := newTestDB(t)
+	db.UpsertTicketCreated("1", mustTime(t, "2026-10-02T08:00:00Z"))
+	db.Exec(`UPDATE ticket_facts SET closed_month = '2026-10' WHERE ticket_id = '1'`)
+	db.SetClosed(nil)
+	if fs, _ := db.TicketsWithoutReply(mustTime(t, "2026-10-01T00:00:00Z"), 5); len(fs) != 1 {
+		t.Fatalf("segno mensile rimasto: %+v", fs)
 	}
 }

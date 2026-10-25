@@ -11,11 +11,12 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 )
 
-// Statistiche dell'assistenza per il widget «Il tuo mese»: un giro ogni ora,
+// Statistiche dell'assistenza per il widget degli ultimi 30 giorni: un giro ogni ora,
 // risultato nel DB (la plancia non chiama OTRS per questi numeri).
 const (
 	ticketStatsEvery = time.Hour
 	ticketStatsReads = 300 // letture di OTRS al massimo per giro
+	statsWindowDays  = 30  // periodo del widget e delle statistiche, oggi compreso
 )
 
 // StartTicketStats: subito e poi ogni ora, solo con OTRS e STATS_ENABLED.
@@ -39,18 +40,19 @@ func (s *Server) StartTicketStats(ctx context.Context) {
 	}()
 }
 
-// monthStart: primo giorno del mese di t, a mezzanotte nel fuso dell'ente.
-func (s *Server) monthStart(t time.Time) time.Time {
+// windowStart: inizio degli ultimi 30 giorni (oggi compreso), a mezzanotte
+// nel fuso dell'ente.
+func (s *Server) windowStart(t time.Time) time.Time {
 	l := t.In(s.loc())
-	return time.Date(l.Year(), l.Month(), 1, 0, 0, 0, 0, s.loc())
+	return time.Date(l.Year(), l.Month(), l.Day()-(statsWindowDays-1), 0, 0, 0, 0, s.loc())
 }
 
-// ticketStatsOnce aggiorna le statistiche del mese corrente. Un ticket
+// ticketStatsOnce aggiorna le statistiche degli ultimi 30 giorni. Un ticket
 // illeggibile non blocca gli altri: si restituisce il primo errore.
 func (s *Server) ticketStatsOnce(ctx context.Context) error {
-	from := s.monthStart(s.now())
-	month := from.Format("2006-01")
-	createdIDs, closedIDs, err := s.tickets.MonthTicketIDs(ctx, from)
+	now := s.now()
+	from := s.windowStart(now)
+	createdIDs, closedIDs, err := s.tickets.TicketIDsSince(ctx, from)
 	if err != nil {
 		return err
 	}
@@ -97,14 +99,14 @@ func (s *Server) ticketStatsOnce(ctx context.Context) error {
 			}
 		}
 	}
-	if err := s.db.SetClosedMonth(month, closedIDs); err != nil {
+	if err := s.db.SetClosed(closedIDs); err != nil {
 		return err
 	}
-	ds, err := s.db.FirstReplyDurations(from, from.AddDate(0, 1, 0))
+	ds, err := s.db.FirstReplyDurations(from, now.Add(time.Second))
 	if err != nil {
 		return err
 	}
-	st := database.TicketStats{Month: month, Requests: len(createdIDs), Resolved: len(closedIDs), MedianFirst: median(ds), UpdatedAt: s.now()}
+	st := database.TicketStats{Requests: len(createdIDs), Resolved: len(closedIDs), MedianFirst: median(ds), UpdatedAt: now}
 	if err := s.db.SaveTicketStats(st); err != nil {
 		return err
 	}

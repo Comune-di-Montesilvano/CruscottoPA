@@ -24,7 +24,7 @@
 	document.addEventListener("click", appClick);
 	document.addEventListener("auxclick", appClick);
 
-	// Spille del widget «Il tuo mese»: il suggerimento compare sotto (tocco o
+	// Spille del widget «I tuoi ultimi 30 giorni»: il suggerimento compare sotto (tocco o
 	// focus, niente hover obbligatorio).
 	const showHint = (e) => {
 		const b = e.target.closest?.(".badge[data-hint]");
