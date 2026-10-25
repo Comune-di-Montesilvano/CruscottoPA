@@ -53,7 +53,8 @@ body.plancia {
 .hello { margin: 0; font-size: 2rem; font-weight: 600; letter-spacing: -.01em; }
 .hello-name { font-weight: 300; }
 /* «Oggi siamo in N»: senso di gruppo, discreto (niente animazioni). */
-.hero-together { display: inline-flex; align-items: center; gap: .35rem; margin: .45rem 0 0; padding: .2rem .75rem .2rem .55rem; border-radius: 999px; background: var(--navy-2); border: 1px solid var(--navy-line); color: #cfe0f7; font-size: .82rem; }
+/* Nella riga del marchio, a destra: nessuno spazio verticale in più. */
+.hero-together { display: inline-flex; align-items: center; gap: .35rem; margin: 0 0 0 .75rem; flex-shrink: 0; padding: .1rem .65rem .1rem .5rem; border-radius: 999px; background: var(--navy-2); border: 1px solid var(--navy-line); color: #cfe0f7; font-size: .82rem; }
 .hero-together .material-icons { font-size: 16px; opacity: .9; }
 .hero-together.is-milestone { color: #fff3c4; border-color: #8a6d1f; }
 .hero-compact { padding-bottom: 1.6rem; }
@@ -119,6 +120,53 @@ body.plancia {
 .news-read-done { display: inline-flex; align-items: center; gap: .2rem; margin: .6rem 0 0 .5rem; font-size: .85rem; font-weight: 600; color: #027a48; }
 .news-read-done .material-icons { font-size: 18px; }
 .news-readers { margin: .5rem 0 0; font-size: .78rem; color: var(--p-text-3); }
+
+/* Preferiti e «Personalizza»: stessi riquadri della plancia. Fuori dalla
+   modifica maniglie e puntine sono nascoste (resta il segno sui fissati). */
+.favorites { margin-bottom: 1.3rem; }
+.favorites-bar { display: flex; align-items: center; gap: .5rem; margin: 0 0 .7rem; }
+.favorites-bar .section-title { margin: 0; display: inline-flex; align-items: center; gap: .3rem; }
+.favorites-bar .section-title .material-icons { font-size: 18px; color: #f5a524; margin: 0; }
+.favorites-tools { display: flex; gap: .4rem; margin-left: auto; }
+.pers-btn { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--p-line); background: #fff; color: var(--p-blue-2); font: inherit; font-size: .82rem; font-weight: 600; border-radius: 999px; padding: .28rem .8rem .28rem .6rem; cursor: pointer; }
+.pers-btn .material-icons { font-size: 18px; }
+.pers-btn:hover, .pers-btn:focus-visible { border-color: var(--p-blue-3); }
+.pers-btn[aria-pressed="true"] { background: var(--p-blue-2); border-color: var(--p-blue-2); color: #fff; }
+.pers-reset { color: var(--p-text-3); }
+.personalizza-hint { margin: -.3rem 0 .8rem; font-size: .82rem; color: var(--p-text-3); }
+body:not(.personalizza) .personalizza-hint,
+body:not(.personalizza) .favorites-empty .section-title,
+body:not(.personalizza) .favorites-empty .grid { display: none; }
+body:not(.personalizza) .favorites-empty .favorites-bar { margin: 0; }
+.drag-handle, .tile-pin { display: none; }
+.tile-pin-mark { position: absolute; top: .3rem; left: .35rem; z-index: 1; font-size: 15px; color: var(--p-blue-2); transform: rotate(35deg); }
+.section-title .drag-handle { margin: 0 .15rem 0 0; }
+
+body.personalizza .favorites .grid:empty { min-height: 88px; border: 2px dashed rgba(21, 101, 192, .3); border-radius: 18px; }
+body.personalizza [data-altri] { display: none; }
+body.personalizza .audience-toggle { display: none; }
+body.personalizza .tile { box-shadow: 0 0 0 2px var(--p-blue-3); cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; animation: pers-wiggle .3s ease-in-out infinite alternate; }
+body.personalizza .tile:nth-child(2n) { animation-delay: -.15s; }
+body.personalizza .tile:hover:not(.open) { transform: none; }
+body.personalizza .tile-main { cursor: grab; }
+body.personalizza .tile-badge, body.personalizza .tile-pin-mark { visibility: hidden; }
+body.personalizza .drag-handle { display: inline-block; color: var(--p-text-4); font-size: 18px; vertical-align: middle; cursor: grab; }
+body.personalizza .tile .drag-handle { position: absolute; left: .15rem; top: 50%; margin-top: -9px; z-index: 1; }
+body.personalizza .category > .section-title { cursor: grab; user-select: none; -webkit-user-select: none; border-radius: 8px; }
+body.personalizza .category > .section-title:focus-visible { outline: 3px solid rgba(21, 101, 192, .45); outline-offset: 2px; }
+body.personalizza .tile-pin { display: grid; place-items: center; position: absolute; top: .5rem; right: .55rem; z-index: 2; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .92); color: var(--p-text-3); cursor: pointer; box-shadow: var(--p-shadow); }
+body.personalizza .tile-pin .material-icons { font-size: 17px; }
+body.personalizza .tile-pin[aria-pressed="true"] { background: var(--p-blue-2); color: #fff; }
+body.personalizza .tile-pin[disabled] { opacity: .45; cursor: not-allowed; }
+body.personalizza .tile.dragging { animation: none; pointer-events: none; cursor: grabbing; box-shadow: 0 0 0 2px var(--p-blue-3), 0 22px 48px rgba(16, 24, 40, .32); }
+body.personalizza .category.dragging { pointer-events: none; background: var(--p-page); border-radius: 12px; box-shadow: 0 22px 48px rgba(16, 24, 40, .25); opacity: .95; }
+.drag-placeholder { border: 2px dashed rgba(21, 101, 192, .45); border-radius: 18px; background: rgba(21, 101, 192, .05); }
+.drag-placeholder.is-category { margin-bottom: 1.3rem; border-radius: 12px; }
+@keyframes pers-wiggle { from { transform: rotate(-.4deg); } to { transform: rotate(.4deg); } }
+/* Con «effetti di animazione» spenti nel sistema: solo il bordo, niente tremolio. */
+@media (prefers-reduced-motion: reduce) {
+	body.personalizza .tile { animation: none; }
+}
 
 /* I tuoi ultimi 30 giorni: numeri di chi guarda e spille (prese colorate, da prendere grigie). */
 .widget-mese .month-big { margin: 0 0 .35rem; color: var(--p-text-2); font-size: .9rem; }

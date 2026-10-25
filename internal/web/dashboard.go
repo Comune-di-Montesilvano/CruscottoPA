@@ -44,10 +44,11 @@ type dashboardView struct {
 	PCIP        string        // IP del PC dal DNS del dominio ("" se non noto)
 	RefreshPC   bool          // riconosciuto: dashboard.js rinnova il nome del PC una volta per sessione
 	Filter      *contentFilter
-	Admin       bool       // link al pannello admin nel footer
-	Ticket      ticketView // tile e dialog «Apri un ticket»
-	Pill        pillView   // «Oggi siamo in N» (vuota = nascosta)
-	Month       *monthView // widget «I tuoi ultimi 30 giorni» (nil = solo riconosciuti)
+	Admin       bool        // link al pannello admin nel footer
+	Ticket      ticketView  // tile e dialog «Apri un ticket»
+	Pill        pillView    // «Oggi siamo in N» (vuota = nascosta)
+	Month       *monthView  // widget «I tuoi ultimi 30 giorni» (nil = solo riconosciuti)
+	Layout      *layoutView // preferiti e «Personalizza» (nil = non riconosciuto)
 }
 
 type avvisiView struct {
@@ -114,11 +115,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		hero = heroLine(heroItems(p, attrs))
 	}
+	index := buildSearchIndex(d) // la ricerca resta nell'ordine dell'admin
+	layout := s.layoutFor(me, &d)
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
 		Pill:        s.pill(),
 		Month:       month,
-		SearchIndex: buildSearchIndex(d),
+		Layout:      layout,
+		SearchIndex: index,
 		Dashboard:   d,
 		Greeting:    greeting(now.Hour()),
 		Clock:       now.Format("15:04"),

@@ -156,3 +156,14 @@ func TestReadPctHidden(t *testing.T) {
 		})
 	}
 }
+
+// La pastiglia sta nella riga del marchio, non sotto il saluto (spazio verticale).
+func TestPillInBrandBar(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	body := visit(t, s, "anna", "mrossi")
+	bar := body[strings.Index(body, `class="hero-bar"`):]
+	bar = bar[:strings.Index(bar, `class="hello"`)]
+	if !strings.Contains(bar, "Oggi siamo in 2") {
+		t.Fatalf("pastiglia fuori dalla riga del marchio:\n%s", pillSnippet(body))
+	}
+}

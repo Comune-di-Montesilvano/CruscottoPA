@@ -142,6 +142,9 @@ func (s *Server) CleanupPresence() {
 			if err := s.db.DeleteUserDays(p.Username); err != nil {
 				slog.Warn("pulizia presenza", "err", err)
 			}
+			if err := s.db.DeleteUserLayout(p.Username); err != nil {
+				slog.Warn("pulizia presenza", "err", err)
+			}
 		case err != nil:
 			return // AD non raggiungibile: si riprova al prossimo giro
 		}

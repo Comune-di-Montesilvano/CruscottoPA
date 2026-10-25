@@ -12,6 +12,7 @@
 	<script src="/static/js/dashboard.js" defer></script>
 	<script src="/static/js/notifiche.js" defer></script>
 	<script src="/static/js/ticket.js" defer></script>
+	<script src="/static/js/personalizza.js" defer></script>
 {{end}}
 
 {{define "dashboard.html"}}<!doctype html>
@@ -24,9 +25,8 @@
 	<header class="hero hero-plancia">
 		<div class="hero-main">
 			<div>
-				<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span></div>
+				<div class="hero-bar"><span class="brand"><img class="brand-mark" src="/static/img/logo-on-dark.svg" alt="">CruscottoPA{{with ente}}{{if or .LogoFile .EnteName}}<span class="brand-sep" aria-hidden="true"></span>{{template "ente_logo"}}{{.EnteName}}{{end}}{{end}}</span>{{with .Pill}}{{if .Milestone}}<span class="hero-together is-milestone"><span class="material-icons" aria-hidden="true">celebration</span>Abbiamo superato {{thousands .Milestone}} accessi</span>{{else if .Count}}<span class="hero-together"><span class="material-icons" aria-hidden="true">groups</span>Oggi siamo in {{.Count}}</span>{{end}}{{end}}</div>
 				<h1 class="hello"><span data-greeting>{{.Greeting}}</span><span class="hello-name">{{with .User.FirstName}}, {{.}}{{end}}</span></h1>
-				{{with .Pill}}{{if .Milestone}}<span class="hero-together is-milestone"><span class="material-icons" aria-hidden="true">celebration</span>Abbiamo superato {{thousands .Milestone}} accessi</span>{{else if .Count}}<span class="hero-together"><span class="material-icons" aria-hidden="true">groups</span>Oggi siamo in {{.Count}}</span>{{end}}{{end}}
 				{{if or .Hero.Org .Hero.Chips}}<div class="hero-info">{{with .Hero.Org}}<span class="hero-org">{{.}}</span>{{end}}{{with .Hero.Chips}}<span class="hero-chips">{{range .}}<span class="hero-chip"><span class="material-icons" aria-hidden="true">{{if eq .Kind "phone"}}call{{else}}mail{{end}}</span>{{.Text}}</span>{{end}}</span>{{end}}</div>{{end}}
 			</div>
 			<div class="hero-center">
@@ -80,13 +80,14 @@
 
 	<main class="layout">
 		<div class="main-col">
+		{{template "favorites" .Layout}}
 		<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
-		<section class="apps" aria-label="Applicativi">
+		<section class="apps" aria-label="Applicativi" data-sortable="categorie">
 			{{range .Categories}}
-			<div class="category" data-category>
-				<h2 class="section-title">{{.Name}} <span>{{len .Apps}}</span></h2>
-				<div class="grid">
-					{{range .Apps}}{{template "app_tile" .}}{{end}}
+			<div class="category" data-category data-id="{{.ID}}">
+				<h2 class="section-title"><span class="drag-handle material-icons" aria-hidden="true">drag_indicator</span>{{.Name}} <span>{{len .Apps}}</span></h2>
+				<div class="grid" data-sortable="categoria" data-id="{{.ID}}">
+					{{range .Apps}}{{template "app_tile" ($.Layout.Tile .)}}{{end}}
 				</div>
 			</div>
 			{{else}}

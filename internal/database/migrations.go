@@ -23,6 +23,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV12TicketPC,
 	migrateV13TicketsPhase2,
 	migrateV14Stats,
+	migrateV15Layout,
 }
 
 func (db *DB) migrate() error {
@@ -395,6 +396,38 @@ CREATE TABLE ticket_facts (
 	closed_month   TEXT
 );
 CREATE INDEX idx_ticket_facts_created ON ticket_facts(created_at);
+`)
+	return err
+}
+
+// migrateV15Layout: preferiti e ordine personale della plancia. Delle
+// aperture solo il numero, nessuna data.
+func migrateV15Layout(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE user_app_opens (
+	username TEXT    NOT NULL,
+	app_id   INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+	opens    INTEGER NOT NULL,
+	PRIMARY KEY (username, app_id)
+);
+CREATE TABLE user_favorites (
+	username TEXT    NOT NULL,
+	app_id   INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+	position INTEGER NOT NULL,
+	PRIMARY KEY (username, app_id)
+);
+CREATE TABLE user_category_order (
+	username    TEXT    NOT NULL,
+	category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+	position    INTEGER NOT NULL,
+	PRIMARY KEY (username, category_id)
+);
+CREATE TABLE user_app_order (
+	username TEXT    NOT NULL,
+	app_id   INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+	position INTEGER NOT NULL,
+	PRIMARY KEY (username, app_id)
+);
 `)
 	return err
 }
