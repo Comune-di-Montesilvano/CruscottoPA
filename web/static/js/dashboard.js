@@ -15,10 +15,10 @@
 		sentReads.add(id);
 		beacon(`/avvisi/${id}/letto`, { come: how });
 	}
-	// Apertura di un'app dalla tile (anche col tasto centrale): il server conta
-	// un clic per utente, app e giorno, senza salvare chi.
+	// Apertura di un'app dalla tile o dalla ricerca (anche col tasto centrale):
+	// il server la conta per i preferiti dell'utente e, aggregata, per la fiammella.
 	const appClick = (e) => {
-		const a = e.target.closest?.("a.tile-main[data-app]");
+		const a = e.target.closest?.("a[data-app]");
 		if (a && (e.type === "click" || e.button === 1)) beacon(`/app/${a.dataset.app}/clic`, {});
 	};
 	document.addEventListener("click", appClick);
@@ -131,6 +131,7 @@
 				const a = el("a", "search-option");
 				a.id = `search-opt-${options.length}`;
 				a.href = href;
+				if (it.k === "app" && it.id) a.dataset.app = it.id; // apertura contata come dalla tile
 				a.setAttribute("role", "option");
 				a.tabIndex = -1; // il focus resta sull'input (combobox)
 				if (it.n) { a.target = "_blank"; a.rel = "noopener"; }

@@ -31,6 +31,9 @@ const (
 	hotDays      = 7
 	hotCount     = 3
 	hotMinClicks = 5
+	// Aperture per i preferiti: due a meno di openGap contano una.
+	openGap   = 30 * time.Second
+	openAtMax = 10000
 )
 
 // statsCache: numeri di gruppo letti dal DB al massimo una volta per TTL.
@@ -48,7 +51,8 @@ type statsCache struct {
 	clicks    map[int64]int // clic per app negli ultimi hotDays giorni
 	clicksAt  time.Time
 	clickDay  string
-	clickSeen map[string]bool // username|app del giorno clickDay: già contati
+	clickSeen map[string]bool      // username|app del giorno clickDay: già contati
+	openAt    map[string]time.Time // username|app: ultima apertura contata per i preferiti
 }
 
 // reset svuota la cache (test).
@@ -57,7 +61,7 @@ func (c *statsCache) reset() {
 	defer c.mu.Unlock()
 	c.pill, c.pillDay, c.pillAt = pillView{}, "", time.Time{}
 	c.reads, c.active, c.readsAt = nil, 0, time.Time{}
-	c.clicks, c.clicksAt, c.clickDay, c.clickSeen = nil, time.Time{}, "", nil
+	c.clicks, c.clicksAt, c.clickDay, c.clickSeen, c.openAt = nil, time.Time{}, "", nil, nil
 }
 
 // pillView: «Oggi siamo in N» nella testata; Count 0 = nascosta. Con un
@@ -160,36 +164,69 @@ func (s *Server) withReadPct(alerts []database.Alert, f *contentFilter) []databa
 	return alerts
 }
 
-// handleAppClick conta l'apertura di un'app dalla plancia: un clic per
-// utente, app e giorno, salvato senza l'utente. Sempre 200.
+// handleAppClick conta l'apertura di un'app dalla plancia (tile o ricerca):
+// per i preferiti dell'utente (aperture a meno di openGap contano una) e, con
+// STATS_ENABLED, un clic aggregato per utente, app e giorno salvato senza
+// l'utente. Sempre 200.
 func (s *Server) handleAppClick(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	user, _ := s.viewerName(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if !s.cfg.StatsEnabled || user == "" || err != nil {
+	if user == "" || err != nil {
 		return
 	}
-	day := s.dayOf(s.now())
+	now := s.now()
+	day := s.dayOf(now)
 	key := user + "|" + strconv.FormatInt(id, 10)
 	s.stats.mu.Lock()
-	seen := s.stats.clickDay == day && s.stats.clickSeen[key]
+	clickDue := s.cfg.StatsEnabled && !(s.stats.clickDay == day && s.stats.clickSeen[key])
+	last, ok := s.stats.openAt[key]
+	openDue := !ok || now.Sub(last) >= openGap
 	s.stats.mu.Unlock()
-	if seen || !s.appVisibleTo(r, id) {
+	// La visibilità costa (dashboard + gruppi): solo se c'è qualcosa da contare.
+	if (!clickDue && !openDue) || !s.appVisibleTo(r, id) {
 		return
 	}
 	s.stats.mu.Lock()
-	if s.stats.clickDay != day {
-		s.stats.clickDay, s.stats.clickSeen = day, map[string]bool{}
+	if openDue {
+		last, ok = s.stats.openAt[key]
+		openDue = !ok || now.Sub(last) >= openGap
+		if openDue {
+			if s.stats.openAt == nil || len(s.stats.openAt) > openAtMax {
+				s.stats.openAt = pruneOpens(s.stats.openAt, now)
+			}
+			s.stats.openAt[key] = now
+		}
 	}
-	seen = s.stats.clickSeen[key]
-	s.stats.clickSeen[key] = true
+	if clickDue {
+		if s.stats.clickDay != day {
+			s.stats.clickDay, s.stats.clickSeen = day, map[string]bool{}
+		}
+		clickDue = !s.stats.clickSeen[key]
+		s.stats.clickSeen[key] = true
+	}
 	s.stats.mu.Unlock()
-	if seen {
-		return
+	if openDue {
+		if err := s.db.AddAppOpen(user, id); err != nil {
+			slog.Warn("aperture", "err", err)
+		}
 	}
-	if err := s.db.AddAppClick(id, day); err != nil {
-		slog.Warn("statistiche clic", "err", err)
+	if clickDue {
+		if err := s.db.AddAppClick(id, day); err != nil {
+			slog.Warn("statistiche clic", "err", err)
+		}
 	}
+}
+
+// pruneOpens tiene solo le aperture ancora dentro openGap.
+func pruneOpens(m map[string]time.Time, now time.Time) map[string]time.Time {
+	out := map[string]time.Time{}
+	for k, t := range m {
+		if now.Sub(t) < openGap {
+			out[k] = t
+		}
+	}
+	return out
 }
 
 // appVisibleTo: app in plancia (attiva, con indirizzo) e destinata a chi guarda
