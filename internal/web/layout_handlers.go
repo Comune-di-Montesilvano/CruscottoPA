@@ -62,7 +62,8 @@ func sortedByPosition(m map[int64]int, keep func(int64) bool) []int64 {
 }
 
 // handleSaveFavorites: i fissati nell'ordine inviato (al massimo favMax tra
-// quelli destinati), poi i fissati salvati che ora non si vedono.
+// quelli destinati), poi i fissati salvati che la pagina non mostrava (nascosti
+// o oltre i favMax visibili), nel loro ordine.
 func (s *Server) handleSaveFavorites(w http.ResponseWriter, r *http.Request) {
 	user, sent, ok := s.layoutRequest(w, r)
 	if !ok {
@@ -82,7 +83,24 @@ func (s *Server) handleSaveFavorites(w http.ResponseWriter, r *http.Request) {
 	if len(sent) > favMax {
 		sent = sent[:favMax]
 	}
-	pushReply(w, s.db.SaveFavorites(user, mergeOrder(l.Favorites, sent, visible)) == nil)
+	// Solo i fissati in pagina (i primi favMax visibili) dipendono da sent.
+	shown := map[int64]bool{}
+	for _, id := range l.Favorites {
+		if visible[id] && len(shown) < favMax {
+			shown[id] = true
+		}
+	}
+	out := append([]int64{}, sent...)
+	inSent := map[int64]bool{}
+	for _, id := range sent {
+		inSent[id] = true
+	}
+	for _, id := range l.Favorites {
+		if !inSent[id] && !shown[id] {
+			out = append(out, id)
+		}
+	}
+	pushReply(w, s.db.SaveFavorites(user, out) == nil)
 }
 
 // handleSaveCategoryOrder: ordine delle categorie con almeno un'app destinata.

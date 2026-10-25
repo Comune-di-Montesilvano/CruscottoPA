@@ -197,6 +197,7 @@
 		const d = drag;
 		if (!d || d.active) return;
 		d.active = true;
+		d.from = items(d.box).indexOf(d.el);
 		const r = d.el.getBoundingClientRect();
 		d.dx = x - r.left;
 		d.dy = y - r.top;
@@ -219,7 +220,9 @@
 		}
 		d.el.style.left = `${e.clientX - d.dx}px`;
 		d.el.style.top = `${e.clientY - d.dy}px`;
-		const over = itemFrom(document.elementFromPoint(e.clientX, e.clientY));
+		// Categorie: bersaglio è tutta la categoria (titolo e riquadri), non solo il titolo.
+		const hit = document.elementFromPoint(e.clientX, e.clientY);
+		const over = d.box.dataset.sortable === "categorie" ? hit?.closest(".category") : itemFrom(hit);
 		if (!over || over === d.el || over.parentElement !== d.box) return;
 		const r = over.getBoundingClientRect();
 		const before = d.box.dataset.sortable === "categorie" ? e.clientY < r.top + r.height / 2 : e.clientX < r.left + r.width / 2;
@@ -235,6 +238,9 @@
 		d.el.classList.remove("dragging");
 		d.el.removeAttribute("style");
 		if (d.el.matches(".tile")) d.el.style.background = d.bg;
+		// Rilasciato al suo posto: niente salvataggio (l'ordine admin resta,
+		// un automatico non diventa fissato).
+		if (items(d.box).indexOf(d.el) === d.from) return;
 		save(d.box, d.el);
 		announce(d.el, d.box);
 	}

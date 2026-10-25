@@ -135,3 +135,18 @@ func TestLayoutEndpointsCSRF(t *testing.T) {
 		t.Fatal("richiesta da un altro sito accettata")
 	}
 }
+
+// Il settimo fissato visibile (non mostrato) resta salvato dopo un salvataggio.
+func TestSaveKeepsSeventhPin(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	var pins []int64
+	for _, n := range []string{"a", "b", "c", "d", "e", "f", "g"} {
+		pins = append(pins, webApp(t, db, n))
+	}
+	db.SaveFavorites("mrossi", pins)
+	post(t, s, "/preferiti", ids(pins[1], pins[0], pins[2], pins[3], pins[4]))
+	want := []int64{pins[1], pins[0], pins[2], pins[3], pins[4], pins[6]}
+	if l, _ := db.UserLayout("mrossi"); !reflect.DeepEqual(l.Favorites, want) {
+		t.Fatalf("settimo perso: %v, attesi %v", l.Favorites, want)
+	}
+}

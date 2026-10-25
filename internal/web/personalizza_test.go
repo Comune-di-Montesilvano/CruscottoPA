@@ -52,3 +52,15 @@ func TestPersonalizzaScriptIncluded(t *testing.T) {
 		t.Fatal("plancia senza personalizza.js")
 	}
 }
+
+// Categorie: il bersaglio è tutta la categoria (non solo il titolo), con il
+// confronto sul punto medio; un rilascio sul posto non salva nulla.
+func TestPersonalizzaDragTargets(t *testing.T) {
+	b, _ := os.ReadFile("../../web/static/js/personalizza.js")
+	js := string(b)
+	for _, want := range []string{`closest(".category")`, "d.from", "items(d.box).indexOf(d.el) === d.from"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("personalizza.js: manca %q", want)
+		}
+	}
+}
