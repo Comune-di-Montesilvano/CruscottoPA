@@ -254,7 +254,7 @@
 
 		if (cards.length > 1 && !reduceMotion) {
 			state.timer = setInterval(() => {
-				if (!state.paused && !state.hover && !state.expanded) show(state.index + 1);
+				if (!state.paused && !state.hover && !state.expanded && !document.body.classList.contains("personalizza")) show(state.index + 1);
 			}, ROTATE_MS);
 		} else if (pauseBtn) {
 			pauseBtn.hidden = true;
@@ -395,6 +395,7 @@
 	}
 	function openTile(tile, via) {
 		clearTimeout(hoverTimer);
+		if (document.body.classList.contains("personalizza")) return; // personalizza.js
 		const open = document.querySelector(".tile.open");
 		if (open && open !== tile) closeTile(open);
 		// La card aperta esce dal flusso: la tile tiene la sua altezza.

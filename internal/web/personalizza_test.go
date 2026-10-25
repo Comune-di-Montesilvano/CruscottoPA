@@ -1,0 +1,54 @@
+package web
+
+import (
+	"os"
+	"regexp"
+	"strings"
+	"testing"
+)
+
+func TestPersonalizzaJS(t *testing.T) {
+	b, err := os.ReadFile("../../web/static/js/personalizza.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(b)
+	for _, want := range []string{"pointerdown", "setPointerCapture", "300", "sessionStorage", `"/preferiti"`, `"/ordine/categorie"`, `"/ordine/ripristina"`, `"/partials/preferiti"`, "ArrowLeft", `role", "status"`, "Escape", "passive: false", `credentials: "same-origin"`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("personalizza.js: manca %q", want)
+		}
+	}
+	// HTML dal server solo dalla risposta di /partials/preferiti.
+	if n := len(regexp.MustCompile(`(innerHTML|outerHTML)\s*=`).FindAllString(js, -1)); n != 1 {
+		t.Errorf("personalizza.js: %d assegnazioni di HTML, attesa una (il parziale dei preferiti)", n)
+	}
+}
+
+func TestPersonalizzaCSS(t *testing.T) {
+	b, _ := os.ReadFile("../../web/static/css/plancia.css")
+	css := string(b)
+	for _, want := range []string{"body.personalizza", "@keyframes pers-wiggle", "animation: pers-wiggle"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("plancia.css: manca %q", want)
+		}
+	}
+	// Con «effetti di animazione» spenti: solo il bordo, niente tremolio.
+	re := regexp.MustCompile(`@media \(prefers-reduced-motion: reduce\) \{[^}]*body\.personalizza[^{]*\{ animation: none; \}`)
+	if !re.MatchString(css) {
+		t.Error("plancia.css: il tremolio non rispetta prefers-reduced-motion")
+	}
+}
+
+func TestDashboardJSRespectsEdit(t *testing.T) {
+	b, _ := os.ReadFile("../../web/static/js/dashboard.js")
+	if n := strings.Count(string(b), `classList.contains("personalizza")`); n < 2 {
+		t.Errorf("dashboard.js: carosello e apertura delle tile devono fermarsi in modifica (%d controlli)", n)
+	}
+}
+
+func TestPersonalizzaScriptIncluded(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	if body := visit(t, s, "mrossi"); !strings.Contains(body, `<script src="/static/js/personalizza.js" defer></script>`) {
+		t.Fatal("plancia senza personalizza.js")
+	}
+}
