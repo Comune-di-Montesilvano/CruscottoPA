@@ -83,6 +83,7 @@ type Server struct {
 	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
 	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
 	pcIPs           pcIPCache
+	stats           statsCache // numeri di gruppo in plancia
 }
 
 func New(o Options) (*Server, error) {

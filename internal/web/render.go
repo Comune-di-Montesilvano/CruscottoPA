@@ -45,6 +45,7 @@ func (s *Server) funcs() template.FuncMap {
 		"ago":          func(t time.Time) string { return ago(t, s.now(), s.loc()) },
 		"humanSize":    humanSize,
 		"tint":         tint,
+		"thousands":    thousands,
 		"alertVersion": alertVersion,
 		"alertSource":  alertSource,
 		"shortDay":     shortDay,

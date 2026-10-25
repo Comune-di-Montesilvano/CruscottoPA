@@ -52,6 +52,10 @@ body.plancia {
 .hero .clock { font-size: 1.9rem; font-weight: 300; font-variant-numeric: tabular-nums; padding-left: .95rem; margin-left: .15rem; border-left: 1px solid rgba(255, 255, 255, .25); }
 .hello { margin: 0; font-size: 2rem; font-weight: 600; letter-spacing: -.01em; }
 .hello-name { font-weight: 300; }
+/* «Oggi siamo in N»: senso di gruppo, discreto (niente animazioni). */
+.hero-together { display: inline-flex; align-items: center; gap: .35rem; margin: .45rem 0 0; padding: .2rem .75rem .2rem .55rem; border-radius: 999px; background: var(--navy-2); border: 1px solid var(--navy-line); color: #cfe0f7; font-size: .82rem; }
+.hero-together .material-icons { font-size: 16px; opacity: .9; }
+.hero-together.is-milestone { color: #fff3c4; border-color: #8a6d1f; }
 .hero-compact { padding-bottom: 1.6rem; }
 .audience-toggle { margin: .2rem 0 1rem; }
 .audience-toggle button { border: 0; background: none; color: var(--p-blue-2); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; padding: .2rem 0; }

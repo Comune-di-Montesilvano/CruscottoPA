@@ -46,6 +46,7 @@ type dashboardView struct {
 	Filter      *contentFilter
 	Admin       bool       // link al pannello admin nel footer
 	Ticket      ticketView // tile e dialog «Apri un ticket»
+	Pill        pillView   // «Oggi siamo in N» (vuota = nascosta)
 }
 
 type avvisiView struct {
@@ -90,6 +91,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		if err := s.db.TouchPresence(u.Username, u.Name, s.now()); err != nil {
 			slog.Warn("presenza", "err", err)
 		}
+		if s.cfg.StatsEnabled {
+			s.recordAccess(u.Username)
+		}
 	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
@@ -102,6 +106,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
+		Pill:        s.pill(),
 		SearchIndex: buildSearchIndex(d),
 		Dashboard:   d,
 		Greeting:    greeting(now.Hour()),
