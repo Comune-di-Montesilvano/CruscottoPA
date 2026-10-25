@@ -9,14 +9,16 @@
 {{/* Carosello: estratto in testo semplice; se non basta, il testo completo
    si espande nella card stessa. */}}
 {{define "alert_card"}}
-<article class="news news-{{.Level}}" data-alert="{{.ID}}">
+<article class="news news-{{.Level}}" data-alert="{{.ID}}"{{if .ReadByViewer}} data-letto{{end}}>
 	{{template "alert_head" .}}
 	<h3 class="news-title">{{.Title}}</h3>
 	{{if .Body}}<p class="news-body news-short">{{excerpt .Body}}</p>{{end}}
 	{{if needsMore .Body}}<details class="news-expand">
 		<summary><span class="more-open">Continua a leggere<span class="material-icons" aria-hidden="true">expand_more</span></span><span class="more-close">Chiudi<span class="material-icons" aria-hidden="true">close</span></span></summary>
 		<div class="news-body md">{{md .Body}}</div>
+		{{if .ReadByViewer}}<span class="news-read-done"><span class="material-icons" aria-hidden="true">check</span>Letto</span>{{else if .CanRead}}<button type="button" class="news-read" data-read disabled>Ho letto</button>{{end}}
 	</details>{{end}}
+	{{if .ReadPct}}<p class="news-readers">Letto dal {{.ReadPct}}% dei colleghi</p>{{end}}
 </article>
 {{end}}
 
@@ -50,12 +52,12 @@
 	</div>
 </section>
 {{range .}}{{if and (eq .Level "urgent") (not .NotForViewer)}}
-<dialog class="urgent" data-urgent="{{.ID}}" data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
+<dialog class="urgent" data-urgent="{{.ID}}"{{if .ReadByViewer}} data-letto{{end}} data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
 	<div class="urgent-head"><span class="urgent-badge">Urgente</span><span class="urgent-title" id="urgent-{{.ID}}">{{.Title}}</span></div>
 	{{if .Body}}<div class="urgent-body md">{{md .Body}}</div>{{end}}
 	<form method="dialog" class="urgent-foot">
 		<span>{{alertSource .Source}} · {{fmtDate .StartsAt}}</span>
-		<button value="letto">Ho letto</button>
+		<button value="letto" data-read disabled>Ho letto</button>
 	</form>
 </dialog>
 {{end}}{{end}}
@@ -68,7 +70,8 @@
 {{define "app_tile"}}
 <div class="tile" style="background:{{tint .IconColor}}">
 	<div class="tile-card">
-	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
+	{{if .Hot}}<span class="tile-hot" title="Tra i più aperti questa settimana"><span class="material-icons" aria-hidden="true">local_fire_department</span><span class="visually-hidden">Tra i più aperti questa settimana</span></span>{{end}}
+	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener" data-app="{{.ID}}">
 		{{template "tile_icon" .App}}
 		<span class="tile-text">
 			<span class="tile-title">{{.Title}}</span>
@@ -128,5 +131,20 @@
 <section class="widget guides" aria-label="Guide generali">
 	<h2 class="widget-title">Guide generali</h2>
 	<ul>{{range .}}<li>{{template "guide_link" .}}</li>{{end}}</ul>
+</section>
+{{end}}{{end}}
+
+{{/* Il tuo mese: numeri solo di chi guarda, spille, riga di gruppo dell'assistenza. */}}
+{{define "widget_mese"}}{{with .}}
+<section class="widget widget-mese" aria-labelledby="mese-title">
+	<h2 class="widget-title" id="mese-title">Il tuo {{.MonthName}}</h2>
+	<p class="month-big"><span class="month-days">{{.Days}}</span> {{plural .Days "giorno di cruscotto" "giorni di cruscotto"}}</p>
+	{{if .Tickets}}{{if .Sent}}<p class="month-line">{{.Sent}} {{plural .Sent "richiesta inviata" "richieste inviate"}}, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}} questo mese</p>
+	{{else}}<p class="month-line">Hai bisogno di aiuto? <button type="button" class="link-btn" data-ticket-open>Apri un ticket</button></p>{{end}}{{end}}
+	<ul class="badges">{{range .Badges}}
+		<li><button type="button" class="badge{{if .Earned}} earned{{end}}" data-badge="{{.Key}}" data-hint="{{if .Earned}}{{.Label}}{{else}}{{.Hint}}{{end}}" aria-describedby="badge-hint" title="{{.Label}}"><span class="material-icons" aria-hidden="true">{{.Icon}}</span><span class="visually-hidden">{{.Label}}{{if not .Earned}} (da ottenere){{end}}</span></button></li>
+	{{end}}</ul>
+	<p id="badge-hint" class="badge-hint" aria-live="polite"></p>
+	{{with .Assist}}{{if .Requests}}<p class="month-assist">Assistenza a {{$.MonthName}}: {{.Requests}} {{plural .Requests "richiesta" "richieste"}}, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}}{{with .MedianFirst}} · prima risposta di solito entro {{roughDuration .}}{{end}}</p>{{end}}{{end}}
 </section>
 {{end}}{{end}}

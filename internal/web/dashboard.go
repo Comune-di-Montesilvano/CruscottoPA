@@ -46,6 +46,8 @@ type dashboardView struct {
 	Filter      *contentFilter
 	Admin       bool       // link al pannello admin nel footer
 	Ticket      ticketView // tile e dialog «Apri un ticket»
+	Pill        pillView   // «Oggi siamo in N» (vuota = nascosta)
+	Month       *monthView // widget «Il tuo mese» (nil = solo riconosciuti)
 }
 
 type avvisiView struct {
@@ -90,6 +92,18 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		if err := s.db.TouchPresence(u.Username, u.Name, s.now()); err != nil {
 			slog.Warn("presenza", "err", err)
 		}
+		if s.cfg.StatsEnabled {
+			s.recordAccess(u.Username)
+		}
+		d.Alerts = s.markViewerReads(u.Username, d.Alerts)
+	}
+	d.Alerts = s.withReadPct(d.Alerts, f)
+	s.markHot(&d)
+	me, _ := s.viewerName(r)
+	month, err := s.monthFor(me, f)
+	if err != nil {
+		slog.Warn("widget del mese", "err", err)
+		month = nil
 	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
@@ -102,6 +116,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
+		Pill:        s.pill(),
+		Month:       month,
 		SearchIndex: buildSearchIndex(d),
 		Dashboard:   d,
 		Greeting:    greeting(now.Hour()),
@@ -134,6 +150,9 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.dashboard(&d)
+	user, _ := s.viewerName(r)
+	d.Alerts = s.withReadState(user, d.Alerts) // il refresh non è una nuova apertura
+	d.Alerts = s.withReadPct(d.Alerts, f)
 	s.render(w, http.StatusOK, "alerts_partial", struct {
 		Alerts []database.Alert
 		Filter *contentFilter

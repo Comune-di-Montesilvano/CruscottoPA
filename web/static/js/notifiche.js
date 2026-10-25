@@ -41,6 +41,11 @@
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(sub.toJSON()),
 		});
+		const badge = document.querySelector('[data-badge="notifiche"]');
+		if (badge) {
+			badge.classList.add("earned");
+			badge.dataset.hint = badge.title;
+		}
 	}
 
 	function sameKey(buf, key) {
@@ -102,17 +107,17 @@
 		if (offBtn) offBtn.hidden = !supported || active();
 	}
 	refreshOff();
-	if (offBtn) {
-		offBtn.addEventListener("click", async () => {
-			if (Notification.permission === "denied") {
-				if (blocked && !blocked.open) blocked.showModal();
-				return;
-			}
-			const p = await Notification.requestPermission();
-			if (p === "granted") await subscribe().catch(() => {});
-			refreshOff();
-		});
-	}
+	// Anche la spilla «Notifiche attive» non ancora presa chiede il permesso.
+	document.addEventListener("click", async (e) => {
+		if (!supported || !e.target.closest?.('[data-notify-off], [data-badge="notifiche"]:not(.earned)')) return;
+		if (Notification.permission === "denied") {
+			if (blocked && !blocked.open) blocked.showModal();
+			return;
+		}
+		const p = await Notification.requestPermission();
+		if (p === "granted") await subscribe().catch(() => {});
+		refreshOff();
+	});
 	// Permesso cambiato dalle impostazioni del browser (es. sbloccato dal lucchetto).
 	if (supported && navigator.permissions) {
 		navigator.permissions.query({ name: "notifications" }).then((st) => {

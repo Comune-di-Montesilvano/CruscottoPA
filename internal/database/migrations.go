@@ -22,6 +22,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV11TicketsSent,
 	migrateV12TicketPC,
 	migrateV13TicketsPhase2,
+	migrateV14Stats,
 }
 
 func (db *DB) migrate() error {
@@ -350,6 +351,50 @@ CREATE TABLE ticket_users (
 	username   TEXT NOT NULL,
 	updated_at TEXT NOT NULL
 );
+`)
+	return err
+}
+
+// migrateV14Stats: «Noi del Comune». Giorni di accesso (solo il giorno, mai
+// l'ora), clic aggregati sulle tile (senza utente), traguardi collettivi,
+// contatore che non cala con la pulizia, statistiche mensili dell'assistenza.
+func migrateV14Stats(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE user_days (
+	username TEXT NOT NULL,
+	day      TEXT NOT NULL, -- YYYY-MM-DD, Europe/Rome
+	PRIMARY KEY (username, day)
+);
+CREATE INDEX idx_user_days_day ON user_days(day);
+CREATE TABLE app_clicks (
+	app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+	day    TEXT    NOT NULL,
+	clicks INTEGER NOT NULL,
+	PRIMARY KEY (app_id, day)
+);
+CREATE TABLE milestones (
+	threshold  INTEGER PRIMARY KEY,
+	reached_on TEXT NOT NULL
+);
+CREATE TABLE counters (
+	name  TEXT PRIMARY KEY,
+	value INTEGER NOT NULL
+);
+INSERT INTO counters (name, value) VALUES ('accessi', 0);
+CREATE TABLE ticket_stats (
+	month            TEXT PRIMARY KEY, -- YYYY-MM
+	requests         INTEGER NOT NULL,
+	resolved         INTEGER NOT NULL,
+	median_first_sec INTEGER,
+	updated_at       TEXT NOT NULL
+);
+CREATE TABLE ticket_facts (
+	ticket_id      TEXT PRIMARY KEY,
+	created_at     TEXT NOT NULL,
+	first_reply_at TEXT,
+	closed_month   TEXT
+);
+CREATE INDEX idx_ticket_facts_created ON ticket_facts(created_at);
 `)
 	return err
 }

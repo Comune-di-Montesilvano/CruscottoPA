@@ -83,6 +83,7 @@ type Server struct {
 	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
 	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
 	pcIPs           pcIPCache
+	stats           statsCache // numeri di gruppo in plancia
 }
 
 func New(o Options) (*Server, error) {
@@ -212,6 +213,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
+	s.mux.HandleFunc("POST /app/{id}/clic", s.handleAppClick)
 	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
 	s.mux.HandleFunc("GET /partials/ticket", s.handleTicketWidget)
 	s.mux.HandleFunc("GET /ticket", s.handleTicketList)

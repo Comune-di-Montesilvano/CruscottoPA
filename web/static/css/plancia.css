@@ -52,6 +52,10 @@ body.plancia {
 .hero .clock { font-size: 1.9rem; font-weight: 300; font-variant-numeric: tabular-nums; padding-left: .95rem; margin-left: .15rem; border-left: 1px solid rgba(255, 255, 255, .25); }
 .hello { margin: 0; font-size: 2rem; font-weight: 600; letter-spacing: -.01em; }
 .hello-name { font-weight: 300; }
+/* «Oggi siamo in N»: senso di gruppo, discreto (niente animazioni). */
+.hero-together { display: inline-flex; align-items: center; gap: .35rem; margin: .45rem 0 0; padding: .2rem .75rem .2rem .55rem; border-radius: 999px; background: var(--navy-2); border: 1px solid var(--navy-line); color: #cfe0f7; font-size: .82rem; }
+.hero-together .material-icons { font-size: 16px; opacity: .9; }
+.hero-together.is-milestone { color: #fff3c4; border-color: #8a6d1f; }
 .hero-compact { padding-bottom: 1.6rem; }
 .audience-toggle { margin: .2rem 0 1rem; }
 .audience-toggle button { border: 0; background: none; color: var(--p-blue-2); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; padding: .2rem 0; }
@@ -102,6 +106,32 @@ body.plancia {
 .news:has(> .news-expand:not([open])) > .news-short { cursor: pointer; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2em), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2em), transparent); }
 .news-expand { text-align: right; }
 .news-expand > .news-body { text-align: left; }
+/* «Ho letto»: si riempie mentre aspetta (6 s, come READ_DELAY_MS di dashboard.js). */
+.news-read, .urgent-foot button[data-read] { position: relative; overflow: hidden; }
+.news-read { display: inline-flex; align-items: center; margin: .6rem 0 0 .5rem; padding: .45rem 1rem; border: 0; border-radius: 999px; background: var(--p-blue-2); color: #fff; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; }
+.news-read[disabled], .urgent-foot button[data-read][disabled] { cursor: default; background-image: linear-gradient(90deg, rgba(255, 255, 255, .28) 0 0); background-repeat: no-repeat; background-size: 0 100%; opacity: .75; }
+.news-read.waiting, .urgent-foot button[data-read].waiting { animation: read-fill 6s linear forwards; }
+@keyframes read-fill { to { background-size: 100% 100%; } }
+@media (prefers-reduced-motion: reduce) {
+	.news-read.waiting, .urgent-foot button[data-read].waiting { animation: none; }
+	.news-read.waiting::after, .urgent-foot button[data-read].waiting::after { content: " (fra poco)"; }
+}
+.news-read-done { display: inline-flex; align-items: center; gap: .2rem; margin: .6rem 0 0 .5rem; font-size: .85rem; font-weight: 600; color: #027a48; }
+.news-read-done .material-icons { font-size: 18px; }
+.news-readers { margin: .5rem 0 0; font-size: .78rem; color: var(--p-text-3); }
+
+/* Il tuo mese: numeri di chi guarda e spille (prese colorate, da prendere grigie). */
+.widget-mese .month-big { margin: 0 0 .35rem; color: var(--p-text-2); font-size: .9rem; }
+.widget-mese .month-days { font-size: 1.7rem; font-weight: 700; color: var(--p-blue-2); line-height: 1; margin-right: .15rem; }
+.widget-mese .month-line { margin: 0 0 .4rem; font-size: .85rem; color: var(--p-text-2); }
+.widget-mese .link-btn { border: 0; background: none; padding: 0; font: inherit; color: var(--p-blue-2); font-weight: 600; cursor: pointer; }
+.badges { list-style: none; display: flex; flex-wrap: wrap; gap: .45rem; margin: .5rem 0 0; padding: 0; }
+.badge { width: 34px; height: 34px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; background: #eef1f5; color: var(--p-text-4); }
+.badge .material-icons { font-size: 18px; }
+.badge.earned { background: #e3eefc; color: var(--p-blue-2); }
+.badge:focus-visible { outline: 2px solid var(--p-blue-3); outline-offset: 2px; }
+.badge-hint { min-height: 1.1em; margin: .35rem 0 0; font-size: .78rem; color: var(--p-text-3); }
+.month-assist { margin: .7rem 0 0; padding-top: .6rem; border-top: 1px solid #e4e7ec; font-size: .8rem; color: var(--p-text-3); }
 .news-expand > summary { list-style: none; display: inline-block; margin-top: .3rem; cursor: pointer; }
 .news-expand > summary::-webkit-details-marker { display: none; }
 .news-expand > summary > span { display: inline-flex; align-items: center; gap: .25rem; font-size: .88rem; font-weight: 600; border-radius: 999px; }
@@ -176,6 +206,9 @@ dialog.urgent::backdrop { background: rgba(60, 8, 8, .72); }
 /* Aperta, la card esce dalla griglia e copre ciò che sta sotto: la tile resta
    alta com'era (altezza fissata da dashboard.js), nulla si sposta. */
 .tile { display: flex; flex-direction: column; }
+/* Fiammella: tra i più aperti della settimana (in basso a destra: in alto c'è il badge delle guide). */
+.tile-hot { position: absolute; bottom: .45rem; right: .55rem; z-index: 1; display: inline-flex; color: #e8590c; opacity: .8; pointer-events: auto; }
+.tile-hot .material-icons { font-size: 18px; }
 .tile-card { position: relative; flex: 1; display: flex; flex-direction: column; border-radius: 18px; background: inherit; }
 .tile-card > .tile-main { flex: 1; }
 .tile.open { z-index: 30; }
