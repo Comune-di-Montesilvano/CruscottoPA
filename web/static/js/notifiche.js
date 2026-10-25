@@ -41,6 +41,11 @@
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(sub.toJSON()),
 		});
+		const badge = document.querySelector('[data-badge="notifiche"]');
+		if (badge) {
+			badge.classList.add("earned");
+			badge.dataset.hint = badge.title;
+		}
 	}
 
 	function sameKey(buf, key) {

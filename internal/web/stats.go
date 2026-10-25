@@ -18,9 +18,8 @@ import (
 // giorno. Dati indicativi (identità dichiarata), solo per personalizzare.
 
 const (
-	pillTTL        = time.Minute
-	milestoneEvery = time.Minute
-	readPctTTL     = 5 * time.Minute
+	pillTTL    = time.Minute
+	readPctTTL = 5 * time.Minute
 	// «Letto dal X%»: solo con abbastanza colleghi attivi, avviso in giro da un
 	// po' e una percentuale che non mette a disagio.
 	readPctMinActive = 10
@@ -35,26 +34,28 @@ const (
 )
 
 // statsCache: numeri di gruppo letti dal DB al massimo una volta per TTL.
+// Il lock non si tiene durante le query: due richieste possono ricalcolare lo
+// stesso valore, nessuna aspetta l'altra.
 type statsCache struct {
-	mu          sync.Mutex
-	pill        pillView
-	pillDay     string
-	pillAt      time.Time
-	milestoneAt time.Time
-	reads       map[int64]int // letture per avviso
-	active      int           // utenti attivi (ActiveWindow)
-	readsAt     time.Time
-	clicks      map[int64]int // clic per app negli ultimi hotDays giorni
-	clicksAt    time.Time
-	clickDay    string
-	clickSeen   map[string]bool // username|app del giorno clickDay: già contati
+	mu        sync.Mutex
+	pill      pillView
+	pillDay   string
+	pillAt    time.Time
+	pillGen   int           // cresce a ogni nuovo accesso: un calcolo partito prima non si salva
+	reads     map[int64]int // letture per avviso
+	active    int           // utenti attivi (ActiveWindow)
+	readsAt   time.Time
+	clicks    map[int64]int // clic per app negli ultimi hotDays giorni
+	clicksAt  time.Time
+	clickDay  string
+	clickSeen map[string]bool // username|app del giorno clickDay: già contati
 }
 
 // reset svuota la cache (test).
 func (c *statsCache) reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.pill, c.pillDay, c.pillAt, c.milestoneAt = pillView{}, "", time.Time{}, time.Time{}
+	c.pill, c.pillDay, c.pillAt = pillView{}, "", time.Time{}
 	c.reads, c.active, c.readsAt = nil, 0, time.Time{}
 	c.clicks, c.clicksAt, c.clickDay, c.clickSeen = nil, time.Time{}, "", nil
 }
@@ -69,8 +70,8 @@ type pillView struct {
 // dayOf: giorno di calendario dell'ente (YYYY-MM-DD).
 func (s *Server) dayOf(t time.Time) string { return t.In(s.loc()).Format(database.DayLayout) }
 
-// recordAccess segna l'accesso del giorno e, al massimo una volta al minuto,
-// controlla i traguardi collettivi.
+// recordAccess segna l'accesso del giorno e, se è il primo dell'utente oggi,
+// controlla i traguardi collettivi (così il traguardo cade nel giorno giusto).
 func (s *Server) recordAccess(username string) {
 	now := s.now()
 	day := s.dayOf(now)
@@ -82,16 +83,6 @@ func (s *Server) recordAccess(username string) {
 	if !added {
 		return
 	}
-	s.stats.mu.Lock()
-	s.stats.pillAt = time.Time{} // un collega in più: la pastiglia si ricalcola
-	due := now.Sub(s.stats.milestoneAt) >= milestoneEvery
-	if due {
-		s.stats.milestoneAt = now
-	}
-	s.stats.mu.Unlock()
-	if !due {
-		return
-	}
 	total, err := s.db.AccessTotal()
 	if err == nil {
 		err = s.db.ReachMilestones(total, day)
@@ -99,6 +90,9 @@ func (s *Server) recordAccess(username string) {
 	if err != nil {
 		slog.Warn("statistiche", "err", err)
 	}
+	s.stats.mu.Lock()
+	s.stats.pillAt, s.stats.pillGen = time.Time{}, s.stats.pillGen+1 // un collega in più: si ricalcola
+	s.stats.mu.Unlock()
 }
 
 func (s *Server) pill() pillView {
@@ -108,10 +102,12 @@ func (s *Server) pill() pillView {
 	now := s.now()
 	day := s.dayOf(now)
 	s.stats.mu.Lock()
-	defer s.stats.mu.Unlock()
 	if s.stats.pillDay == day && now.Sub(s.stats.pillAt) < pillTTL {
+		defer s.stats.mu.Unlock()
 		return s.stats.pill
 	}
+	gen := s.stats.pillGen
+	s.stats.mu.Unlock()
 	var p pillView
 	if th, ok, err := s.db.MilestoneOn(day); err == nil && ok {
 		p.Milestone = th
@@ -119,7 +115,11 @@ func (s *Server) pill() pillView {
 	if n, err := s.db.UsersOnDay(day); err == nil && n >= 2 {
 		p.Count = n
 	}
-	s.stats.pill, s.stats.pillDay, s.stats.pillAt = p, day, now
+	s.stats.mu.Lock()
+	if s.stats.pillGen == gen {
+		s.stats.pill, s.stats.pillDay, s.stats.pillAt = p, day, now
+	}
+	s.stats.mu.Unlock()
 	return p
 }
 
@@ -131,18 +131,21 @@ func (s *Server) withReadPct(alerts []database.Alert, f *contentFilter) []databa
 	}
 	now := s.now()
 	s.stats.mu.Lock()
-	if s.stats.reads == nil || now.Sub(s.stats.readsAt) >= readPctTTL {
-		reads, err := s.db.ReadCounts()
-		active, err2 := s.db.ActiveUsernames(now)
+	reads, active := s.stats.reads, s.stats.active
+	fresh := reads != nil && now.Sub(s.stats.readsAt) < readPctTTL
+	s.stats.mu.Unlock()
+	if !fresh {
+		r, err := s.db.ReadCounts()
+		a, err2 := s.db.ActiveUsernames(now)
 		if err != nil || err2 != nil {
-			s.stats.mu.Unlock()
 			slog.Warn("statistiche letture", "err", errors.Join(err, err2))
 			return alerts
 		}
-		s.stats.reads, s.stats.active, s.stats.readsAt = reads, len(active), now
+		reads, active = r, len(a)
+		s.stats.mu.Lock()
+		s.stats.reads, s.stats.active, s.stats.readsAt = reads, active, now
+		s.stats.mu.Unlock()
 	}
-	reads, active := s.stats.reads, s.stats.active
-	s.stats.mu.Unlock()
 	if active < readPctMinActive {
 		return alerts
 	}
@@ -163,16 +166,22 @@ func (s *Server) handleAppClick(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	user, _ := s.viewerName(r)
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if !s.cfg.StatsEnabled || user == "" || err != nil || !s.appVisibleTo(r, id) {
+	if !s.cfg.StatsEnabled || user == "" || err != nil {
 		return
 	}
 	day := s.dayOf(s.now())
 	key := user + "|" + strconv.FormatInt(id, 10)
 	s.stats.mu.Lock()
+	seen := s.stats.clickDay == day && s.stats.clickSeen[key]
+	s.stats.mu.Unlock()
+	if seen || !s.appVisibleTo(r, id) {
+		return
+	}
+	s.stats.mu.Lock()
 	if s.stats.clickDay != day {
 		s.stats.clickDay, s.stats.clickSeen = day, map[string]bool{}
 	}
-	seen := s.stats.clickSeen[key]
+	seen = s.stats.clickSeen[key]
 	s.stats.clickSeen[key] = true
 	s.stats.mu.Unlock()
 	if seen {
@@ -211,17 +220,20 @@ func (s *Server) markHot(d *database.Dashboard) {
 	}
 	now := s.now()
 	s.stats.mu.Lock()
-	if s.stats.clicks == nil || now.Sub(s.stats.clicksAt) >= hotTTL {
+	clicks := s.stats.clicks
+	fresh := clicks != nil && now.Sub(s.stats.clicksAt) < hotTTL
+	s.stats.mu.Unlock()
+	if !fresh {
 		m, err := s.db.AppClicksSince(s.dayOf(now.AddDate(0, 0, -(hotDays - 1))))
 		if err != nil {
-			s.stats.mu.Unlock()
 			slog.Warn("statistiche clic", "err", err)
 			return
 		}
+		clicks = m
+		s.stats.mu.Lock()
 		s.stats.clicks, s.stats.clicksAt = m, now
+		s.stats.mu.Unlock()
 	}
-	clicks := s.stats.clicks
-	s.stats.mu.Unlock()
 	var ids []int64
 	for _, c := range d.Categories {
 		for _, a := range c.Apps {

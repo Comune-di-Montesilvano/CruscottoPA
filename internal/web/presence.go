@@ -59,9 +59,17 @@ func (s *Server) markRead(username string, alertID int64, how string) {
 // nel carosello) destinati a chi guarda risultano letti; poi segna lo stato di
 // lettura di tutti. Gli urgenti si leggono solo con «Ho letto».
 func (s *Server) markViewerReads(username string, alerts []database.Alert) []database.Alert {
+	if username == "" {
+		return alerts
+	}
+	read, err := s.db.ReadAlertIDs(username)
+	if err != nil {
+		slog.Warn("letture", "err", err)
+		return alerts
+	}
 	var short []int64
 	for _, a := range alerts {
-		if a.Level != database.LevelUrgent && !a.NotForViewer && !needsMore(a.Body) {
+		if !read[a.ID] && a.Level != database.LevelUrgent && !a.NotForViewer && !needsMore(a.Body) {
 			short = append(short, a.ID)
 		}
 	}
@@ -71,8 +79,12 @@ func (s *Server) markViewerReads(username string, alerts []database.Alert) []dat
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, s.loc())
 	if err := s.db.MarkReadMany(short, username, database.ReadPlancia, day); err != nil {
 		slog.Warn("lettura avvisi in plancia", "err", err)
+	} else {
+		for _, id := range short {
+			read[id] = true
+		}
 	}
-	return s.withReadState(username, alerts)
+	return setReadState(alerts, read)
 }
 
 // withReadState segna gli avvisi già letti da username (nessuna scrittura).
@@ -85,7 +97,13 @@ func (s *Server) withReadState(username string, alerts []database.Alert) []datab
 		slog.Warn("letture", "err", err)
 		return alerts
 	}
+	return setReadState(alerts, read)
+}
+
+// setReadState: CanRead = utente riconosciuto (il server registra il suo «Ho letto»).
+func setReadState(alerts []database.Alert, read map[int64]bool) []database.Alert {
 	for i := range alerts {
+		alerts[i].CanRead = true
 		alerts[i].ReadByViewer = read[alerts[i].ID]
 	}
 	return alerts

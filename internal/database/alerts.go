@@ -28,6 +28,7 @@ type Alert struct {
 
 	NotForViewer bool // calcolato dal web: avviso non destinato a chi guarda (niente popup)
 	ReadByViewer bool // calcolato dal web: già letto da chi guarda (dal DB, non dal browser)
+	CanRead      bool // calcolato dal web: chi guarda è riconosciuto, «Ho letto» viene registrato
 	ReadPct      int  // calcolato dal web: «Letto dal X% dei colleghi» (0 = non mostrato)
 }
 

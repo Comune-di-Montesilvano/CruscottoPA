@@ -246,3 +246,20 @@ func TestMissingTicketFacts(t *testing.T) {
 		t.Fatalf("dopo la lettura: %+v", fs)
 	}
 }
+
+// I segnaposto (chiusi, creazione non ancora letta) del periodo restano: il job
+// li reinserirebbe a ogni giro. Quelli di mesi oltre la conservazione no.
+func TestCleanupKeepsCurrentPlaceholders(t *testing.T) {
+	db := newTestDB(t)
+	db.SetClosedMonth("2026-10", []string{"9"})
+	db.SetClosedMonth("2025-08", []string{"8"})
+	if err := db.CleanupStats("2025-09-25", "2026-07-25"); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := db.ClosedInMonth("2026-10", []string{"9"}); n != 1 {
+		t.Fatal("segnaposto del mese cancellato")
+	}
+	if n, _ := db.ClosedInMonth("2025-08", []string{"8"}); n != 0 {
+		t.Fatal("segnaposto vecchio rimasto")
+	}
+}

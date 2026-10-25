@@ -104,13 +104,16 @@ func (db *DB) CleanupStats(daysBefore, clicksBefore string) error {
 	}{
 		{`DELETE FROM user_days WHERE day < ?`, daysBefore},
 		{`DELETE FROM app_clicks WHERE day < ?`, clicksBefore},
-		{`DELETE FROM ticket_facts WHERE created_at < ?`, daysBefore + "T00:00:00Z"},
 	} {
 		if _, err := db.Exec(q.sql, q.arg); err != nil {
 			return err
 		}
 	}
-	return nil
+	// I segnaposto (creazione non ancora letta) si tengono finché il mese di
+	// chiusura è nel periodo: il job li reinserirebbe a ogni giro.
+	_, err := db.Exec(`DELETE FROM ticket_facts WHERE created_at < ? AND (created_at <> ? OR COALESCE(closed_month, '') < ?)`,
+		daysBefore+"T00:00:00Z", noCreated, daysBefore[:7])
+	return err
 }
 
 // AddAppClick conta un clic aggregato (nessun utente). App inesistente = errore FK.
