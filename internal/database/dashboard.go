@@ -7,6 +7,8 @@ type AppWithGuides struct {
 	Guides  []Guide
 	Support []SupportChannel // canali di assistenza attivi
 	Hot     bool             // calcolato dal web: tra i più aperti della settimana
+	// NotForViewer: calcolato dal web, app non destinata a chi guarda (in pagina solo con «Mostra tutto»).
+	NotForViewer bool
 }
 
 type CategoryWithApps struct {
