@@ -88,7 +88,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
 
 // UpdateApp aggiorna tutti i campi tranne sort_order; se cambia categoria
 // l'app finisce in coda alla nuova (in UPDATE le espressioni vedono i valori vecchi).
-func (db *DB) UpdateApp(a App) error { return updateApp(db, a) }
+func (db *DB) UpdateApp(a App) error {
+	return db.inTx(func(tx *sql.Tx) error { return updateApp(tx, a) })
+}
 
 func updateApp(q execer, a App) error {
 	// Cambio di categoria: l'ordine personale della vecchia non vale più (in fondo alla nuova).

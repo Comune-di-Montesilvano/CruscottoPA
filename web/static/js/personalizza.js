@@ -66,23 +66,34 @@
 	}
 	// Preferiti: i fissati nell'ordine in pagina; extra (trascinato o appena
 	// fissato) diventa fissato dove si trova, o in fondo se non è in sezione.
+	let pendingFav = 0; // salvataggi dei preferiti non ancora ridisegnati
 	function saveFavorites(extra, remove) {
 		const g = favGrid();
 		let ids = g ? [...g.querySelectorAll(":scope > .tile")].filter((t) => t.hasAttribute("data-pinned") || idOf(t) === extra).map(idOf) : [];
 		if (extra && !ids.includes(extra)) ids.push(extra);
 		if (remove) ids = ids.filter((id) => id !== remove);
-		return post("/preferiti", ids).then(refreshFavorites);
+		pendingFav++;
+		post("/preferiti", ids);
+		queue = queue.then(refreshFavorites);
+		return queue;
 	}
+	// Salva il contenitore e annuncia la posizione: nei preferiti dopo il
+	// refresh, perché il server rimette i fissati prima degli automatici.
 	function save(box, moved) {
 		const kind = box.dataset.sortable;
-		if (kind === "preferiti") return saveFavorites(idOf(moved));
+		if (kind === "preferiti") {
+			const id = idOf(moved);
+			return saveFavorites(id).then(() => announceFav(id));
+		}
 		const ids = items(box).map(idOf);
+		announce(moved, box);
 		return post(kind === "categorie" ? "/ordine/categorie" : `/ordine/categorie/${box.dataset.id}`, ids);
 	}
 
 	// Dopo un salvataggio dei preferiti: sezione nuova dal server, si resta in modifica.
 	function refreshFavorites() {
-		if (failed) return;
+		pendingFav--;
+		if (failed || pendingFav > 0) return; // ne arriva un altro: si ridisegna solo l'ultimo
 		return fetch("/partials/preferiti", { credentials: "same-origin" })
 			.then((r) => (r.ok ? r.text() : Promise.reject(new Error("parziale"))))
 			.then((html) => {
@@ -103,7 +114,7 @@
 	function sync() {
 		const sec = document.getElementById("preferiti");
 		const pinned = new Set(pinnedIds());
-		const full = pinned.size >= 6;
+		const full = pinned.size >= Number(sec?.dataset.max); // favMax del server
 		document.querySelectorAll("[data-pin]").forEach((b) => {
 			const on = pinned.has(b.dataset.pin);
 			const fav = !!b.closest('[data-sortable="preferiti"]');
@@ -141,6 +152,7 @@
 		say("Modalità Personalizza: trascina o usa le frecce per spostare.");
 	}
 	function exit() {
+		abortDrag();
 		body.classList.remove("personalizza");
 		document.querySelectorAll(".category[data-category]").forEach((c) => {
 			if ("persHidden" in c.dataset) { c.hidden = false; delete c.dataset.persHidden; }
@@ -190,8 +202,11 @@
 		const el = itemFrom(e.target);
 		if (!el) return;
 		drag = { el, box: el.parentElement, id: e.pointerId, x0: e.clientX, y0: e.clientY, active: false, timer: null };
-		if (e.pointerType === "mouse") e.preventDefault(); // niente selezione del testo
-		else drag.timer = setTimeout(() => start(e.clientX, e.clientY), LONG_PRESS_MS);
+		if (pendingFav > 0 && el.closest("#preferiti")) { drag = null; return; } // sezione in aggiornamento
+		if (e.pointerType === "mouse") {
+			e.preventDefault(); // niente selezione del testo, ma il focus sì (poi le frecce)
+			(el.matches(".category") ? el.querySelector(".section-title") : el.querySelector(".tile-main"))?.focus({ preventScroll: true });
+		} else drag.timer = setTimeout(() => start(e.clientX, e.clientY), LONG_PRESS_MS);
 	}
 	function start(x, y) {
 		const d = drag;
@@ -242,12 +257,23 @@
 		// un automatico non diventa fissato).
 		if (items(d.box).indexOf(d.el) === d.from) return;
 		save(d.box, d.el);
-		announce(d.el, d.box);
 	}
 	function cancel() {
 		if (!drag) return;
 		clearTimeout(drag.timer);
 		drag = null;
+	}
+	// Trascinamento annullato: il riquadro non si è mai mosso nel DOM (era solo
+	// fixed sopra la pagina), basta togliere segnaposto e stili.
+	function abortDrag() {
+		const d = drag;
+		cancel();
+		if (!d || !d.active) return false;
+		d.ph.remove();
+		d.el.classList.remove("dragging");
+		d.el.removeAttribute("style");
+		if (d.el.matches(".tile")) d.el.style.background = d.bg;
+		return true;
 	}
 	document.addEventListener("pointerdown", (e) => {
 		onDown(e);
@@ -265,18 +291,30 @@
 		const list = items(box);
 		say(`Spostato in posizione ${list.indexOf(el) + 1} di ${list.length}`);
 	}
+	function announceFav(id) {
+		const g = favGrid();
+		const el = g?.querySelector(`:scope > .tile[data-tile-id="${id}"]`);
+		if (el) announce(el, g);
+	}
 
 	// ── Tastiera: frecce = posizione precedente o successiva; Esc esce ──
 	document.addEventListener("keydown", (e) => {
 		if (!editing()) return;
-		if (e.key === "Escape") { exit(); return; }
+		if (e.key === "Escape") {
+			if (abortDrag()) return; // prima annulla il trascinamento
+			if (e.target.closest("input, textarea, select, dialog") || document.querySelector("dialog[open]")) return;
+			exit();
+			return;
+		}
 		const back = e.key === "ArrowLeft" || e.key === "ArrowUp";
 		if (!back && e.key !== "ArrowRight" && e.key !== "ArrowDown") return;
 		const el = itemFrom(document.activeElement);
 		if (!el) return;
 		e.preventDefault();
 		const box = el.parentElement;
-		const list = items(box);
+		let list = items(box);
+		// Un fissato si sposta solo tra i fissati: dopo gli automatici tornerebbe indietro.
+		if (box === favGrid() && el.hasAttribute("data-pinned")) list = list.filter((t) => t.hasAttribute("data-pinned"));
 		const i = list.indexOf(el);
 		const j = back ? i - 1 : i + 1;
 		if (i < 0 || j < 0 || j >= list.length) return;
@@ -284,7 +322,6 @@
 		if (back) list[j].before(el); else list[j].after(el);
 		focus.focus();
 		save(box, el);
-		announce(el, box);
 	});
 
 	// Dopo una ricarica per errore si torna in modifica (solo quella volta).

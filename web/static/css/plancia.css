@@ -144,6 +144,7 @@ body:not(.personalizza) .favorites-empty .favorites-bar { margin: 0; }
 
 body.personalizza .favorites .grid:empty { min-height: 88px; border: 2px dashed rgba(21, 101, 192, .3); border-radius: 18px; }
 body.personalizza [data-altri] { display: none; }
+body.personalizza .audience-toggle { display: none; }
 body.personalizza .tile { box-shadow: 0 0 0 2px var(--p-blue-3); cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; animation: pers-wiggle .3s ease-in-out infinite alternate; }
 body.personalizza .tile:nth-child(2n) { animation-delay: -.15s; }
 body.personalizza .tile:hover:not(.open) { transform: none; }

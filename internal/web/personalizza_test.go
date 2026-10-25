@@ -64,3 +64,29 @@ func TestPersonalizzaDragTargets(t *testing.T) {
 		}
 	}
 }
+
+// Minori della review: refresh in coda, Esc prudente, focus col mouse, tetto
+// dal server, frecce dei fissati entro i fissati, annuncio dopo il refresh.
+func TestPersonalizzaMinors(t *testing.T) {
+	b, _ := os.ReadFile("../../web/static/js/personalizza.js")
+	js := string(b)
+	for _, want := range []string{"queue = queue.then(refreshFavorites)", "pendingFav", "function abortDrag(", `closest("input, textarea, select, dialog")`, "focus({ preventScroll: true })", "dataset.max", "announceFav("} {
+		if !strings.Contains(js, want) {
+			t.Errorf("personalizza.js: manca %q", want)
+		}
+	}
+	if regexp.MustCompile(`>=\s*6\b`).MatchString(js) {
+		t.Error("personalizza.js: tetto dei preferiti scritto a mano")
+	}
+	css, _ := os.ReadFile("../../web/static/css/plancia.css")
+	if !strings.Contains(string(css), "body.personalizza .audience-toggle { display: none; }") {
+		t.Error("plancia.css: «Mostra anche…» visibile in modifica")
+	}
+}
+
+func TestFavoritesMaxAttr(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	if body := visit(t, s, "mrossi"); !strings.Contains(favSection(t, body), `data-max="6"`) {
+		t.Fatal("tetto dei preferiti non passato al JS")
+	}
+}

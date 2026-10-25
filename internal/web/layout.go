@@ -110,6 +110,7 @@ func favorites(d database.Dashboard, pinned []int64, opens map[int64]int) []tile
 type layoutView struct {
 	Favorites []tileView
 	Full      bool           // favMax fissati visibili: «Fissa» disattivato
+	Max       int            // favMax, per personalizza.js
 	pinned    map[int64]bool // fissati visibili
 }
 
@@ -145,7 +146,7 @@ func (s *Server) layoutFor(user string, d *database.Dashboard) *layoutView {
 			v.pinned[f.ID] = true
 		}
 	}
-	v.Full = len(v.pinned) >= favMax
+	v.Full, v.Max = len(v.pinned) >= favMax, favMax
 	return v
 }
 

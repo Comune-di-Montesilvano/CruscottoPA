@@ -156,7 +156,7 @@
 {{/* Preferiti: fissati + più aperti, in cima alla colonna degli applicativi.
    Vuota (favorites-empty) mostra solo «Personalizza». */}}
 {{define "favorites"}}{{with .}}
-<section class="favorites{{if not .Favorites}} favorites-empty{{end}}" id="preferiti" data-personalizza{{if .Full}} data-full{{end}} aria-labelledby="preferiti-title">
+<section class="favorites{{if not .Favorites}} favorites-empty{{end}}" id="preferiti" data-personalizza data-max="{{.Max}}"{{if .Full}} data-full{{end}} aria-labelledby="preferiti-title">
 	<div class="favorites-bar">
 		<h2 class="section-title" id="preferiti-title"><span class="material-icons" aria-hidden="true">star</span>Preferiti</h2>
 		<div class="favorites-tools">

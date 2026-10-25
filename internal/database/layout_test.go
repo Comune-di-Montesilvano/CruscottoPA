@@ -144,3 +144,19 @@ func TestUpdateAppCategoryClearsUserOrder(t *testing.T) {
 		t.Fatal("riga rimasta dopo il cambio di categoria")
 	}
 }
+
+// Un aggiornamento fallito (categoria inesistente) non tocca l'ordine personale.
+func TestUpdateAppFailureKeepsUserOrder(t *testing.T) {
+	db := newTestDB(t)
+	cats, _ := db.ListCategories()
+	id, _ := db.CreateApp(App{CategoryID: cats[0].ID, Title: "a", URL: "https://a.it", IconKind: IconPack, IconValue: "apps", Enabled: true})
+	db.SaveAppOrder("mrossi", cats[0].ID, []int64{id})
+	app, _ := db.GetApp(id)
+	app.CategoryID = 99999
+	if err := db.UpdateApp(app); err == nil {
+		t.Fatal("categoria inesistente accettata")
+	}
+	if l, _ := db.UserLayout("mrossi"); len(l.Apps) != 1 {
+		t.Fatalf("ordine perso: %v", l.Apps)
+	}
+}
