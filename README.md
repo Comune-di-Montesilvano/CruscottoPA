@@ -74,6 +74,10 @@ Piccoli numeri per sentirsi parte di un gruppo, mai una gara: nella testata «Og
 
 Nessuna classifica tra persone e nessun orario: dei giorni di accesso si salva solo il giorno, i clic sugli applicativi senza l'utente. `STATS_ENABLED=false` spegne tutto (raccolta compresa); `STATS_RETENTION_MONTHS` (default 13) fissa per quanto restano i giorni di accesso.
 
+## Preferiti
+
+Chi è riconosciuto ha in cima agli applicativi la sezione «Preferiti» (6 posti): prima quelli che fissa con la puntina, poi, da soli, quelli che apre di più (da 10 aperture in su; due aperture dello stesso applicativo a meno di 30 secondi contano una). Con «Personalizza» si trascinano (mouse, touch con pressione lunga, frecce da tastiera) i preferiti fissati, gli applicativi dentro ogni categoria e le categorie; «Ripristina» torna all'ordine dell'amministrazione. Tutto è salvato per utente nel database, quindi uguale su ogni PC; degli utilizzi si tiene solo il numero di aperture per applicativo, senza date.
+
 ## Backup e ripristino
 
 Da `/admin/backup`:
