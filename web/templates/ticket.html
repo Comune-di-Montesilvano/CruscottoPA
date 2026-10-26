@@ -43,6 +43,25 @@
 				<button type="submit" class="reply-send" data-ticket-submit><span class="material-icons" aria-hidden="true">send</span>{{if .Ticket.Closed}}Riapri e invia{{else}}Invia risposta{{end}}</button>
 			</div>
 		</form>
+
+		{{if not .Ticket.Closed}}
+		<div class="close-row">
+			<button type="button" class="close-open" data-ticket-close="{{.Ticket.TicketID}}"><span class="material-icons" aria-hidden="true">task_alt</span>Problema risolto? Chiudi il ticket</button>
+		</div>
+		<dialog class="ticket ticket-close" aria-labelledby="close-title">
+			<h2 id="close-title">Chiudere il ticket?</h2>
+			<form data-close-form novalidate>
+				<p>L'assistenza riceverà il messaggio «Ticket chiuso dall'utente tramite CruscottoPA.». Se il problema si ripresenta, potrai riaprirlo scrivendo una risposta.</p>
+				<label>Vuoi aggiungere qualcosa? (facoltativo)<textarea name="descrizione" rows="4" maxlength="10000"></textarea></label>
+				<small class="ticket-err" data-campo="descrizione" hidden></small>
+				<p class="ticket-err ticket-general" data-ticket-error hidden></p>
+				<div class="ticket-actions">
+					<button type="button" data-close-cancel>Annulla</button>
+					<button type="submit" class="primary" data-close-submit><span class="material-icons" aria-hidden="true">task_alt</span>Chiudi il ticket</button>
+				</div>
+			</form>
+		</dialog>
+		{{end}}
 	</main>
 	{{else}}
 	{{template "ticket_hero" (thero "Ticket non disponibile" "" true false)}}

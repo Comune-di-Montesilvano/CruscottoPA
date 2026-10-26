@@ -81,6 +81,30 @@ func TestIoRejections(t *testing.T) {
 	}
 }
 
+// Accesso con UPN: NTLM manda dominio vuoto e utente@dominio. AD lo cerca per
+// userPrincipalName e il cookie porta il sAMAccountName.
+func TestIoUPN(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	rec := do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("", "Mario.Rossi@example.it", "PC-1")))
+	c := cookieNamed(rec, identity.CookieName)
+	if rec.Code != 200 || c == nil {
+		t.Fatalf("UPN: %d %s", rec.Code, rec.Body)
+	}
+	if u, ok := s.cookies.Decode(c.Value); !ok || u.Anonymous || u.Username != "mrossi" {
+		t.Fatalf("UPN: cookie %+v %v", u, ok)
+	}
+	// Dominio vuoto senza @: resta anonimo.
+	rec = do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("", "mrossi", "PC-1")))
+	if u, ok := s.cookies.Decode(cookieNamed(rec, identity.CookieName).Value); !ok || !u.Anonymous {
+		t.Fatalf("dominio vuoto senza UPN: %+v", u)
+	}
+	// Anche l'aggiornamento una volta per sessione accetta l'UPN.
+	rec = do(t, s, "GET", "/io?aggiorna=1", nil, nil, ntlmHeader(ntlmtest.Authenticate("", "mario.rossi@example.it", "PC-2")))
+	if c := cookieNamed(rec, identity.CookieName); c == nil {
+		t.Fatalf("aggiornamento con UPN: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestIoLDAPDown(t *testing.T) {
 	s, _ := newTestServerWith(t, nil, func(o *Options) { o.Directory = fakeDirectory{err: errors.New("giù")} })
 	rec := do(t, s, "GET", "/io", nil, nil, ntlmHeader(ntlmtest.Authenticate("COMUNE-MS", "mrossi", "W")))

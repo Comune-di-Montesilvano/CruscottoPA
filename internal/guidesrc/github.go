@@ -16,6 +16,8 @@ type Source struct {
 	Raw       string // https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{path}
 	LinkBase  string // https://github.com/{owner}/{repo}/blob/{ref}/{dir}/
 	ImageBase string // https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{dir}/
+	LinkRoot  string // https://github.com/{owner}/{repo}/blob/{ref}/ (link che iniziano con "/")
+	ImageRoot string // https://raw.githubusercontent.com/{owner}/{repo}/{ref}/
 }
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
@@ -57,5 +59,7 @@ func ParseGitHubURL(s string) (Source, error) {
 		Raw:       raw + file,
 		LinkBase:  "https://github.com/" + owner + "/" + repo + "/blob/" + ref + "/" + dir,
 		ImageBase: raw + dir,
+		LinkRoot:  "https://github.com/" + owner + "/" + repo + "/blob/" + ref + "/",
+		ImageRoot: raw,
 	}, nil
 }

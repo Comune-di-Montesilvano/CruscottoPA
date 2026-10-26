@@ -62,7 +62,7 @@
 		<tbody>
 			{{range .Guides}}
 			<tr>
-				<td>{{if eq .Kind "link"}}<a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{else}}<a href="/guide/{{.ID}}{{if eq .Kind "pdf"}}/pdf{{end}}" target="_blank" rel="noopener">{{.Title}}</a>{{end}} <span class="tag">{{guideKind .Kind}}</span>{{if not .Enabled}} <span class="tag">nascosta</span>{{end}}
+				<td>{{if eq .Kind "link"}}<a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{else}}<a href="/admin/guide/{{.ID}}/{{if eq .Kind "pdf"}}pdf{{else}}anteprima{{end}}" target="_blank" rel="noopener">{{.Title}}</a>{{end}} <span class="tag">{{guideKind .Kind}}</span>{{if not .Enabled}} <span class="tag">nascosta</span>{{end}}
 					{{if eq .Kind "github"}}<br><small class="muted">{{with .FetchedAt}}aggiornata il {{fmtDatePtr .}}{{else}}mai scaricata{{end}}</small>{{with .FetchError}}<br><small class="field-error">Ultimo aggiornamento fallito: {{.}}</small>{{end}}{{end}}
 					<br><small class="muted">{{template "visibility_label" (index $.VisibilityLabels .ID)}}</small></td>
 				<td class="muted">{{if .AppTitle}}{{.AppTitle}}{{else}}Generale{{end}}</td>

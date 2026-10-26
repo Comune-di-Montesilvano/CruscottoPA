@@ -32,9 +32,12 @@ type DB struct {
 
 // Open apre (o crea) il database e applica le migrazioni mancanti.
 // Le PRAGMA sono nel DSN così valgono per ogni connessione del pool.
+// _txlock=immediate: ogni transazione prende subito il lock di scrittura (tutte
+// quelle del package scrivono), così chi arriva secondo aspetta busy_timeout
+// invece di fallire con SQLITE_BUSY dopo aver già letto.
 func Open(path string) (*DB, error) {
 	dsn := fmt.Sprintf(
-		"file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)",
+		"file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate",
 		path,
 	)
 	sqlDB, err := sql.Open("sqlite", dsn)

@@ -5,7 +5,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
@@ -24,6 +26,32 @@ func brandingFiles(t *testing.T, s *Server) []string {
 		names = append(names, e.Name())
 	}
 	return names
+}
+
+// Salvataggi contemporanei: cache e DB restano uguali e sul disco resta solo
+// il logo in uso (nessun file orfano, nessun logo in uso cancellato).
+func TestEnteConcurrentSaves(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			postEnte(t, s, map[string]string{"ente_name": "Ente " + strconv.Itoa(i)}, pngBytes, c)
+		}()
+	}
+	wg.Wait()
+	stored, err := db.GetBranding()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.ente(); got.EnteName != stored.EnteName || got.LogoFile != stored.LogoFile {
+		t.Fatalf("cache %q/%q, database %q/%q", got.EnteName, got.LogoFile, stored.EnteName, stored.LogoFile)
+	}
+	if files := brandingFiles(t, s); len(files) != 1 || files[0] != stored.LogoFile {
+		t.Fatalf("file del logo sul disco: %v (in uso %q)", files, stored.LogoFile)
+	}
 }
 
 func TestEnteRequiresAdmin(t *testing.T) {

@@ -221,4 +221,16 @@
 	document.addEventListener("htmx:sendError", () => {
 		toast("Server non raggiungibile. Controlla la connessione e riprova.");
 	});
+
+	// Icona non caricabile (URL irraggiungibile, file caricato sparito) → iniziali,
+	// come in plancia (dashboard.js).
+	document.addEventListener("error", (e) => {
+		const img = e.target;
+		if (!(img instanceof HTMLImageElement) || !img.dataset.fallback) return;
+		const span = document.createElement("span");
+		span.className = "app-icon";
+		span.textContent = img.dataset.fallback;
+		span.style.background = img.dataset.color || "";
+		img.replaceWith(span);
+	}, true);
 })();

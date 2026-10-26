@@ -44,8 +44,11 @@ type dashboardView struct {
 	PCIP        string        // IP del PC dal DNS del dominio ("" se non noto)
 	RefreshPC   bool          // riconosciuto: dashboard.js rinnova il nome del PC una volta per sessione
 	Filter      *contentFilter
-	Admin       bool       // link al pannello admin nel footer
-	Ticket      ticketView // tile e dialog «Apri un ticket»
+	Admin       bool        // link al pannello admin nel footer
+	Ticket      ticketView  // tile e dialog «Apri un ticket»
+	Pill        pillView    // «Oggi siamo in N» (vuota = nascosta)
+	Month       *monthView  // widget «I tuoi ultimi 30 giorni» (nil = solo riconosciuti)
+	Layout      *layoutView // preferiti e «Personalizza» (nil = non riconosciuto)
 }
 
 type avvisiView struct {
@@ -90,6 +93,18 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		if err := s.db.TouchPresence(u.Username, u.Name, s.now()); err != nil {
 			slog.Warn("presenza", "err", err)
 		}
+		if s.cfg.StatsEnabled {
+			s.recordAccess(u.Username)
+		}
+		d.Alerts = s.markViewerReads(u.Username, d.Alerts)
+	}
+	d.Alerts = s.withReadPct(d.Alerts, f)
+	s.markHot(&d)
+	me, _ := s.viewerName(r)
+	month, err := s.monthFor(me, f)
+	if err != nil {
+		slog.Warn("widget del mese", "err", err)
+		month = nil
 	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
@@ -100,9 +115,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		hero = heroLine(heroItems(p, attrs))
 	}
+	index := buildSearchIndex(d) // la ricerca resta nell'ordine dell'admin
+	layout := s.layoutFor(me, &d)
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
-		SearchIndex: buildSearchIndex(d),
+		Pill:        s.pill(),
+		Month:       month,
+		Layout:      layout,
+		SearchIndex: index,
 		Dashboard:   d,
 		Greeting:    greeting(now.Hour()),
 		Clock:       now.Format("15:04"),
@@ -120,8 +140,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleAlertsPartial filtra l'intera plancia, non solo gli avvisi: il
+// contatore di "Mostra anche…" conta anche app e guide nascoste.
 func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
-	alerts, err := s.db.ListActiveAlerts(s.now())
+	d, err := s.db.GetDashboard(s.now())
 	if err != nil {
 		s.serverError(w, err)
 		return
@@ -131,7 +153,14 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, http.StatusOK, "alerts_carousel", f.alertList(alerts))
+	f.dashboard(&d)
+	user, _ := s.viewerName(r)
+	d.Alerts = s.withReadState(user, d.Alerts) // il refresh non è una nuova apertura
+	d.Alerts = s.withReadPct(d.Alerts, f)
+	s.render(w, http.StatusOK, "alerts_partial", struct {
+		Alerts []database.Alert
+		Filter *contentFilter
+	}{d.Alerts, f})
 }
 
 // handleCalendarPartial: mese non valido → mese corrente (mai un errore).

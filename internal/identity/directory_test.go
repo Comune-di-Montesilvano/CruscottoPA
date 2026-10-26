@@ -16,6 +16,12 @@ func TestUserFilter(t *testing.T) {
 	if err != nil || !strings.Contains(f, "(sAMAccountName=mirko.daddiego)") || !strings.Contains(f, "userAccountControl:1.2.840.113556.1.4.803:=2") {
 		t.Fatalf("filtro: %q %v", f, err)
 	}
+	if f, err := userFilter("Mario.Rossi@example.it"); err != nil || !strings.Contains(f, "(userPrincipalName=Mario.Rossi@example.it)") || strings.Contains(f, "sAMAccountName") {
+		t.Fatalf("filtro UPN: %q %v", f, err)
+	}
+	if p, err := (MockDirectory{}).Lookup("mrossi@example.it"); err != nil || p.Username != "mrossi" {
+		t.Fatalf("mock con UPN: %+v %v", p, err)
+	}
 	for _, bad := range []string{"", "a*)(cn=*", "x y", strings.Repeat("a", 129)} {
 		if _, err := userFilter(bad); !errors.Is(err, ErrUnknownUser) {
 			t.Errorf("userFilter(%q): atteso ErrUnknownUser, ottenuto %v", bad, err)

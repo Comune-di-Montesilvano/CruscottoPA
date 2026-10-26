@@ -61,12 +61,18 @@ const (
 	valuesTTL    = 6 * time.Hour
 )
 
-// userFilter cerca per sAMAccountName (il nome che NTLM trasmette), solo utenti attivi.
+// userFilter cerca per sAMAccountName (il nome che NTLM trasmette), solo utenti
+// attivi. Con una @ è un UPN (accesso come utente@dominio): si cerca per
+// userPrincipalName, e AD stesso dice se il suffisso è dell'ente.
 func userFilter(username string) (string, error) {
 	if !usernameRe.MatchString(username) {
 		return "", ErrUnknownUser
 	}
-	return fmt.Sprintf("(&%s(sAMAccountName=%s))", activeUsersFilter, ldap.EscapeFilter(username)), nil
+	attr := "sAMAccountName"
+	if strings.Contains(username, "@") {
+		attr = "userPrincipalName"
+	}
+	return fmt.Sprintf("(&%s(%s=%s))", activeUsersFilter, attr, ldap.EscapeFilter(username)), nil
 }
 
 // searchFilter: sottostringa q (escapata) in uno degli attributi indicati.
@@ -376,6 +382,7 @@ func (MockDirectory) Lookup(username string) (Person, error) {
 	if !usernameRe.MatchString(username) {
 		return Person{}, ErrUnknownUser
 	}
+	username, _, _ = strings.Cut(username, "@") // UPN: il mock usa la parte prima della @
 	return Person{Username: strings.ToLower(username), Name: username}, nil
 }
 

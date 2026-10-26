@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -176,5 +177,63 @@ func TestMediaFailedUploadFreesSlot(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(filepath.Join(s.cfg.UploadDir, ".tmp")); len(entries) != 0 {
 		t.Errorf("file temporanei rimasti: %d", len(entries))
+	}
+}
+
+// Un pezzo che arriva lento (rete) non blocca gli altri caricamenti: il lock
+// non resta tenuto mentre si legge il corpo.
+func TestMediaSlowChunkDoesNotBlock(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	c := login(t, s)
+	start := mediaPost(t, s, c, "/admin/media", "application/x-www-form-urlencoded", []byte("tipo=immagine"))
+	id := start["id"].(string)
+	pr, pw := io.Pipe()
+	slow := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		req := httptest.NewRequest("POST", "/admin/media/"+id+"/pezzo?n=0", pr)
+		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Sec-Fetch-Site", "same-origin")
+		req.AddCookie(c)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		slow <- rec
+	}()
+	pw.Write(pngBytes[:4]) // il pezzo è iniziato e il server lo sta leggendo
+
+	done := make(chan map[string]any, 1)
+	go func() { done <- uploadMedia(t, s, c, "immagine", pngBytes) }()
+	select {
+	case out := <-done:
+		if out["ok"] != true {
+			t.Fatalf("altro caricamento: %v", out)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("un pezzo lento blocca gli altri caricamenti")
+	}
+	// Mentre il pezzo è in lettura, "fine" sullo stesso caricamento non lo chiude.
+	if out := mediaPost(t, s, c, "/admin/media/"+id+"/fine", "application/x-www-form-urlencoded", nil); out["ok"] == true {
+		t.Fatalf("fine durante un pezzo: %v", out)
+	}
+	pw.Write(pngBytes[4:])
+	pw.Close()
+	if rec := <-slow; !strings.Contains(rec.Body.String(), `"ok":true`) {
+		t.Fatalf("pezzo lento: %s", rec.Body)
+	}
+	if out := mediaPost(t, s, c, "/admin/media/"+id+"/fine", "application/x-www-form-urlencoded", nil); out["ok"] != true {
+		t.Fatalf("fine dopo il pezzo: %v", out)
+	}
+}
+
+// All'avvio la cartella temporanea si svuota: un caricamento interrotto da un
+// riavvio non verrebbe mai più completato.
+func TestStartupClearsTmp(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "uploads")
+	for _, p := range []string{".tmp/0123456789abcdef0123456789abcdef", ".tmp/ticket/x"} {
+		os.MkdirAll(filepath.Dir(filepath.Join(dir, p)), 0o750)
+		os.WriteFile(filepath.Join(dir, p), []byte("x"), 0o640)
+	}
+	newTestServerWith(t, nil, func(o *Options) { o.Config.UploadDir = dir })
+	if entries, err := os.ReadDir(filepath.Join(dir, ".tmp")); err == nil && len(entries) != 0 {
+		t.Fatalf("temporanei rimasti: %d", len(entries))
 	}
 }

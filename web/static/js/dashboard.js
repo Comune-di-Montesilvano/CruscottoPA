@@ -15,6 +15,24 @@
 		sentReads.add(id);
 		beacon(`/avvisi/${id}/letto`, { come: how });
 	}
+	// Apertura di un'app dalla tile o dalla ricerca (anche col tasto centrale):
+	// il server la conta per i preferiti dell'utente e, aggregata, per la fiammella.
+	const appClick = (e) => {
+		const a = e.target.closest?.("a[data-app]");
+		if (a && (e.type === "click" || e.button === 1)) beacon(`/app/${a.dataset.app}/clic`, {});
+	};
+	document.addEventListener("click", appClick);
+	document.addEventListener("auxclick", appClick);
+
+	// Spille del widget «I tuoi ultimi 30 giorni»: il suggerimento compare sotto (tocco o
+	// focus, niente hover obbligatorio).
+	const showHint = (e) => {
+		const b = e.target.closest?.(".badge[data-hint]");
+		const out = document.getElementById("badge-hint");
+		if (b && out) out.textContent = b.dataset.hint;
+	};
+	document.addEventListener("click", showHint);
+	document.addEventListener("focusin", showHint);
 	beacon("/presenza", {
 		app: window.matchMedia("(display-mode: standalone)").matches ? "1" : "0",
 		permesso: "Notification" in window ? Notification.permission : "",
@@ -113,6 +131,7 @@
 				const a = el("a", "search-option");
 				a.id = `search-opt-${options.length}`;
 				a.href = href;
+				if (it.k === "app" && it.id) a.dataset.app = it.id; // apertura contata come dalla tile
 				a.setAttribute("role", "option");
 				a.tabIndex = -1; // il focus resta sull'input (combobox)
 				if (it.n) { a.target = "_blank"; a.rel = "noopener"; }
@@ -186,6 +205,24 @@
 	// ── Carosello avvisi ─────────────────────────────────
 	const ROTATE_MS = 12000;
 	const NEWS_HOVER_MS = 500;
+	// «Ho letto» si abilita dopo qualche secondo: aprire un avviso (anche solo
+	// col mouse sopra) non vuol dire averlo letto.
+	const READ_DELAY_MS = 6000;
+	function armRead(scope) {
+		const btn = scope.querySelector("[data-read]");
+		if (!btn) return;
+		clearTimeout(btn._readTimer);
+		btn.disabled = true;
+		btn.classList.add("waiting");
+		btn._readTimer = setTimeout(() => { btn.disabled = false; btn.classList.remove("waiting"); }, READ_DELAY_MS);
+	}
+	function disarmRead(scope) {
+		const btn = scope.querySelector("[data-read]");
+		if (!btn) return;
+		clearTimeout(btn._readTimer);
+		btn.disabled = true;
+		btn.classList.remove("waiting");
+	}
 	const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 	let carousel = null;
 
@@ -217,7 +254,7 @@
 
 		if (cards.length > 1 && !reduceMotion) {
 			state.timer = setInterval(() => {
-				if (!state.paused && !state.hover && !state.expanded) show(state.index + 1);
+				if (!state.paused && !state.hover && !state.expanded && !document.body.classList.contains("personalizza")) show(state.index + 1);
 			}, ROTATE_MS);
 		} else if (pauseBtn) {
 			pauseBtn.hidden = true;
@@ -237,11 +274,22 @@
 			clearTimeout(newsTimer);
 			if (!more.open) track.style.height = `${track.offsetHeight}px`;
 			more.dataset.via = via;
+			if (!more.open) armRead(more);
 			more.open = true;
-			const card = more.closest(".news");
-			if (card) sendRead(card.dataset.alert, "apertura");
 		}
 		root.addEventListener("click", (e) => {
+			const readBtn = e.target.closest(".news-read");
+			if (readBtn) {
+				if (readBtn.disabled) return;
+				const card = readBtn.closest(".news");
+				sendRead(card?.dataset.alert, "conferma");
+				card?.setAttribute("data-letto", "");
+				const done = document.createElement("span");
+				done.className = "news-read-done";
+				done.innerHTML = '<span class="material-icons" aria-hidden="true">check</span>Letto';
+				readBtn.replaceWith(done);
+				return;
+			}
 			const summary = e.target.closest(".news-expand > summary");
 			if (summary) {
 				// Aperto dal mouse: il clic lo fissa invece di chiuderlo.
@@ -273,7 +321,8 @@
 			const more = card.querySelector(":scope > .news-expand[open]");
 			if (more && more.dataset.via === "hover") more.open = false;
 		});
-		root.addEventListener("toggle", () => {
+		root.addEventListener("toggle", (e) => {
+			if (e.target.matches?.(".news-expand:not([open])")) disarmRead(e.target);
 			state.expanded = !!root.querySelector(".news-expand[open]");
 			if (!state.expanded) track.style.height = "";
 			root.querySelectorAll(".news-expand:not([open])").forEach((d) => { delete d.dataset.via; });
@@ -296,6 +345,7 @@
 	// letto non si riapre al refresh HTMX ogni 5 minuti, solo al ricaricamento.
 	const readInPage = new Set();
 	function isRead(d) {
+		if (d.hasAttribute("data-letto")) return true; // dal DB: vale su ogni browser
 		if (readInPage.has(readKey(d))) return true;
 		try { return localStorage.getItem(readKey(d)) === "1"; } catch (_) { return false; }
 	}
@@ -317,6 +367,7 @@
 			showUrgents();
 		}, { once: true });
 		next.showModal();
+		armRead(next);
 	}
 
 	// Il refresh degli avvisi non deve far sparire un urgente aperto né
@@ -344,6 +395,7 @@
 	}
 	function openTile(tile, via) {
 		clearTimeout(hoverTimer);
+		if (document.body.classList.contains("personalizza")) return; // personalizza.js
 		const open = document.querySelector(".tile.open");
 		if (open && open !== tile) closeTile(open);
 		// La card aperta esce dal flusso: la tile tiene la sua altezza.
@@ -511,16 +563,22 @@
 	});
 
 	// "Mostra tutto": preferenza in un cookie letto dal server, poi ricarica.
-	const audienceToggle = document.querySelector("[data-mostra-tutto]");
-	if (audienceToggle) {
-		audienceToggle.hidden = false;
-		audienceToggle.addEventListener("click", () => {
-			document.cookie = audienceToggle.dataset.mostraTutto === "1"
-				? "cruscotto_tutto=1; Path=/; Max-Age=31536000; SameSite=Lax"
-				: "cruscotto_tutto=; Path=/; Max-Age=0; SameSite=Lax";
-			location.reload();
-		});
-	}
+	// Il bottone arriva nascosto (senza JS non servirebbe) e il refresh degli
+	// avvisi lo sostituisce fuori banda col contatore aggiornato.
+	const showAudienceToggle = () => {
+		const b = document.querySelector("[data-mostra-tutto]");
+		if (b) b.hidden = false;
+	};
+	showAudienceToggle();
+	document.addEventListener("htmx:oobAfterSwap", showAudienceToggle);
+	document.addEventListener("click", (e) => {
+		const b = e.target.closest("[data-mostra-tutto]");
+		if (!b) return;
+		document.cookie = b.dataset.mostraTutto === "1"
+			? "cruscotto_tutto=1; Path=/; Max-Age=31536000; SameSite=Lax"
+			: "cruscotto_tutto=; Path=/; Max-Age=0; SameSite=Lax";
+		location.reload();
+	});
 
 	initCarousel();
 	showUrgents();

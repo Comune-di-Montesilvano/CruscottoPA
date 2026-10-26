@@ -65,6 +65,7 @@ type Server struct {
 	backup          *backup.Service
 	restoreDelay    time.Duration
 	branding        atomic.Pointer[database.Branding] // cache: caricata in New, aggiornata a ogni salvataggio
+	brandingMu      sync.Mutex                        // un salvataggio di /admin/ente alla volta
 	tmpl            *template.Template
 	store           *sessions.CookieStore
 	version         string
@@ -82,6 +83,7 @@ type Server struct {
 	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
 	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
 	pcIPs           pcIPCache
+	stats           statsCache // numeri di gruppo in plancia
 }
 
 func New(o Options) (*Server, error) {
@@ -148,8 +150,9 @@ func New(o Options) (*Server, error) {
 		s.pusher = &notify.WebPusher{Subject: o.Config.VAPIDSubject, PublicKey: pub, PrivateKey: priv}
 	}
 	s.routes()
-	// Allegati dei ticket lasciati a metà da un riavvio: nessuno li userà più.
-	os.RemoveAll(s.ticketTmpDir())
+	// Caricamenti (media e allegati dei ticket) lasciati a metà da un riavvio:
+	// nessuno li completerà più.
+	os.RemoveAll(filepath.Join(o.Config.UploadDir, ".tmp"))
 	return s, nil
 }
 
@@ -206,15 +209,22 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
+	s.mux.HandleFunc("GET /partials/preferiti", s.handleFavoritesPartial)
+	s.mux.HandleFunc("POST /preferiti", s.handleSaveFavorites)
+	s.mux.HandleFunc("POST /ordine/categorie", s.handleSaveCategoryOrder)
+	s.mux.HandleFunc("POST /ordine/categorie/{id}", s.handleSaveAppOrder)
+	s.mux.HandleFunc("POST /ordine/ripristina", s.handleResetLayout)
 	s.mux.HandleFunc("GET /avvisi", s.handleAvvisi)
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
+	s.mux.HandleFunc("POST /app/{id}/clic", s.handleAppClick)
 	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
 	s.mux.HandleFunc("GET /partials/ticket", s.handleTicketWidget)
 	s.mux.HandleFunc("GET /ticket", s.handleTicketList)
 	s.mux.HandleFunc("GET /ticket/{id}", s.handleTicketPage)
 	s.mux.HandleFunc("POST /ticket/{id}/risposta", s.handleTicketReply)
+	s.mux.HandleFunc("POST /ticket/{id}/chiudi", s.handleTicketClose)
 	s.mux.HandleFunc("GET /ticket/{id}/allegati/{art}/{file}", s.handleTicketAttachment)
 	s.mux.HandleFunc("POST /ticket/allegati", s.handleTicketFileStart)
 	s.mux.HandleFunc("POST /ticket/allegati/{id}/pezzo", s.handleTicketFileChunk)
@@ -260,6 +270,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/app/{id}/sposta", s.requireAdmin(s.handleAppMove))
 	s.mux.HandleFunc("GET /admin/guide", s.requireAdmin(s.handleGuidesPage))
 	s.mux.HandleFunc("GET /admin/guide/{id}/modifica", s.requireAdmin(s.handleGuideEdit))
+	s.mux.HandleFunc("GET /admin/guide/{id}/anteprima", s.requireAdmin(s.handleAdminGuidePreview))
+	s.mux.HandleFunc("GET /admin/guide/{id}/pdf", s.requireAdmin(s.handleAdminGuidePDF))
 	s.mux.HandleFunc("POST /admin/guide", s.requireAdmin(s.handleGuideSave))
 	s.mux.HandleFunc("POST /admin/guide/{id}", s.requireAdmin(s.handleGuideSave))
 	s.mux.HandleFunc("POST /admin/guide/{id}/elimina", s.requireAdmin(s.handleGuideDelete))

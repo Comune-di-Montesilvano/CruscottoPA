@@ -95,6 +95,8 @@ var testDirectory = fakeDirectory{
 	people: map[string]identity.Person{
 		"mrossi":    {Username: "mrossi", Name: "Mario Rossi"},
 		"senzanome": {Username: "senzanome"},
+		// UPN: lo stesso utente cercato per userPrincipalName.
+		"mario.rossi@example.it": {Username: "mrossi", Name: "Mario Rossi"},
 	},
 	profiles: map[string]audience.Profile{
 		"mrossi":    {Username: "mrossi", Attrs: map[string][]string{"physicaldeliveryofficename": {"TRIBUTI"}, "title": {"Istruttore amministrativo"}}, Groups: []string{"CN=SHARE_TRIBUTI_RW,DC=test"}},
@@ -139,8 +141,9 @@ func newTestServerWith(t *testing.T, a auth.Authenticator, edit func(*Options)) 
 		t.Fatal(err)
 	}
 	o := Options{
-		DB:           db,
-		Config:       config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome, NTLMDomain: "COMUNE-MS"},
+		DB: db,
+		Config: config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome, NTLMDomain: "COMUNE-MS",
+			StatsEnabled: true, StatsRetentionMonths: 13},
 		Auth:         a,
 		Directory:    testDirectory,
 		Backup:       bk,

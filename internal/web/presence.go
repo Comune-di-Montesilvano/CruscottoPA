@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
@@ -54,6 +55,60 @@ func (s *Server) markRead(username string, alertID int64, how string) {
 	}
 }
 
+// markViewerReads: alla plancia gli avvisi brevi non urgenti (letti per intero
+// nel carosello) destinati a chi guarda risultano letti; poi segna lo stato di
+// lettura di tutti. Gli urgenti si leggono solo con «Ho letto».
+func (s *Server) markViewerReads(username string, alerts []database.Alert) []database.Alert {
+	if username == "" {
+		return alerts
+	}
+	read, err := s.db.ReadAlertIDs(username)
+	if err != nil {
+		slog.Warn("letture", "err", err)
+		return alerts
+	}
+	var short []int64
+	for _, a := range alerts {
+		if !read[a.ID] && a.Level != database.LevelUrgent && !a.NotForViewer && !needsMore(a.Body) {
+			short = append(short, a.ID)
+		}
+	}
+	// Solo il giorno (mezzanotte di Roma): l'ora della lettura in plancia
+	// sarebbe l'ora di arrivo del dipendente.
+	now := s.now().In(s.loc())
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, s.loc())
+	if err := s.db.MarkReadMany(short, username, database.ReadPlancia, day); err != nil {
+		slog.Warn("lettura avvisi in plancia", "err", err)
+	} else {
+		for _, id := range short {
+			read[id] = true
+		}
+	}
+	return setReadState(alerts, read)
+}
+
+// withReadState segna gli avvisi già letti da username (nessuna scrittura).
+func (s *Server) withReadState(username string, alerts []database.Alert) []database.Alert {
+	if username == "" {
+		return alerts
+	}
+	read, err := s.db.ReadAlertIDs(username)
+	if err != nil {
+		slog.Warn("letture", "err", err)
+		return alerts
+	}
+	return setReadState(alerts, read)
+}
+
+// setReadState: CanRead = utente riconosciuto (il server registra il suo «Ho letto»).
+func setReadState(alerts []database.Alert, read map[int64]bool) []database.Alert {
+	for i := range alerts {
+		alerts[i].CanRead = true
+		alerts[i].ReadByViewer = read[alerts[i].ID]
+	}
+	return alerts
+}
+
 func (s *Server) handleAlertRead(w http.ResponseWriter, r *http.Request) {
 	if user, _ := s.viewerName(r); user != "" {
 		if id, err := strconv.ParseInt(r.PathValue("id"), 10, 64); err == nil {
@@ -84,9 +139,28 @@ func (s *Server) CleanupPresence() {
 			if err := s.db.DeletePresence(p.Username); err != nil {
 				slog.Warn("pulizia presenza", "err", err)
 			}
+			if err := s.db.DeleteUserDays(p.Username); err != nil {
+				slog.Warn("pulizia presenza", "err", err)
+			}
+			if err := s.db.DeleteUserLayout(p.Username); err != nil {
+				slog.Warn("pulizia presenza", "err", err)
+			}
 		case err != nil:
 			return // AD non raggiungibile: si riprova al prossimo giro
 		}
+	}
+}
+
+// clicksRetention: i clic sulle tile servono solo per l'ultima settimana.
+const clicksRetention = 90 * 24 * time.Hour
+
+// cleanupStats: giorni di accesso e dati dei ticket oltre STATS_RETENTION_MONTHS,
+// clic oltre 90 giorni. Il contatore dei traguardi resta.
+func (s *Server) cleanupStats() {
+	now := s.now()
+	days := s.dayOf(now.AddDate(0, -s.cfg.StatsRetentionMonths, 0))
+	if err := s.db.CleanupStats(days, s.dayOf(now.Add(-clicksRetention))); err != nil {
+		slog.Warn("pulizia statistiche", "err", err)
 	}
 }
 
@@ -100,6 +174,7 @@ func (s *Server) StartPresenceCleanup(ctx context.Context) {
 			if err := s.db.CleanupTicketState(s.now()); err != nil {
 				slog.Warn("pulizia stato ticket", "err", err)
 			}
+			s.cleanupStats()
 			select {
 			case <-ctx.Done():
 				return

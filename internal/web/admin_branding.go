@@ -40,6 +40,10 @@ func (s *Server) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Dalla lettura del valore attuale alla pulizia del vecchio logo: due
+	// salvataggi insieme disallineerebbero cache, database e file.
+	s.brandingMu.Lock()
+	defer s.brandingMu.Unlock()
 	current := s.ente()
 	next := current
 	next.EnteName = strings.TrimSpace(r.FormValue("ente_name"))

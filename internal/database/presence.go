@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 )
@@ -115,4 +116,24 @@ func parseNullTime(s sql.NullString) *time.Time {
 		return nil
 	}
 	return &t
+}
+
+// GetPresence: stato dell'utente (ok = false se non ha mai fatto accesso).
+func (db *DB) GetPresence(username string) (Presence, bool, error) {
+	var p Presence
+	var seen string
+	var app, permAt sql.NullString
+	err := db.QueryRow(`SELECT username, name, last_seen_at, last_app_at, permission, permission_at
+FROM user_presence WHERE username = ?`, strings.ToLower(strings.TrimSpace(username))).
+		Scan(&p.Username, &p.Name, &seen, &app, &p.Permission, &permAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Presence{}, false, nil
+	}
+	if err != nil {
+		return Presence{}, false, err
+	}
+	p.LastSeen, _ = parseTime(seen)
+	p.LastApp = parseNullTime(app)
+	p.PermissionAt = parseNullTime(permAt)
+	return p, true, nil
 }

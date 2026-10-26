@@ -59,7 +59,7 @@ func TestGuidePDF(t *testing.T) {
 	rec := do(t, s, "GET", "/guide/"+itoa(id)+"/pdf", nil, nil, nil)
 	h := rec.Header()
 	if rec.Code != 200 || h.Get("Content-Type") != "application/pdf" || h.Get("X-Content-Type-Options") != "nosniff" ||
-		h.Get("Content-Disposition") != `inline; filename="Manuale-d-uso.pdf"` || h.Get("Content-Security-Policy") != pdfCSP || rec.Body.String() != string(pdfBytes) {
+		h.Get("Content-Disposition") != `inline; filename="Manuale-d-uso.pdf"; filename*=UTF-8''Manuale-d-uso.pdf` || h.Get("Content-Security-Policy") != pdfCSP || rec.Body.String() != string(pdfBytes) {
 		t.Fatalf("%d %v", rec.Code, h)
 	}
 	// /guide/{id} di un PDF porta al file.
@@ -81,6 +81,52 @@ func TestDashboardGuideLinks(t *testing.T) {
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("manca %s", want)
+		}
+	}
+}
+
+// Il nome del PDF tiene le lettere accentate (filename*), con un ripiego ASCII
+// senza accenti per i client che non lo capiscono.
+func TestPDFFilename(t *testing.T) {
+	for title, want := range map[string]string{
+		"Manuale d'uso":  `filename="Manuale-d-uso.pdf"; filename*=UTF-8''Manuale-d-uso.pdf`,
+		"Attività è già": `filename="Attivita-e-gia.pdf"; filename*=UTF-8''Attivit%C3%A0-%C3%A8-gi%C3%A0.pdf`,
+		"Perché? Così!":  `filename="Perche-Cosi.pdf"; filename*=UTF-8''Perch%C3%A9-Cos%C3%AC.pdf`,
+		"???":            `filename="guida.pdf"; filename*=UTF-8''guida.pdf`,
+	} {
+		if got := pdfDisposition(title); got != "inline; "+want {
+			t.Errorf("%q: %s", title, got)
+		}
+	}
+}
+
+// Anteprima dall'admin: anche guide disattivate, riservate o di app nascoste.
+// Protetta dalla sessione admin, non dall'identità dichiarata della plancia.
+func TestAdminGuidePreview(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	off, _ := db.CreateGuide(database.Guide{Title: "Off", Kind: database.GuideKindMarkdown, Body: "segreto"})
+	name := uploadMedia(t, s, c, "pdf", pdfBytes)["name"].(string)
+	pdf, _ := db.CreateGuide(database.Guide{Title: "Manuale", Kind: database.GuideKindPDF, File: name})
+	if rec := do(t, s, "GET", "/admin/guide/"+itoa(off)+"/anteprima", nil, nil, nil); rec.Code != 303 || strings.Contains(rec.Body.String(), "segreto") {
+		t.Fatalf("senza sessione: %d", rec.Code)
+	}
+	if body := do(t, s, "GET", "/admin/guide/"+itoa(off)+"/anteprima", nil, c, nil).Body.String(); !strings.Contains(body, "segreto") {
+		t.Fatalf("anteprima di una guida disattivata:\n%s", body)
+	}
+	if rec := do(t, s, "GET", "/admin/guide/"+itoa(pdf)+"/pdf", nil, c, nil); rec.Code != 200 || rec.Body.String() != string(pdfBytes) || rec.Header().Get("Content-Security-Policy") != pdfCSP {
+		t.Fatalf("PDF di una guida disattivata: %d %v", rec.Code, rec.Header())
+	}
+	if rec := do(t, s, "GET", "/admin/guide/"+itoa(pdf)+"/anteprima", nil, c, nil); rec.Code != 303 || rec.Header().Get("Location") != "/admin/guide/"+itoa(pdf)+"/pdf" {
+		t.Fatalf("anteprima di un PDF: %d %s", rec.Code, rec.Header().Get("Location"))
+	}
+	if body := do(t, s, "GET", "/admin/guide/9999/anteprima", nil, c, nil).Body.String(); !strings.Contains(body, "Guida non disponibile") {
+		t.Fatal("guida inesistente")
+	}
+	body := do(t, s, "GET", "/admin/guide", nil, c, nil).Body.String()
+	for _, want := range []string{`href="/admin/guide/` + itoa(off) + `/anteprima"`, `href="/admin/guide/` + itoa(pdf) + `/pdf"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("elenco dell'admin: manca %s", want)
 		}
 	}
 }

@@ -11,6 +11,8 @@ func TestParseGitHubURL(t *testing.T) {
 		Raw:       "https://raw.githubusercontent.com/org/repo/main/docs/guida.md",
 		LinkBase:  "https://github.com/org/repo/blob/main/docs/",
 		ImageBase: "https://raw.githubusercontent.com/org/repo/main/docs/",
+		LinkRoot:  "https://github.com/org/repo/blob/main/",
+		ImageRoot: "https://raw.githubusercontent.com/org/repo/main/",
 	}
 	if src != want {
 		t.Fatalf("%+v", src)

@@ -121,6 +121,17 @@ func TestAppUploadLifecycle(t *testing.T) {
 	if a.IconKind != "upload" || !uploadFileRe.MatchString(a.IconValue) {
 		t.Fatalf("icona caricata: %+v", a)
 	}
+	// File sparito o illeggibile: il JS ripiega sulle iniziali, in plancia e nell'admin.
+	img := `src="/uploads/icons/` + a.IconValue + `" alt="" data-fallback="`
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, img) {
+		t.Fatalf("ripiego sulle iniziali in plancia:\n%s", body)
+	}
+	if body := do(t, s, "GET", "/admin/app", nil, c, nil).Body.String(); !strings.Contains(body, img) {
+		t.Fatalf("ripiego sulle iniziali nell'admin:\n%s", body)
+	}
+	if js, _ := os.ReadFile("../../web/static/js/admin.js"); !strings.Contains(string(js), "dataset.fallback") {
+		t.Fatal("admin.js deve gestire il ripiego delle icone")
+	}
 	// 5) salvataggio senza nuovo file → mantiene l'icona
 	postMultipart(t, s, path, appFields(db, map[string]string{"icon_kind": "upload", "title": "Rubrica 2"}), nil, c)
 	if b, _ := db.GetApp(id); b.IconValue != a.IconValue {
