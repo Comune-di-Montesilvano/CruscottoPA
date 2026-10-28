@@ -28,7 +28,7 @@ func favSection(t *testing.T, body string) string {
 func addOpens(t *testing.T, db *database.DB, user string, id int64, n int) {
 	t.Helper()
 	for range n {
-		if err := db.AddAppOpen(user, id); err != nil {
+		if err := db.AddAppOpen(user, id, openDay); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -112,22 +112,74 @@ func TestAlertsPartialNoFavorites(t *testing.T) {
 	}
 }
 
+// riservata: un'app destinata a un gruppo senza membri.
+func riservata(t *testing.T, db *database.DB, title string) int64 {
+	t.Helper()
+	id := webApp(t, db, title)
+	g, _ := db.CreateAudienceGroup("Nessuno " + title)
+	db.SetContentAudience(database.ContentApp, id, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{g}})
+	return id
+}
+
+// Con «Mostra tutto» l'app non destinata fissata sta nei preferiti come le
+// altre; nelle categorie resta segnata e senza puntina.
 func TestFavoritesNotTargetedWithShowAll(t *testing.T) {
 	s, db := newTestServer(t, nil)
-	id := webApp(t, db, "riservata")
-	g, _ := db.CreateAudienceGroup("Nessuno")
-	db.SetContentAudience(database.ContentApp, id, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{g}})
+	id := riservata(t, db, "riservata")
 	db.SaveFavorites("mrossi", []int64{id})
 	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "mrossi"})
 	body := do(t, s, "GET", "/", nil, nil, map[string]string{"Cookie": c.Name + "=" + c.Value + "; " + showAllCookie + "=1"}).Body.String()
-	if strings.Contains(favSection(t, body), `data-tile-id="`+itoa(id)+`"`) {
-		t.Fatal("app non destinata nei preferiti")
+	fav := favSection(t, body)
+	if !strings.Contains(fav, `data-tile-id="`+itoa(id)+`" data-pinned style`) {
+		t.Fatalf("app non destinata fissata assente dai preferiti:\n%s", fav)
 	}
 	tile := body[strings.Index(body, `data-sortable="categorie"`):]
 	tile = tile[strings.Index(tile, `data-tile-id="`+itoa(id)+`"`):]
 	tile = tile[:strings.Index(tile, "</a>")]
 	if !strings.Contains(tile, "data-altri") || strings.Contains(body[strings.Index(body, `data-sortable="categorie"`):], `data-pin="`+itoa(id)+`"`) {
 		t.Fatalf("riquadro non destinato:\n%s", tile)
+	}
+}
+
+// Senza «Mostra tutto» l'app non destinata aperta spesso compare solo nei
+// preferiti, con le sole guide destinate; le categorie non la mostrano.
+func TestFavoritesNotTargetedAuto(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	id := riservata(t, db, "riservata")
+	g := id
+	db.CreateGuide(database.Guide{AppID: &g, Title: "Guida per tutti", Kind: "link", URL: "https://wiki.example.it/a", Enabled: true})
+	hidden, _ := db.CreateGuide(database.Guide{AppID: &g, Title: "Guida riservata", Kind: "link", URL: "https://wiki.example.it/b", Enabled: true})
+	grp, _ := db.CreateAudienceGroup("Nessuno guida")
+	db.SetContentAudience(database.ContentGuide, hidden, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{grp}})
+	addOpens(t, db, "mrossi", id, favMinOpens)
+	body := visit(t, s, "mrossi")
+	fav := favSection(t, body)
+	if !strings.Contains(fav, `data-tile-id="`+itoa(id)+`"`) || strings.Contains(fav, "data-altri") {
+		t.Fatalf("app non destinata aperta spesso:\n%s", fav)
+	}
+	if !strings.Contains(fav, "Guida per tutti") || strings.Contains(fav, "Guida riservata") {
+		t.Fatalf("guide nei preferiti:\n%s", fav)
+	}
+	if strings.Contains(body[strings.Index(body, `id="alerts"`):], `data-tile-id="`+itoa(id)+`"`) {
+		t.Fatal("app non destinata nelle categorie senza «Mostra tutto»")
+	}
+}
+
+// Contano solo le aperture degli ultimi favOpensDays giorni.
+func TestFavoritesOpensWindow(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	a := webApp(t, db, "protocollo")
+	for range favMinOpens {
+		db.AddAppOpen("mrossi", a, "2026-07-08") // 91 giorni prima di fixedNow
+	}
+	if sec := favSection(t, visit(t, s, "mrossi")); strings.Contains(sec, `data-tile-id="`+itoa(a)+`"`) {
+		t.Fatalf("aperture vecchie contate:\n%s", sec)
+	}
+	for range favMinOpens {
+		db.AddAppOpen("mrossi", a, "2026-07-09") // 90 giorni, oggi compreso
+	}
+	if sec := favSection(t, visit(t, s, "mrossi")); !strings.Contains(sec, `data-tile-id="`+itoa(a)+`"`) {
+		t.Fatalf("aperture nella finestra non contate:\n%s", sec)
 	}
 }
 
@@ -139,7 +191,7 @@ func TestCleanupRemovesLayout(t *testing.T) {
 	db.SaveFavorites("cessato", []int64{a})
 	s.CleanupPresence()
 	l, _ := db.UserLayout("cessato")
-	if m, _ := db.AppOpens("cessato"); len(m) != 0 || len(l.Favorites) != 0 {
+	if m, _ := db.AppOpens("cessato", "2000-01-01"); len(m) != 0 || len(l.Favorites) != 0 {
 		t.Fatalf("dati di chi AD non conosce più: %v %+v", m, l)
 	}
 }

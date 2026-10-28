@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
@@ -61,15 +59,17 @@ func TestSaveKeepsHiddenPin(t *testing.T) {
 	}
 }
 
-func TestSaveDropsNotTargeted(t *testing.T) {
+// I fissati possono essere app non destinate, non app fuori dalla plancia.
+func TestSaveFavoritesNotTargeted(t *testing.T) {
 	s, db := newTestServer(t, nil)
-	a, r := webApp(t, db, "a"), webApp(t, db, "riservata")
-	g, _ := db.CreateAudienceGroup("Nessuno")
-	db.SetContentAudience(database.ContentApp, r, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{g}})
-	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "mrossi"})
-	do(t, s, "POST", "/preferiti", ids(r, a), nil, map[string]string{"Cookie": c.Name + "=" + c.Value + "; " + showAllCookie + "=1"})
-	if l, _ := db.UserLayout("mrossi"); !reflect.DeepEqual(l.Favorites, []int64{a}) {
-		t.Fatalf("app non destinata salvata: %v", l.Favorites)
+	a, r := webApp(t, db, "a"), riservata(t, db, "riservata")
+	off := webApp(t, db, "spenta")
+	app, _ := db.GetApp(off)
+	app.Enabled = false
+	db.UpdateApp(app)
+	post(t, s, "/preferiti", ids(r, off, a))
+	if l, _ := db.UserLayout("mrossi"); !reflect.DeepEqual(l.Favorites, []int64{r, a}) {
+		t.Fatalf("fissati: %v", l.Favorites)
 	}
 }
 
@@ -101,12 +101,12 @@ func TestResetLayoutEndpoint(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	a := webApp(t, db, "a")
 	db.SaveFavorites("mrossi", []int64{a})
-	db.AddAppOpen("mrossi", a)
+	db.AddAppOpen("mrossi", a, openDay)
 	if body := post(t, s, "/ordine/ripristina", nil); !strings.Contains(body, `"ok":true`) {
 		t.Fatalf("risposta: %s", body)
 	}
 	l, _ := db.UserLayout("mrossi")
-	m, _ := db.AppOpens("mrossi")
+	m, _ := db.AppOpens("mrossi", "2000-01-01")
 	if len(l.Favorites) != 0 || m[a] != 1 {
 		t.Fatalf("dopo il ripristino: %+v %v", l, m)
 	}

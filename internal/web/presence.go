@@ -162,6 +162,10 @@ func (s *Server) cleanupStats() {
 	if err := s.db.CleanupStats(days, s.dayOf(now.Add(-clicksRetention))); err != nil {
 		slog.Warn("pulizia statistiche", "err", err)
 	}
+	// Aperture per i preferiti: indipendenti da STATS_ENABLED.
+	if err := s.db.CleanupAppOpens(s.dayOf(now.AddDate(0, 0, -(favOpensDays - 1)))); err != nil {
+		slog.Warn("pulizia aperture", "err", err)
+	}
 }
 
 // StartPresenceCleanup: pulizia all'avvio e poi una volta al giorno.

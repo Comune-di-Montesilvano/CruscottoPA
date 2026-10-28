@@ -167,7 +167,8 @@ func (s *Server) withReadPct(alerts []database.Alert, f *contentFilter) []databa
 // handleAppClick conta l'apertura di un'app dalla plancia (tile o ricerca):
 // per i preferiti dell'utente (aperture a meno di openGap contano una) e, con
 // STATS_ENABLED, un clic aggregato per utente, app e giorno salvato senza
-// l'utente. Sempre 200.
+// l'utente. Conta ogni app in plancia, anche non destinata («Mostra tutto»).
+// Sempre 200.
 func (s *Server) handleAppClick(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	user, _ := s.viewerName(r)
@@ -184,7 +185,12 @@ func (s *Server) handleAppClick(w http.ResponseWriter, r *http.Request) {
 	openDue := !ok || now.Sub(last) >= openGap
 	s.stats.mu.Unlock()
 	// La visibilità costa (dashboard + gruppi): solo se c'è qualcosa da contare.
-	if (!clickDue && !openDue) || !s.appVisibleTo(r, id) {
+	if !clickDue && !openDue {
+		return
+	}
+	if apps, err := s.planciaApps(r); err != nil {
+		return
+	} else if _, ok := apps[id]; !ok {
 		return
 	}
 	s.stats.mu.Lock()
@@ -207,7 +213,7 @@ func (s *Server) handleAppClick(w http.ResponseWriter, r *http.Request) {
 	}
 	s.stats.mu.Unlock()
 	if openDue {
-		if err := s.db.AddAppOpen(user, id); err != nil {
+		if err := s.db.AddAppOpen(user, id, day); err != nil {
 			slog.Warn("aperture", "err", err)
 		}
 	}
@@ -227,14 +233,6 @@ func pruneOpens(m map[string]time.Time, now time.Time) map[string]time.Time {
 		}
 	}
 	return out
-}
-
-// appVisibleTo: app in plancia (attiva, con indirizzo) e destinata a chi guarda
-// (senza «Mostra tutto»).
-func (s *Server) appVisibleTo(r *http.Request, id int64) bool {
-	apps, err := s.targetedApps(r)
-	_, ok := apps[id]
-	return err == nil && ok
 }
 
 // markHot accende la fiammella sulle app più aperte tra quelle in pagina.

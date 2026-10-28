@@ -9,9 +9,15 @@ import (
 // layoutMaxIDs: id accettati in un salvataggio di «Personalizza».
 const layoutMaxIDs = 200
 
-// targetedApps: app in plancia destinate a chi guarda (senza «Mostra tutto»),
-// con la loro categoria.
-func (s *Server) targetedApps(r *http.Request) (map[int64]int64, error) {
+// planciaApp: categoria di un'app in plancia e se è destinata a chi guarda
+// (senza «Mostra tutto»).
+type planciaApp struct {
+	cat      int64
+	targeted bool
+}
+
+// planciaApps: le app in plancia (attive, con indirizzo), destinate o no.
+func (s *Server) planciaApps(r *http.Request) (map[int64]planciaApp, error) {
 	d, err := s.db.GetDashboard(s.now())
 	if err != nil {
 		return nil, err
@@ -20,12 +26,25 @@ func (s *Server) targetedApps(r *http.Request) (map[int64]int64, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := map[int64]int64{}
+	out := map[int64]planciaApp{}
 	for _, c := range d.Categories {
 		for _, a := range c.Apps {
-			if f.visible(f.apps[a.ID]) {
-				out[a.ID] = c.ID
-			}
+			out[a.ID] = planciaApp{cat: c.ID, targeted: f.visible(f.apps[a.ID])}
+		}
+	}
+	return out, nil
+}
+
+// targetedApps: app in plancia destinate a chi guarda, con la loro categoria.
+func (s *Server) targetedApps(r *http.Request) (map[int64]int64, error) {
+	all, err := s.planciaApps(r)
+	if err != nil {
+		return nil, err
+	}
+	out := map[int64]int64{}
+	for id, a := range all {
+		if a.targeted {
+			out[id] = a.cat
 		}
 	}
 	return out, nil
@@ -62,14 +81,14 @@ func sortedByPosition(m map[int64]int, keep func(int64) bool) []int64 {
 }
 
 // handleSaveFavorites: i fissati nell'ordine inviato (al massimo favMax tra
-// quelli destinati), poi i fissati salvati che la pagina non mostrava (nascosti
-// o oltre i favMax visibili), nel loro ordine.
+// le app in plancia, destinate o no), poi i fissati salvati che la pagina non
+// mostrava (nascosti o oltre i favMax visibili), nel loro ordine.
 func (s *Server) handleSaveFavorites(w http.ResponseWriter, r *http.Request) {
 	user, sent, ok := s.layoutRequest(w, r)
 	if !ok {
 		return
 	}
-	apps, err := s.targetedApps(r)
+	apps, err := s.planciaApps(r)
 	l, err2 := s.db.UserLayout(user)
 	if err != nil || err2 != nil {
 		pushReply(w, false)

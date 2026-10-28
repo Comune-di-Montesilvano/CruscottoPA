@@ -116,7 +116,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		hero = heroLine(heroItems(p, attrs))
 	}
 	index := buildSearchIndex(d) // la ricerca resta nell'ordine dell'admin
-	layout := s.layoutFor(me, &d)
+	layout := s.layoutFor(me, &d, f)
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
 		Pill:        s.pill(),

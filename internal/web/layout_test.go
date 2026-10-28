@@ -60,7 +60,7 @@ func favIDs(fs []tileView) (ids []int64, pinned []bool) {
 
 func TestFavorites(t *testing.T) {
 	d := layoutDash(cat(1, 1, 2, 3, 4), cat(2, 5, 6))
-	fs := favorites(d, []int64{1}, map[int64]int{2: 12, 3: 10, 4: 9, 1: 50, 6: 10})
+	fs := favorites(d, nil, []int64{1}, map[int64]int{2: 12, 3: 10, 4: 9, 1: 50, 6: 10})
 	ids, pinned := favIDs(fs)
 	if !reflect.DeepEqual(ids, []int64{1, 2, 3, 6}) || !reflect.DeepEqual(pinned, []bool{true, false, false, false}) {
 		t.Fatalf("preferiti: %v %v", ids, pinned)
@@ -72,15 +72,28 @@ func TestFavorites(t *testing.T) {
 	}
 }
 
-func TestFavoritesCapAfterReturn(t *testing.T) {
+func TestFavoritesCap(t *testing.T) {
 	d := layoutDash(cat(1, 1, 2, 3, 4, 5, 6, 7, 8))
-	d.Categories[0].Apps[7].NotForViewer = true // 8: non destinata
-	fs := favorites(d, []int64{7, 6, 5, 4, 3, 2, 1, 8}, map[int64]int{8: 99})
+	fs := favorites(d, nil, []int64{7, 6, 5, 4, 3, 2, 1, 8}, map[int64]int{8: 99})
 	if ids, _ := favIDs(fs); !reflect.DeepEqual(ids, []int64{7, 6, 5, 4, 3, 2}) {
 		t.Fatalf("tetto: %v", ids)
 	}
-	fs = favorites(d, nil, map[int64]int{8: 99})
-	if len(fs) != 0 {
-		t.Fatalf("non destinata tra i preferiti: %v", fs)
+}
+
+// Le app non destinate entrano nei preferiti (in pagina con «Mostra tutto»,
+// altrimenti da others) e lì si vedono come le altre; a parità di aperture
+// prima quelle in pagina.
+func TestFavoritesNotTargeted(t *testing.T) {
+	d := layoutDash(cat(1, 1, 2))
+	d.Categories[0].Apps[1].NotForViewer = true // 2: non destinata, «Mostra tutto»
+	others := []database.AppWithGuides{{App: database.App{ID: 9}}}
+	fs := favorites(d, others, []int64{9}, map[int64]int{1: 10, 2: 10, 3: 50})
+	if ids, _ := favIDs(fs); !reflect.DeepEqual(ids, []int64{9, 1, 2}) {
+		t.Fatalf("preferiti: %v", ids)
+	}
+	for _, f := range fs {
+		if f.NotForViewer || !f.Pinnable {
+			t.Fatalf("riquadro dei preferiti segnato come non destinato: %+v", f)
+		}
 	}
 }
