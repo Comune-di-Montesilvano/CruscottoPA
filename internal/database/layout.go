@@ -6,20 +6,22 @@ import (
 )
 
 // Preferiti e ordine personale della plancia, per utente. Delle aperture si
-// salva solo il numero: nessuna data, nessun orario.
+// salva il numero per giorno: mai l'orario.
 
 func layoutUser(username string) string { return strings.ToLower(strings.TrimSpace(username)) }
 
-// AddAppOpen conta un'apertura dell'app. App inesistente = errore FK.
-func (db *DB) AddAppOpen(username string, appID int64) error {
-	_, err := db.Exec(`INSERT INTO user_app_opens (username, app_id, opens) VALUES (?, ?, 1)
-ON CONFLICT(username, app_id) DO UPDATE SET opens = opens + 1`, layoutUser(username), appID)
+// AddAppOpen conta un'apertura dell'app nel giorno day (YYYY-MM-DD). App
+// inesistente = errore FK.
+func (db *DB) AddAppOpen(username string, appID int64, day string) error {
+	_, err := db.Exec(`INSERT INTO user_app_opens (username, app_id, day, opens) VALUES (?, ?, ?, 1)
+ON CONFLICT(username, app_id, day) DO UPDATE SET opens = opens + 1`, layoutUser(username), appID, day)
 	return err
 }
 
-// AppOpens: aperture per app dell'utente.
-func (db *DB) AppOpens(username string) (map[int64]int, error) {
-	rows, err := db.Query(`SELECT app_id, opens FROM user_app_opens WHERE username = ?`, layoutUser(username))
+// AppOpens: aperture per app dell'utente da fromDay in poi.
+func (db *DB) AppOpens(username, fromDay string) (map[int64]int, error) {
+	rows, err := db.Query(`SELECT app_id, SUM(opens) FROM user_app_opens WHERE username = ? AND day >= ? GROUP BY app_id`,
+		layoutUser(username), fromDay)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +136,12 @@ func (db *DB) SaveAppOrder(username string, categoryID int64, ids []int64) error
 		}
 		return insertPositions(tx, `INSERT INTO user_app_order (username, app_id, position) VALUES (?, ?, ?)`, u, ids)
 	})
+}
+
+// CleanupAppOpens: aperture di tutti prima di day.
+func (db *DB) CleanupAppOpens(day string) error {
+	_, err := db.Exec(`DELETE FROM user_app_opens WHERE day < ?`, day)
+	return err
 }
 
 // ResetLayout toglie fissati e ordine personale; le aperture restano.

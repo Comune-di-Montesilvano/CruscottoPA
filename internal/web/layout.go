@@ -14,6 +14,9 @@ import (
 const (
 	favMax      = 6  // posti nei preferiti
 	favMinOpens = 10 // aperture per entrare tra gli automatici
+	// Giorni di aperture che contano (oggi compreso): chi cambia lavoro non si
+	// porta dietro le app di prima. Oltre, la pulizia giornaliera le cancella.
+	favOpensDays = 90
 )
 
 // mergeOrder: l'ordine inviato (solo elementi visibili, senza ripetizioni),
@@ -70,17 +73,24 @@ type tileView struct {
 }
 
 // favorites: fissati visibili nell'ordine dell'utente (al massimo favMax), poi
-// le app più aperte con almeno favMinOpens aperture, a parità nell'ordine di pagina.
-func favorites(d database.Dashboard, pinned []int64, opens map[int64]int) []tileView {
+// le app più aperte con almeno favMinOpens aperture, a parità nell'ordine di
+// pagina. Contano anche le app non destinate (in d con «Mostra tutto», altrimenti
+// in others): chi le apre spesso le vuole, e nei preferiti si vedono come le altre.
+func favorites(d database.Dashboard, others []database.AppWithGuides, pinned []int64, opens map[int64]int) []tileView {
 	var cands []database.AppWithGuides
 	byID := map[int64]database.AppWithGuides{}
+	add := func(a database.AppWithGuides) {
+		a.NotForViewer = false
+		cands = append(cands, a)
+		byID[a.ID] = a
+	}
 	for _, c := range d.Categories {
 		for _, a := range c.Apps {
-			if !a.NotForViewer {
-				cands = append(cands, a)
-				byID[a.ID] = a
-			}
+			add(a)
 		}
+	}
+	for _, a := range others {
+		add(a)
 	}
 	out := []tileView{}
 	taken := map[int64]bool{}
@@ -123,9 +133,9 @@ func (l *layoutView) Tile(a database.AppWithGuides) tileView {
 	return t
 }
 
-// layoutFor applica l'ordine personale a d e calcola i preferiti; nil per chi
-// non è riconosciuto. Un errore del DB lascia la plancia com'è.
-func (s *Server) layoutFor(user string, d *database.Dashboard) *layoutView {
+// layoutFor applica l'ordine personale a d (già filtrata da f) e calcola i
+// preferiti; nil per chi non è riconosciuto. Un errore del DB lascia la plancia com'è.
+func (s *Server) layoutFor(user string, d *database.Dashboard, f *contentFilter) *layoutView {
 	if user == "" {
 		return nil
 	}
@@ -134,13 +144,18 @@ func (s *Server) layoutFor(user string, d *database.Dashboard) *layoutView {
 		slog.Warn("preferiti", "err", err)
 		return nil
 	}
-	opens, err := s.db.AppOpens(user)
+	opens, err := s.db.AppOpens(user, s.dayOf(s.now().AddDate(0, 0, -(favOpensDays-1))))
+	if err != nil {
+		slog.Warn("preferiti", "err", err)
+		return nil
+	}
+	raw, err := s.db.GetDashboard(s.now())
 	if err != nil {
 		slog.Warn("preferiti", "err", err)
 		return nil
 	}
 	applyLayout(d, l)
-	v := &layoutView{Favorites: favorites(*d, l.Favorites, opens), pinned: map[int64]bool{}}
+	v := &layoutView{Favorites: favorites(*d, f.appsOutside(raw, *d), l.Favorites, opens), pinned: map[int64]bool{}}
 	for _, f := range v.Favorites {
 		if f.Pinned {
 			v.pinned[f.ID] = true
@@ -166,5 +181,5 @@ func (s *Server) handleFavoritesPartial(w http.ResponseWriter, r *http.Request) 
 	f.dashboard(&d)
 	s.markHot(&d)
 	user, _ := s.viewerName(r)
-	s.render(w, http.StatusOK, "favorites", s.layoutFor(user, &d))
+	s.render(w, http.StatusOK, "favorites", s.layoutFor(user, &d, f))
 }

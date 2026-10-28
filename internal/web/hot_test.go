@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
@@ -72,17 +71,6 @@ func TestAppClickUnknownApp(t *testing.T) {
 	click(t, s, "/app/abc/clic", "mrossi")
 	if m, _ := db.AppClicksSince("2026-01-01"); len(m) != 0 {
 		t.Fatalf("righe: %v", m)
-	}
-}
-
-func TestAppClickReservedApp(t *testing.T) {
-	s, db := newTestServer(t, nil)
-	id := webApp(t, db, "riservata")
-	g, _ := db.CreateAudienceGroup("Nessuno")
-	db.SetContentAudience(database.ContentApp, id, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{g}})
-	click(t, s, "/app/"+itoa(id)+"/clic", "mrossi")
-	if n := clicks(t, db, id); n != 0 {
-		t.Fatalf("app non destinata contata: %d", n)
 	}
 }
 

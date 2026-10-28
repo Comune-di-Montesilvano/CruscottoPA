@@ -24,6 +24,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV13TicketsPhase2,
 	migrateV14Stats,
 	migrateV15Layout,
+	migrateV16OpensByDay,
 }
 
 func (db *DB) migrate() error {
@@ -428,6 +429,27 @@ CREATE TABLE user_app_order (
 	position INTEGER NOT NULL,
 	PRIMARY KEY (username, app_id)
 );
+`)
+	return err
+}
+
+// migrateV16OpensByDay: aperture per giorno (solo il giorno di Roma, mai
+// l'ora), così i preferiti automatici guardano gli ultimi 90 giorni. Le
+// aperture già contate finiscono nel giorno della migrazione.
+func migrateV16OpensByDay(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE user_app_opens_day (
+	username TEXT    NOT NULL,
+	app_id   INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+	day      TEXT    NOT NULL,
+	opens    INTEGER NOT NULL,
+	PRIMARY KEY (username, app_id, day)
+);
+INSERT INTO user_app_opens_day (username, app_id, day, opens)
+	SELECT username, app_id, date('now', 'localtime'), opens FROM user_app_opens;
+DROP TABLE user_app_opens;
+ALTER TABLE user_app_opens_day RENAME TO user_app_opens;
+CREATE INDEX idx_user_app_opens_day ON user_app_opens(day);
 `)
 	return err
 }

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -30,15 +31,67 @@ func TestAppOpens(t *testing.T) {
 	db := newTestDB(t)
 	c1, _ := layoutCats(t, db)
 	a := layoutApp(t, db, c1, "protocollo")
-	db.AddAppOpen("MRossi", a)
-	if err := db.AddAppOpen("mrossi", a); err != nil {
+	db.AddAppOpen("MRossi", a, "2026-10-06")
+	if err := db.AddAppOpen("mrossi", a, "2026-10-06"); err != nil {
 		t.Fatal(err)
 	}
-	if m, _ := db.AppOpens("mrossi"); m[a] != 2 {
+	if m, _ := db.AppOpens("mrossi", "2000-01-01"); m[a] != 2 {
 		t.Fatalf("aperture: %v", m)
 	}
-	if err := db.AddAppOpen("mrossi", 9999); err == nil {
+	if err := db.AddAppOpen("mrossi", 9999, "2026-10-06"); err == nil {
 		t.Fatal("app inesistente accettata")
+	}
+}
+
+// Le aperture contano da fromDay; la pulizia toglie quelle prima di un giorno.
+func TestAppOpensWindowAndCleanup(t *testing.T) {
+	db := newTestDB(t)
+	c1, _ := layoutCats(t, db)
+	a := layoutApp(t, db, c1, "protocollo")
+	db.AddAppOpen("mrossi", a, "2026-07-01")
+	db.AddAppOpen("mrossi", a, "2026-10-05")
+	db.AddAppOpen("mrossi", a, "2026-10-06")
+	if m, _ := db.AppOpens("mrossi", "2026-10-05"); m[a] != 2 {
+		t.Fatalf("finestra: %v", m)
+	}
+	if err := db.CleanupAppOpens("2026-10-06"); err != nil {
+		t.Fatal(err)
+	}
+	if m, _ := db.AppOpens("mrossi", "2000-01-01"); m[a] != 1 {
+		t.Fatalf("dopo la pulizia: %v", m)
+	}
+}
+
+// Migrazione v16: le aperture della v15 restano, nel giorno della migrazione.
+func TestMigrationV16KeepsOpens(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v15.db")
+	all := migrations
+	t.Cleanup(func() { migrations = all })
+	migrations = all[:15]
+	old, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c1, _ := layoutCats(t, old)
+	a := layoutApp(t, old, c1, "protocollo")
+	if _, err := old.Exec(`INSERT INTO user_app_opens (username, app_id, opens) VALUES ('mrossi', ?, 7)`, a); err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+	migrations = all
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("migrazione v16: %v", err)
+	}
+	defer db.Close()
+	if m, _ := db.AppOpens("mrossi", "2000-01-01"); m[a] != 7 {
+		t.Fatalf("aperture dopo la v16: %v", m)
+	}
+	if err := db.DeleteApp(a); err != nil {
+		t.Fatal(err)
+	}
+	if m, _ := db.AppOpens("mrossi", "2000-01-01"); len(m) != 0 {
+		t.Fatalf("cascade dopo la v16: %v", m)
 	}
 }
 
@@ -86,7 +139,7 @@ func TestResetLayoutKeepsOpens(t *testing.T) {
 	db := newTestDB(t)
 	c1, _ := layoutCats(t, db)
 	a := layoutApp(t, db, c1, "a")
-	db.AddAppOpen("mrossi", a)
+	db.AddAppOpen("mrossi", a, "2026-10-06")
 	db.SaveFavorites("mrossi", []int64{a})
 	db.SaveCategoryOrder("mrossi", []int64{c1})
 	db.SaveAppOrder("mrossi", c1, []int64{a})
@@ -97,13 +150,13 @@ func TestResetLayoutKeepsOpens(t *testing.T) {
 	if len(l.Favorites)+len(l.Categories)+len(l.Apps) != 0 {
 		t.Fatalf("layout rimasto: %+v", l)
 	}
-	if m, _ := db.AppOpens("mrossi"); m[a] != 1 {
+	if m, _ := db.AppOpens("mrossi", "2000-01-01"); m[a] != 1 {
 		t.Fatal("aperture cancellate dal ripristino")
 	}
 	if err := db.DeleteUserLayout("mrossi"); err != nil {
 		t.Fatal(err)
 	}
-	if m, _ := db.AppOpens("mrossi"); len(m) != 0 {
+	if m, _ := db.AppOpens("mrossi", "2000-01-01"); len(m) != 0 {
 		t.Fatal("aperture rimaste")
 	}
 }
@@ -112,14 +165,14 @@ func TestLayoutCascade(t *testing.T) {
 	db := newTestDB(t)
 	c1, _ := layoutCats(t, db)
 	a := layoutApp(t, db, c1, "a")
-	db.AddAppOpen("mrossi", a)
+	db.AddAppOpen("mrossi", a, "2026-10-06")
 	db.SaveFavorites("mrossi", []int64{a})
 	db.SaveAppOrder("mrossi", c1, []int64{a})
 	if err := db.DeleteApp(a); err != nil {
 		t.Fatal(err)
 	}
 	l, _ := db.UserLayout("mrossi")
-	m, _ := db.AppOpens("mrossi")
+	m, _ := db.AppOpens("mrossi", "2000-01-01")
 	if len(l.Favorites)+len(l.Apps)+len(m) != 0 {
 		t.Fatalf("righe rimaste: %+v %v", l, m)
 	}

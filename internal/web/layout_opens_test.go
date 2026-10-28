@@ -12,9 +12,12 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 )
 
+// openDay: il giorno di fixedNow a Roma.
+const openDay = "2026-10-06"
+
 func opens(t *testing.T, db *database.DB, user string, id int64) int {
 	t.Helper()
-	m, err := db.AppOpens(user)
+	m, err := db.AppOpens(user, "2000-01-01")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +67,8 @@ func TestAppOpenWithoutStats(t *testing.T) {
 	}
 }
 
+// App non destinata aperta con «Mostra tutto»: conta per i preferiti e per la
+// fiammella. Un'app che non è in plancia non conta mai.
 func TestAppOpenNotTargeted(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	id := webApp(t, db, "riservata")
@@ -75,8 +80,32 @@ func TestAppOpenNotTargeted(t *testing.T) {
 	if req.Code != http.StatusOK {
 		t.Fatalf("status %d", req.Code)
 	}
-	if n := opens(t, db, "mrossi", id); n != 0 {
-		t.Fatalf("app non destinata contata: %d", n)
+	if n := opens(t, db, "mrossi", id); n != 1 {
+		t.Fatalf("app non destinata non contata: %d", n)
+	}
+	if n := clicks(t, db, id); n != 1 {
+		t.Fatalf("clic aggregato di un'app non destinata: %d", n)
+	}
+	off := webApp(t, db, "spenta")
+	app, _ := db.GetApp(off)
+	app.Enabled = false
+	db.UpdateApp(app)
+	click(t, s, "/app/"+itoa(off)+"/clic", "mrossi")
+	if n := opens(t, db, "mrossi", off); n != 0 {
+		t.Fatalf("app disattivata contata: %d", n)
+	}
+}
+
+// Le aperture si salvano nel giorno di Roma.
+func TestAppOpenDay(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	id := webApp(t, db, "protocollo")
+	click(t, s, "/app/"+itoa(id)+"/clic", "mrossi")
+	if m, _ := db.AppOpens("mrossi", openDay); m[id] != 1 {
+		t.Fatalf("aperture del giorno: %v", m)
+	}
+	if m, _ := db.AppOpens("mrossi", "2026-10-07"); m[id] != 0 {
+		t.Fatalf("apertura nel giorno sbagliato: %v", m)
 	}
 }
 

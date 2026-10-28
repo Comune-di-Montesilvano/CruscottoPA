@@ -86,6 +86,35 @@ func (f *contentFilter) dashboard(d *database.Dashboard) {
 	d.GeneralGuides = gen
 }
 
+// appsOutside: le app di raw (plancia non filtrata) che d non mostra, cioè non
+// destinate a chi guarda senza «Mostra tutto», con le sole guide destinate.
+// Servono ai preferiti: un'app aperta spesso ci entra anche se non è destinata.
+func (f *contentFilter) appsOutside(raw, d database.Dashboard) []database.AppWithGuides {
+	shown := map[int64]bool{}
+	for _, c := range d.Categories {
+		for _, a := range c.Apps {
+			shown[a.ID] = true
+		}
+	}
+	var out []database.AppWithGuides
+	for _, c := range raw.Categories {
+		for _, a := range c.Apps {
+			if shown[a.ID] {
+				continue
+			}
+			gs := []database.Guide{}
+			for _, g := range a.Guides {
+				if f.ShowAll || f.visible(f.guides[g.ID]) {
+					gs = append(gs, g)
+				}
+			}
+			a.Guides = gs
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 // guideVisible: la guida e, se agganciata, la sua app sono destinate a chi guarda.
 func (f *contentFilter) guideVisible(g database.Guide) bool {
 	if f.ShowAll {
