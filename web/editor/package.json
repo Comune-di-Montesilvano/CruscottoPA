@@ -6,13 +6,13 @@
   "engines": { "node": ">=24" },
   "scripts": { "build": "node build.mjs" },
   "dependencies": {
-    "@tiptap/core": "3.31.4",
-    "@tiptap/extension-image": "3.31.4",
-    "@tiptap/extension-table": "3.31.4",
-    "@tiptap/extensions": "3.31.4",
-    "@tiptap/markdown": "3.31.4",
-    "@tiptap/pm": "3.31.4",
-    "@tiptap/starter-kit": "3.31.4"
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-image": "3.32.0",
+    "@tiptap/extension-table": "3.32.0",
+    "@tiptap/extensions": "3.32.0",
+    "@tiptap/markdown": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0"
   },
   "devDependencies": { "esbuild": "0.28.2" }
 }
