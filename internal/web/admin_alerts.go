@@ -26,7 +26,7 @@ type alertForm struct {
 
 type alertRow struct {
 	database.Alert
-	Status     string // Attivo | Programmato | Scaduto
+	Status     string // Attivo | Programmato | Scaduto | Archiviato
 	Visibility string // etichetta: "" = pubblico
 	Reads      int    // letture registrate
 	Deliveries database.DeliveryCount
@@ -63,6 +63,8 @@ func (s *Server) formFromAlert(a database.Alert) alertForm {
 func (s *Server) alertStatus(a database.Alert) string {
 	now := s.now()
 	switch {
+	case a.ArchivedAt != nil:
+		return "Archiviato"
 	case a.EndsAt != nil && !now.Before(*a.EndsAt):
 		return "Scaduto"
 	case a.StartsAt.After(now):
@@ -94,7 +96,7 @@ func (s *Server) alertsData(form alertForm, errs formErrors) (alertsSection, err
 		sec.Current = append(sec.Current, alertRow{Alert: a, Status: s.alertStatus(a), Visibility: labels[a.ID], Reads: reads[a.ID], Deliveries: deliveries[a.ID]})
 	}
 	for _, a := range expired {
-		sec.Expired = append(sec.Expired, alertRow{Alert: a, Status: "Scaduto", Visibility: labels[a.ID], Reads: reads[a.ID], Deliveries: deliveries[a.ID]})
+		sec.Expired = append(sec.Expired, alertRow{Alert: a, Status: s.alertStatus(a), Visibility: labels[a.ID], Reads: reads[a.ID], Deliveries: deliveries[a.ID]})
 	}
 	sec.VisibilityField, err = s.visibilityField(form.Visibility)
 	return sec, err
@@ -212,6 +214,31 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 		s.cleanMedia() // immagini tolte dal testo
 		s.renderAlerts(w, http.StatusOK, s.newAlertForm(), nil)
 	}
+}
+
+func (s *Server) handleAlertArchive(w http.ResponseWriter, r *http.Request) {
+	s.alertAction(w, r, func(id int64) error { return s.db.ArchiveAlert(id, s.now()) })
+}
+
+func (s *Server) handleAlertRestore(w http.ResponseWriter, r *http.Request) {
+	s.alertAction(w, r, s.db.RestoreAlert)
+}
+
+// alertAction: azione su un avviso dalla riga dell'elenco, poi la sezione.
+func (s *Server) alertAction(w http.ResponseWriter, r *http.Request, act func(int64) error) {
+	id, err := pathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := act(id); errors.Is(err, database.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	s.renderAlerts(w, http.StatusOK, s.newAlertForm(), nil)
 }
 
 func (s *Server) handleAlertDelete(w http.ResponseWriter, r *http.Request) {

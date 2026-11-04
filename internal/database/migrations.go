@@ -25,6 +25,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV14Stats,
 	migrateV15Layout,
 	migrateV16OpensByDay,
+	migrateV17AlertArchive,
 }
 
 func (db *DB) migrate() error {
@@ -451,5 +452,12 @@ DROP TABLE user_app_opens;
 ALTER TABLE user_app_opens_day RENAME TO user_app_opens;
 CREATE INDEX idx_user_app_opens_day ON user_app_opens(day);
 `)
+	return err
+}
+
+// migrateV17AlertArchive: avvisi archiviati a mano (tolti dalla plancia senza
+// toccare la scadenza né eliminarli). NULL = non archiviato.
+func migrateV17AlertArchive(tx *sql.Tx) error {
+	_, err := tx.Exec(`ALTER TABLE alerts ADD COLUMN archived_at TEXT`)
 	return err
 }

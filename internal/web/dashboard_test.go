@@ -102,6 +102,32 @@ func TestAlertsPartial(t *testing.T) {
 	}
 }
 
+// Le date di inizio e fine degli avvisi non si mostrano agli utenti: la
+// scadenza serve solo a toglierli dalla plancia, ma letta come "fino al"
+// faceva credere che il problema durasse fino a quel giorno.
+func TestAlertsWithoutDates(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	end := fixedNow.Add(5 * 24 * time.Hour)
+	for _, level := range []string{"news", "urgent"} {
+		db.CreateAlert(database.Alert{Title: "Guasto " + level, Level: level, Source: "CED",
+			StartsAt: fixedNow.Add(-time.Hour), EndsAt: &end, CreatedAt: fixedNow})
+	}
+	loc, _ := time.LoadLocation("Europe/Rome")
+	start := fixedNow.Add(-time.Hour).In(loc).Format("02/01/2006")
+	stop := end.In(loc).Format("02/01/2006")
+	for _, url := range []string{"/", "/partials/alerts", "/avvisi"} {
+		body := do(t, s, "GET", url, nil, nil, nil).Body.String()
+		if !strings.Contains(body, "Guasto news") {
+			t.Fatalf("%s: avviso assente", url)
+		}
+		for _, bad := range []string{"fino al", "news-when", start, stop} {
+			if strings.Contains(body, bad) {
+				t.Errorf("%s: non deve contenere %q", url, bad)
+			}
+		}
+	}
+}
+
 func TestCalendarPartial(t *testing.T) { // Review Focus #2
 	s, _ := newTestServer(t, nil)
 	rec := do(t, s, "GET", "/partials/calendario?mese=2026-11", nil, nil, nil)
