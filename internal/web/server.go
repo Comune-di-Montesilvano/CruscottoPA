@@ -284,6 +284,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/avvisi", s.requireAdmin(s.handleAlertSave))
 	s.mux.HandleFunc("POST /admin/notifiche/prova", s.requireAdmin(s.handlePushTest))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}", s.requireAdmin(s.handleAlertSave))
+	s.mux.HandleFunc("POST /admin/avvisi/{id}/archivia", s.requireAdmin(s.handleAlertArchive))
+	s.mux.HandleFunc("POST /admin/avvisi/{id}/ripristina", s.requireAdmin(s.handleAlertRestore))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}/elimina", s.requireAdmin(s.handleAlertDelete))
 	s.mux.HandleFunc("GET /admin/calendario", s.requireAdmin(s.handleCalendarPage))
 	s.mux.HandleFunc("GET /admin/calendario/{id}/modifica", s.requireAdmin(s.handleCalendarEdit))

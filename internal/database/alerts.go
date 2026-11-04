@@ -25,6 +25,7 @@ type Alert struct {
 	CreatedAt  time.Time
 	CreatedBy  string
 	NotifiedAt *time.Time // quando è partita la notifica; nil = non ancora
+	ArchivedAt *time.Time // archiviato a mano: fuori dalla plancia; nil = no
 
 	NotForViewer bool // calcolato dal web: avviso non destinato a chi guarda (niente popup)
 	ReadByViewer bool // calcolato dal web: già letto da chi guarda (dal DB, non dal browser)
@@ -32,15 +33,15 @@ type Alert struct {
 	ReadPct      int  // calcolato dal web: «Letto dal X% dei colleghi» (0 = non mostrato)
 }
 
-const alertCols = `id, title, body, level, source, starts_at, ends_at, notify, created_at, created_by, notified_at`
+const alertCols = `id, title, body, level, source, starts_at, ends_at, notify, created_at, created_by, notified_at, archived_at`
 
 const levelOrder = `CASE level WHEN 'urgent' THEN 0 WHEN 'maintenance' THEN 1 ELSE 2 END`
 
 func scanAlert(s scanner) (Alert, error) {
 	var a Alert
 	var starts, created string
-	var ends, notified sql.NullString
-	if err := s.Scan(&a.ID, &a.Title, &a.Body, &a.Level, &a.Source, &starts, &ends, &a.Notify, &created, &a.CreatedBy, &notified); err != nil {
+	var ends, notified, archived sql.NullString
+	if err := s.Scan(&a.ID, &a.Title, &a.Body, &a.Level, &a.Source, &starts, &ends, &a.Notify, &created, &a.CreatedBy, &notified, &archived); err != nil {
 		return a, err
 	}
 	var err error
@@ -64,7 +65,19 @@ func scanAlert(s scanner) (Alert, error) {
 		}
 		a.NotifiedAt = &n
 	}
+	if archived.Valid {
+		v, err := parseTime(archived.String)
+		if err != nil {
+			return a, err
+		}
+		a.ArchivedAt = &v
+	}
 	return a, nil
+}
+
+// ActiveAt: avviso in plancia in quell'istante (iniziato, non scaduto, non archiviato).
+func (a Alert) ActiveAt(now time.Time) bool {
+	return a.ArchivedAt == nil && !a.StartsAt.After(now) && (a.EndsAt == nil || now.Before(*a.EndsAt))
 }
 
 func queryAlerts(db *DB, query string, args ...any) ([]Alert, error) {
@@ -91,24 +104,27 @@ func nullableTime(t *time.Time) any {
 	return formatTime(*t)
 }
 
-// ListActiveAlerts: starts_at <= now < ends_at (o senza fine), ordinati per gravità.
+// ListActiveAlerts: starts_at <= now < ends_at (o senza fine), non archiviati,
+// ordinati per gravità.
 func (db *DB) ListActiveAlerts(now time.Time) ([]Alert, error) {
 	n := formatTime(now)
 	return queryAlerts(db, `SELECT `+alertCols+` FROM alerts
-WHERE starts_at <= ? AND (ends_at IS NULL OR ends_at > ?)
+WHERE archived_at IS NULL AND starts_at <= ? AND (ends_at IS NULL OR ends_at > ?)
 ORDER BY `+levelOrder+`, starts_at DESC, id DESC`, n, n)
 }
 
-// ListAlertsForAdmin separa avvisi correnti/programmati da quelli scaduti (ultimi 30).
+// ListAlertsForAdmin separa avvisi correnti/programmati da quelli archiviati o
+// scaduti (ultimi 30, i più recenti prima).
 func (db *DB) ListAlertsForAdmin(now time.Time) (current, expired []Alert, err error) {
 	n := formatTime(now)
 	current, err = queryAlerts(db, `SELECT `+alertCols+` FROM alerts
-WHERE ends_at IS NULL OR ends_at > ? ORDER BY starts_at DESC, id DESC`, n)
+WHERE archived_at IS NULL AND (ends_at IS NULL OR ends_at > ?) ORDER BY starts_at DESC, id DESC`, n)
 	if err != nil {
 		return nil, nil, err
 	}
 	expired, err = queryAlerts(db, `SELECT `+alertCols+` FROM alerts
-WHERE ends_at <= ? ORDER BY ends_at DESC, id DESC LIMIT 30`, n)
+WHERE archived_at IS NOT NULL OR ends_at <= ?
+ORDER BY COALESCE(archived_at, ends_at) DESC, id DESC LIMIT 30`, n)
 	return current, expired, err
 }
 
@@ -142,6 +158,21 @@ WHERE id = ?`,
 		a.Title, a.Body, a.Level, a.Source, formatTime(a.StartsAt), nullableTime(a.EndsAt), a.Notify, a.ID))
 }
 
+// ArchiveAlert toglie l'avviso dalla plancia senza toccarne le date; già
+// archiviato = resta la prima data di archiviazione.
+func (db *DB) ArchiveAlert(id int64, now time.Time) error {
+	if _, err := db.GetAlert(id); err != nil {
+		return err
+	}
+	_, err := db.Exec(`UPDATE alerts SET archived_at = ? WHERE id = ? AND archived_at IS NULL`, formatTime(now), id)
+	return err
+}
+
+// RestoreAlert toglie l'archiviazione: l'avviso torna a seguire le sue date.
+func (db *DB) RestoreAlert(id int64) error {
+	return checkAffected(db.Exec(`UPDATE alerts SET archived_at = NULL WHERE id = ?`, id))
+}
+
 func (db *DB) DeleteAlert(id int64) error {
 	return db.deleteContent(ContentAlert, "alerts", id)
 }
@@ -150,7 +181,7 @@ func (db *DB) DeleteAlert(id int64) error {
 func (db *DB) PendingNotifications(now time.Time) ([]Alert, error) {
 	n := formatTime(now)
 	return queryAlerts(db, `SELECT `+alertCols+` FROM alerts
-WHERE notify = 1 AND notified_at IS NULL AND starts_at <= ? AND (ends_at IS NULL OR ends_at > ?)
+WHERE notify = 1 AND notified_at IS NULL AND archived_at IS NULL AND starts_at <= ? AND (ends_at IS NULL OR ends_at > ?)
 ORDER BY starts_at, id`, n, n)
 }
 

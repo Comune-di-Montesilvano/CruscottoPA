@@ -9,9 +9,10 @@
 	<td><span class="pill pill-{{.Level}}">{{levelLabel .Level}}</span></td>
 	<td>{{.Title}}<br><small class="muted">{{alertSource .Source}} · di {{.CreatedBy}} · {{template "visibility_label" .Visibility}}{{with .NotifiedAt}} · notificato il {{fmtDatePtr .}}{{end}} · <a href="/admin/avvisi/{{.ID}}/letture">Letto da {{.Reads}}{{if .Deliveries.Sent}} · notifiche ricevute {{.Deliveries.Received}}/{{.Deliveries.Sent}}{{end}}</a></small></td>
 	<td class="muted">{{fmtDate .StartsAt}}{{if .EndsAt}} → {{fmtDatePtr .EndsAt}}{{else}} → senza scadenza{{end}}</td>
-	<td><span class="tag{{if eq .Status "Scaduto"}}{{else if eq .Status "Programmato"}} warn{{end}}">{{.Status}}</span></td>
+	<td><span class="tag{{if eq .Status "Programmato"}} warn{{end}}">{{.Status}}</span>{{with .ArchivedAt}}<br><small class="muted">il {{fmtDatePtr .}}</small>{{end}}</td>
 	<td class="actions">
 		<button type="button" hx-get="/admin/avvisi/{{.ID}}/modifica" hx-target="#section" hx-swap="outerHTML show:window:top">Modifica</button>
+		{{if .ArchivedAt}}<button type="button" hx-post="/admin/avvisi/{{.ID}}/ripristina" hx-target="#section" hx-swap="outerHTML" title="Torna in plancia secondo le sue date">Ripristina</button>{{else if ne .Status "Scaduto"}}<button type="button" hx-post="/admin/avvisi/{{.ID}}/archivia" hx-target="#section" hx-swap="outerHTML" title="Toglie subito l'avviso dalla plancia, senza cambiarne le date">Archivia</button>{{end}}
 		<button class="danger" type="button" hx-post="/admin/avvisi/{{.ID}}/elimina" hx-confirm="Eliminare l'avviso «{{.Title}}»?" hx-target="#section" hx-swap="outerHTML">Elimina</button>
 	</td>
 </tr>
@@ -66,8 +67,8 @@
 	</table>
 
 	{{if .Expired}}
-	<h2 class="spaced">Scaduti (ultimi 30)</h2>
-	<p class="hint">Per riattivarne uno, modificalo e sposta o togli la data di fine.</p>
+	<h2 class="spaced">Archiviati e scaduti (ultimi 30)</h2>
+	<p class="hint">Un avviso archiviato torna in plancia con «Ripristina» (se le sue date sono ancora valide); uno scaduto si riattiva modificandolo e spostando o togliendo la data di fine.</p>
 	<table class="list">
 		<thead><tr><th>Livello</th><th>Avviso</th><th>Periodo</th><th>Stato</th><th></th></tr></thead>
 		<tbody>{{template "alert_rows" .Expired}}</tbody>

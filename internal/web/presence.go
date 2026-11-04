@@ -41,8 +41,8 @@ func (s *Server) markRead(username string, alertID int64, how string) {
 		return
 	}
 	now := s.now()
-	if a.StartsAt.After(now) || (a.EndsAt != nil && !now.Before(*a.EndsAt)) {
-		return // programmato o scaduto: non è in plancia
+	if !a.ActiveAt(now) {
+		return // programmato, scaduto o archiviato: non è in plancia
 	}
 	if done, err := s.db.HasRead(alertID, username); err != nil || done {
 		return

@@ -2,7 +2,6 @@
 	<div class="news-head">
 		<span class="news-level">{{levelLabel .Level}}</span>
 		<span class="news-source">{{alertSource .Source}}</span>
-		<span class="news-when">dal {{fmtDate .StartsAt}}{{if .EndsAt}} · fino al {{fmtDatePtr .EndsAt}}{{end}}</span>
 	</div>
 {{end}}
 
@@ -56,7 +55,7 @@
 	<div class="urgent-head"><span class="urgent-badge">Urgente</span><span class="urgent-title" id="urgent-{{.ID}}">{{.Title}}</span></div>
 	{{if .Body}}<div class="urgent-body md">{{md .Body}}</div>{{end}}
 	<form method="dialog" class="urgent-foot">
-		<span>{{alertSource .Source}} · {{fmtDate .StartsAt}}</span>
+		<span>{{alertSource .Source}}</span>
 		<button value="letto" data-read disabled>Ho letto</button>
 	</form>
 </dialog>
