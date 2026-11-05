@@ -167,3 +167,42 @@ func TestPillInBrandBar(t *testing.T) {
 		t.Fatalf("pastiglia fuori dalla riga del marchio:\n%s", pillSnippet(body))
 	}
 }
+
+// Il giorno del traguardo resta anche «Oggi siamo in N»: il traguardo non
+// deve togliere il numero dei colleghi collegati oggi.
+func TestMilestonePillKeepsCount(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	if _, err := db.Exec(`UPDATE counters SET value = 999 WHERE name = 'accessi'`); err != nil {
+		t.Fatal(err)
+	}
+	body := visit(t, s, "mrossi", "anna")
+	if !strings.Contains(body, "Abbiamo superato 1.000 accessi") || !strings.Contains(body, "Oggi siamo in 2") {
+		t.Fatalf("traguardo e conteggio attesi insieme:\n%s", pillSnippet(body))
+	}
+}
+
+// Il refresh degli avvisi (ogni 5 minuti) aggiorna fuori banda anche i
+// colleghi di oggi e il widget del mese: la plancia aperta non resta ferma.
+func TestAlertsPartialRefreshesWidgets(t *testing.T) {
+	s, _ := newTestServer(t, nil)
+	visit(t, s, "mrossi", "anna")
+	s.stats.reset()
+	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "mrossi"})
+	body := do(t, s, "GET", "/partials/alerts", nil, c, hx).Body.String()
+	for _, want := range []string{`id="hero-pills" hx-swap-oob="true"`, "Oggi siamo in 2", `id="mese-slot" hx-swap-oob="true"`, "I tuoi ultimi 30 giorni"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("partial degli avvisi: manca %q", want)
+		}
+	}
+}
+
+// A mezzanotte la plancia aperta cambia giorno (data, calendario, mese):
+// dashboard.js la ricarica alla prima attività dell'utente, mai a PC incustodito.
+func TestDashboardReloadsOnNewDay(t *testing.T) {
+	js := readFile(t, "../../web/static/js/dashboard.js")
+	for _, want := range []string{`dayKey()`, `newDay`, `"pointermove"`, `location.reload()`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("dashboard.js: manca %q", want)
+		}
+	}
+}

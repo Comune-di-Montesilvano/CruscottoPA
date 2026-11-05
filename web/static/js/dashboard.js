@@ -202,6 +202,24 @@
 		wrap?.addEventListener("focusout", (e) => { if (!wrap.contains(e.relatedTarget)) closeResults(); });
 	}
 
+	// ── Cambio di giorno: data in testata, calendario e widget del mese sono del
+	// giorno in cui la pagina è stata aperta. Si ricarica alla prima attività
+	// dell'utente, mai a PC incustodito (conterebbe un accesso in «Oggi siamo in N»),
+	// e non mentre sta leggendo o scrivendo qualcosa.
+	const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+	const loadedDay = dayKey();
+	let newDay = false;
+	function reloadIfNewDay() {
+		if (!newDay) newDay = dayKey() !== loadedDay; // anche se i timer erano fermi (PC sospeso)
+		if (!newDay || document.visibilityState !== "visible") return;
+		if (document.querySelector("dialog[open], .news-expand[open], .tile.open") || document.body.classList.contains("personalizza")) return;
+		if (input && input.value.trim()) return;
+		location.reload();
+	}
+	document.addEventListener("pointermove", reloadIfNewDay, { passive: true });
+	document.addEventListener("visibilitychange", reloadIfNewDay);
+	window.addEventListener("focus", reloadIfNewDay);
+
 	// ── Carosello avvisi ─────────────────────────────────
 	const ROTATE_MS = 12000;
 	const NEWS_HOVER_MS = 500;
