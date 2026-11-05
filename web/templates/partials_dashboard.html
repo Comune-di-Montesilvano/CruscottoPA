@@ -34,7 +34,13 @@
 {{/* Refresh del carosello: con il contatore di "Mostra anche…" fuori banda. */}}
 {{define "alerts_partial"}}{{template "alerts_carousel" .Alerts}}
 <div id="audience-toggle" hx-swap-oob="true">{{template "audience_toggle" .Filter}}</div>
+{{/* Col refresh degli avvisi si aggiornano anche i colleghi di oggi e il widget del mese. */}}
+<span class="hero-pills" id="hero-pills" hx-swap-oob="true">{{template "hero_pills" .Pill}}</span>
+<div id="mese-slot" hx-swap-oob="true">{{template "widget_mese" .Month}}</div>
 {{end}}
+
+{{/* Testata: «Oggi siamo in N» e, il giorno di un traguardo, anche quello. */}}
+{{define "hero_pills"}}{{with .}}{{if .Milestone}}<span class="hero-together is-milestone"><span class="material-icons" aria-hidden="true">celebration</span>Abbiamo superato {{thousands .Milestone}} accessi</span>{{end}}{{if .Count}}<span class="hero-together"><span class="material-icons" aria-hidden="true">groups</span>Oggi siamo in {{.Count}}</span>{{end}}{{end}}{{end}}
 
 {{define "alerts_carousel"}}{{if .}}
 <section class="carousel" data-carousel tabindex="0" aria-roledescription="carosello" aria-label="Avvisi">

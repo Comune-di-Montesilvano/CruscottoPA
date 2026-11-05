@@ -104,7 +104,7 @@ func TestTicketWatchOTRSDownKeepsSince(t *testing.T) {
 
 func TestTicketEventsScript(t *testing.T) {
 	js := readFile(t, "../../web/static/js/notifiche.js")
-	for _, want := range []string{`addEventListener("ticket"`, `kind === "ticket"`, `"ticket-" + t.id`} {
+	for _, want := range []string{`addEventListener("ticket"`, `k === "ticket"`, `"ticket-" + t.id`} {
 		if !strings.Contains(js, want) {
 			t.Errorf("notifiche.js: manca %q", want)
 		}

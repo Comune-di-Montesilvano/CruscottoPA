@@ -157,33 +157,99 @@
 			});
 		}
 	}
+	// Avvisi e ticket ricaricati dal server: dopo un buco nel flusso o una scheda
+	// rimasta a lungo in secondo piano, gli eventi persi non tornano da soli.
+	function refreshAll() {
+		if (window.htmx && document.getElementById("alerts")) {
+			htmx.ajax("GET", "/partials/alerts", { target: "#alerts", swap: "innerHTML" });
+		}
+		document.body.dispatchEvent(new Event("ticket"));
+	}
 	if ("EventSource" in window) {
 		const bc = "BroadcastChannel" in window ? new BroadcastChannel("cruscotto-eventi") : null;
+		// Il server manda un ping ogni 25 s: senza ping per STALE_MS il flusso è
+		// morto anche se il browser non lo sa (PC sospeso, cambio di rete, proxy).
+		const STALE_MS = 70000;
+		const RETRY_MIN = 5000, RETRY_MAX = 60000;
 		const stream = () => new Promise(() => { // mai risolta: il lock resta finché la scheda è aperta
-			const es = new EventSource("/eventi");
-			es.addEventListener("avviso", (e) => {
-				let a = {};
-				try { a = JSON.parse(e.data); } catch (_) { return; }
-				onAvviso(a, true);
-				if (bc) bc.postMessage(a);
-			});
-			es.addEventListener("ticket", (e) => {
-				let t = {};
-				try { t = JSON.parse(e.data); } catch (_) { return; }
-				onTicket(t, true);
-				if (bc) bc.postMessage(t);
-			});
+			let es = null, last = Date.now(), delay = RETRY_MIN, lost = false, timer = null;
+			const alive = () => {
+				last = Date.now();
+				delay = RETRY_MIN;
+				if (lost) { // tornato dopo un buco: si recupera quello che è cambiato
+					lost = false;
+					refreshAll();
+					if (bc) bc.postMessage({ kind: "refresh" });
+				}
+			};
+			const retry = (wait) => {
+				if (es) { es.close(); es = null; }
+				lost = true;
+				clearTimeout(timer);
+				timer = setTimeout(connect, wait);
+				delay = Math.min(delay * 2, RETRY_MAX);
+			};
+			function connect() {
+				clearTimeout(timer);
+				if (es) es.close();
+				last = Date.now();
+				es = new EventSource("/eventi");
+				es.addEventListener("ping", alive);
+				es.addEventListener("avviso", (e) => {
+					alive();
+					let a = {};
+					try { a = JSON.parse(e.data); } catch (_) { return; }
+					onAvviso(a, true);
+					if (bc) bc.postMessage(a);
+				});
+				es.addEventListener("ticket", (e) => {
+					alive();
+					let t = {};
+					try { t = JSON.parse(e.data); } catch (_) { return; }
+					onTicket(t, true);
+					if (bc) bc.postMessage(t);
+				});
+				es.addEventListener("error", () => {
+					lost = true;
+					// Risposta non SSE (es. la pagina di cortesia del proxy durante un
+					// riavvio): il browser chiude per sempre, si riprova da qui.
+					if (es && es.readyState === EventSource.CLOSED) retry(delay + Math.random() * delay / 2);
+				});
+			}
+			setInterval(() => { if (es && Date.now() - last > STALE_MS) retry(Math.random() * RETRY_MIN); }, 15000); // es nullo = retry già in attesa
+			// Rete tornata o scheda di nuovo in primo piano (anche dopo la sospensione
+			// del PC, quando i timer erano fermi): si controlla subito.
+			const check = () => { if (!es || lost || Date.now() - last > STALE_MS) retry(0); };
+			window.addEventListener("online", check);
+			document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
+			connect();
 		});
 		if (bc && navigator.locks) {
-			bc.onmessage = (e) => (e.data && e.data.kind === "ticket" ? onTicket(e.data, false) : onAvviso(e.data, false));
+			bc.onmessage = (e) => {
+				const k = e.data && e.data.kind;
+				if (k === "refresh") refreshAll();
+				else if (k === "ticket") onTicket(e.data, false);
+				else onAvviso(e.data, false);
+			};
 			navigator.locks.request("cruscotto-eventi", stream);
 		} else {
 			stream();
 		}
 	}
+	// Scheda rimasta a lungo nascosta o congelata (schede in sospensione di Edge):
+	// al ritorno si ricaricano avvisi e ticket senza aspettare il prossimo giro.
+	const HIDDEN_REFRESH_MS = 5 * 60000;
+	let hiddenAt = 0;
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+		if (hiddenAt && Date.now() - hiddenAt > HIDDEN_REFRESH_MS) refreshAll();
+		hiddenAt = 0;
+	});
 
 	if (supported) {
-		if (active()) subscribe().catch(() => {}); // anche se concesso da policy di dominio
+		// Anche se concesso da policy di dominio. Una rete lenta all'apertura non
+		// deve lasciare il browser senza iscrizione fino al prossimo caricamento.
+		if (active()) subscribe().catch(() => setTimeout(() => subscribe().catch(() => {}), 60000));
 		setTimeout(maybeAsk, 1500);
 	}
 })();

@@ -157,10 +157,17 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 	user, _ := s.viewerName(r)
 	d.Alerts = s.withReadState(user, d.Alerts) // il refresh non è una nuova apertura
 	d.Alerts = s.withReadPct(d.Alerts, f)
+	month, err := s.monthFor(user, f)
+	if err != nil {
+		slog.Warn("widget del mese", "err", err)
+		month = nil
+	}
 	s.render(w, http.StatusOK, "alerts_partial", struct {
 		Alerts []database.Alert
 		Filter *contentFilter
-	}{d.Alerts, f})
+		Pill   pillView
+		Month  *monthView
+	}{d.Alerts, f, s.pill(), month})
 }
 
 // handleCalendarPartial: mese non valido → mese corrente (mai un errore).

@@ -65,7 +65,7 @@ func (c *statsCache) reset() {
 }
 
 // pillView: «Oggi siamo in N» nella testata; Count 0 = nascosta. Con un
-// traguardo raggiunto oggi vale quello.
+// traguardo raggiunto oggi compare accanto, senza togliere il conteggio.
 type pillView struct {
 	Count     int
 	Milestone int64
