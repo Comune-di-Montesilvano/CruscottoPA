@@ -169,3 +169,45 @@ func FuzzRender(f *testing.F) {
 		HasRich(src)
 	})
 }
+
+func TestRenderDocAnchorsAndHeadings(t *testing.T) {
+	src := "# Titolo\n\n## Cos'è e chi lo usa\n\nVedi [sotto](#date-e-termini).\n\n### Date e termini\n\n### Date e termini\n\n#### Dettaglio\n\n## Contatti"
+	html, heads := RenderDoc(src, Options{})
+	got := string(html)
+	for _, want := range []string{
+		`<h3 id="md-cosè-e-chi-lo-usa">`,
+		`<h4 id="md-date-e-termini">`,
+		`<h4 id="md-date-e-termini-1">`,
+		`<h5 id="md-dettaglio">`,
+		`href="#md-date-e-termini"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("manca %s: %s", want, got)
+		}
+	}
+	want := []Heading{
+		{Level: 2, ID: "md-cosè-e-chi-lo-usa", Text: "Cos'è e chi lo usa"},
+		{Level: 3, ID: "md-date-e-termini", Text: "Date e termini"},
+		{Level: 3, ID: "md-date-e-termini-1", Text: "Date e termini"},
+		{Level: 2, ID: "md-contatti", Text: "Contatti"},
+	}
+	if len(heads) != len(want) {
+		t.Fatalf("indice: %+v", heads)
+	}
+	for i := range want {
+		if heads[i] != want[i] {
+			t.Errorf("indice[%d] = %+v, voglio %+v", i, heads[i], want[i])
+		}
+	}
+	// Render (avvisi: più d'uno nella stessa pagina) resta senza id.
+	if strings.Contains(string(Render(src, Options{})), "id=") {
+		t.Error("Render non deve scrivere id")
+	}
+}
+
+func TestRenderDocHeadingIDEscaped(t *testing.T) {
+	html, _ := RenderDoc(`## a"><script>x`, Options{})
+	if strings.Contains(string(html), "<script") {
+		t.Errorf("id non escapato: %s", html)
+	}
+}
