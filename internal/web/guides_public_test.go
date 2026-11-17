@@ -29,6 +29,28 @@ func TestGuidePageMarkdownAndGitHub(t *testing.T) {
 	}
 }
 
+func TestGuidePageTOC(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	long, _ := db.CreateGuide(database.Guide{Title: "Lunga", Kind: database.GuideKindMarkdown, Body: "# Titolo\n\n## Accesso\n\n## Operazioni\n\n### Inviare\n\nVedi [qui](#accesso).", Enabled: true})
+	short, _ := db.CreateGuide(database.Guide{Title: "Corta", Kind: database.GuideKindMarkdown, Body: "## Uno\n\n## Due", Enabled: true})
+	body := do(t, s, "GET", "/guide/"+itoa(long), nil, nil, nil).Body.String()
+	for _, want := range []string{
+		`class="guida guida-con-indice"`,
+		`<li class="toc-2"><a href="#md-accesso">Accesso</a></li>`,
+		`<li class="toc-3"><a href="#md-inviare">Inviare</a></li>`,
+		`<h3 id="md-accesso">`,
+		`<a href="#md-accesso">qui</a>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("manca %s", want)
+		}
+	}
+	body = do(t, s, "GET", "/guide/"+itoa(short), nil, nil, nil).Body.String()
+	if strings.Contains(body, "guida-indice") {
+		t.Error("guida corta: niente indice")
+	}
+}
+
 func TestGuidePageVisibility(t *testing.T) {
 	s, db := newTestServer(t, nil)
 	apps, _ := db.ListApps() // seed: app senza URL → non visibili in plancia
