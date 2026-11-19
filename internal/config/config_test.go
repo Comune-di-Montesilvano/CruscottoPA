@@ -11,7 +11,7 @@ var allVars = []string{
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
 	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT", "GUIDE_REFRESH_HOURS",
-	"PC_DNS_SUFFIX", "PC_DNS_SERVER", "OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
+	"PC_DNS_SUFFIX", "PC_DNS_SERVER", "PROXY_TOKEN", "OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
 	"STATS_ENABLED", "STATS_RETENTION_MONTHS",
 }
 
@@ -274,6 +274,23 @@ func TestLoadPCDNS(t *testing.T) {
 	t.Setenv("PC_DNS_SERVER", "dns.example.it:5353")
 	if cfg, _ := Load(); cfg.PCDNSServer != "dns.example.it:5353" {
 		t.Fatalf("porta esplicita: %q", cfg.PCDNSServer)
+	}
+}
+
+// Segreto condiviso con il reverse proxy: vuoto = header ignorati, corto = errore.
+func TestLoadProxyToken(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	if cfg, err := Load(); err != nil || cfg.ProxyToken != "" {
+		t.Fatalf("default: %v %q", err, cfg.ProxyToken)
+	}
+	t.Setenv("PROXY_TOKEN", " 0123456789abcdef ")
+	if cfg, err := Load(); err != nil || cfg.ProxyToken != "0123456789abcdef" {
+		t.Fatalf("token: %v %q", err, cfg.ProxyToken)
+	}
+	t.Setenv("PROXY_TOKEN", "corto")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "PROXY_TOKEN") {
+		t.Fatalf("token corto accettato: %v", err)
 	}
 }
 
