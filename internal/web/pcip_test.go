@@ -99,55 +99,34 @@ func TestPCIPInHeaderAndTicket(t *testing.T) {
 	}
 }
 
-const testProxyToken = "segreto-di-prova-0123456789"
-
-func realIPServer(t *testing.T, m otrs.Client) *Server {
-	t.Helper()
-	s, _ := pcipServer(t, m)
-	s.cfg.ProxyToken = testProxyToken
-	return s
+func realIPHeaders(ip string) map[string]string {
+	return map[string]string{"X-Real-Ip": ip, "Sec-Fetch-Site": "same-origin"}
 }
 
-func proxyHeaders(ip, token string) map[string]string {
-	return map[string]string{"X-Real-Ip": ip, "X-Proxy-Token": token, "Sec-Fetch-Site": "same-origin"}
-}
-
-// IP della connessione: solo con il token del proxy, solo IPv4.
-func TestRealIPNeedsToken(t *testing.T) {
-	s := realIPServer(t, otrs.NewMock())
-	for _, c := range []struct {
-		name, ip, token, want string
-	}{
-		{"token giusto", "192.0.2.30", testProxyToken, "192.0.2.30"},
-		{"spazi", " 192.0.2.30 ", testProxyToken, "192.0.2.30"},
-		{"token sbagliato", "192.0.2.30", "altro", ""},
-		{"senza token", "192.0.2.30", "", ""},
-		{"IPv6", "2001:db8::1", testProxyToken, ""},
-		{"non IP", "pc-prova", testProxyToken, ""},
-		{"elenco", "192.0.2.30, 192.0.2.31", testProxyToken, ""},
+// IP della connessione da X-Real-Ip del proxy: solo IPv4.
+func TestRealIP(t *testing.T) {
+	s, _ := pcipServer(t, otrs.NewMock())
+	for _, c := range []struct{ name, ip, want string }{
+		{"IPv4", "192.0.2.30", "192.0.2.30"},
+		{"spazi", " 192.0.2.30 ", "192.0.2.30"},
+		{"assente", "", ""},
+		{"IPv6", "2001:db8::1", ""},
+		{"non IP", "pc-prova", ""},
+		{"elenco", "192.0.2.30, 192.0.2.31", ""},
 	} {
 		r := httptest.NewRequest("GET", "/", nil)
-		for k, v := range proxyHeaders(c.ip, c.token) {
-			r.Header.Set(k, v)
-		}
+		r.Header.Set("X-Real-Ip", c.ip)
 		if got := s.realIP(r); got != c.want {
 			t.Errorf("%s: %q, atteso %q", c.name, got, c.want)
 		}
-	}
-	s.cfg.ProxyToken = ""
-	r := httptest.NewRequest("GET", "/", nil)
-	r.Header.Set("X-Real-Ip", "192.0.2.30")
-	r.Header.Set("X-Proxy-Token", "")
-	if got := s.realIP(r); got != "" {
-		t.Errorf("PROXY_TOKEN vuoto: %q", got)
 	}
 }
 
 // Testata e dialog: l'IP della connessione vince sul DNS.
 func TestRealIPPreferredInHeader(t *testing.T) {
-	s := realIPServer(t, otrs.NewMock())
+	s, _ := pcipServer(t, otrs.NewMock())
 	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", PC: "PC-PROVA-001"})
-	page := do(t, s, "GET", "/", nil, c, proxyHeaders("192.0.2.30", testProxyToken)).Body.String()
+	page := do(t, s, "GET", "/", nil, c, realIPHeaders("192.0.2.30")).Body.String()
 	if !strings.Contains(page, `<span class="hero-pc-ip">Indirizzo IP 192.0.2.30</span>`) || !strings.Contains(page, "IP <strong>192.0.2.30</strong>") {
 		t.Fatal("testata o dialog senza l'IP della connessione")
 	}
@@ -169,36 +148,36 @@ func postTicketWith(t *testing.T, s *Server, c *http.Cookie, path string, form u
 // Ticket: IP della connessione e, se il DNS dice altro, una riga per l'operatore.
 func TestTicketFlagsDNSMismatch(t *testing.T) {
 	m := otrs.NewMock()
-	s := realIPServer(t, m)
+	s, _ := pcipServer(t, m)
 	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", PC: "PC-PROVA-001"})
-	if out := postTicketWith(t, s, c, "/ticket", validTicket(), proxyHeaders("192.0.2.30", testProxyToken)); out["ok"] != true {
+	if out := postTicketWith(t, s, c, "/ticket", validTicket(), realIPHeaders("192.0.2.30")); out["ok"] != true {
 		t.Fatalf("invio: %v", out)
 	}
-	want := "PC: PC-PROVA-001\nIP: 192.0.2.30\nAttenzione: il DNS indica 192.0.2.15 per questo PC (VPN, cambio di rete o record DNS vecchio)"
+	want := "PC: PC-PROVA-001\nIP: 192.0.2.30\nAttenzione: il record DNS del PC indica 192.0.2.15, diverso dall'IP della connessione (VPN, cambio di rete o record vecchio)"
 	if !strings.Contains(m.Sent[0].Body, want) {
 		t.Fatalf("ticket senza incongruenza: %q", m.Sent[0].Body)
 	}
 
 	// Stesso IP: nessuna riga.
-	if out := postTicketWith(t, s, c, "/ticket", validTicket(), proxyHeaders("192.0.2.15", testProxyToken)); out["ok"] != true {
+	if out := postTicketWith(t, s, c, "/ticket", validTicket(), realIPHeaders("192.0.2.15")); out["ok"] != true {
 		t.Fatalf("invio: %v", out)
 	}
 	if b := m.Sent[1].Body; !strings.Contains(b, "IP: 192.0.2.15") || strings.Contains(b, "Attenzione") {
 		t.Fatalf("IP coincidenti: %q", b)
 	}
 
-	// Senza token: solo il DNS, come prima.
-	if out := postTicketWith(t, s, c, "/ticket", validTicket(), proxyHeaders("192.0.2.30", "altro")); out["ok"] != true {
+	// Senza header: solo il DNS, come prima.
+	if out := postTicketWith(t, s, c, "/ticket", validTicket(), map[string]string{"Sec-Fetch-Site": "same-origin"}); out["ok"] != true {
 		t.Fatalf("invio: %v", out)
 	}
-	if b := m.Sent[2].Body; !strings.Contains(b, "IP: 192.0.2.15") || strings.Contains(b, "192.0.2.30") || strings.Contains(b, "Attenzione") {
-		t.Fatalf("token sbagliato: %q", b)
+	if b := m.Sent[2].Body; !strings.Contains(b, "IP: 192.0.2.15") || strings.Contains(b, "Attenzione") {
+		t.Fatalf("senza X-Real-Ip: %q", b)
 	}
 }
 
 func TestPCBlockMismatch(t *testing.T) {
 	r := httptest.NewRequest("POST", "/ticket", nil)
-	if b := pcBlock("PC-PROVA-001", pcAddr{IP: "192.0.2.30", DNS: "192.0.2.15"}, r); !strings.Contains(b, "IP: 192.0.2.30\nAttenzione: il DNS indica 192.0.2.15") {
+	if b := pcBlock("PC-PROVA-001", pcAddr{IP: "192.0.2.30", DNS: "192.0.2.15"}, r); !strings.Contains(b, "IP: 192.0.2.30\nAttenzione: il record DNS del PC indica 192.0.2.15") {
 		t.Fatalf("incongruenza: %q", b)
 	}
 	if b := pcBlock("PC-PROVA-001", pcAddr{IP: "192.0.2.30"}, r); strings.Contains(b, "Attenzione") {

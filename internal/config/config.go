@@ -90,9 +90,6 @@ type Config struct {
 	PCDNSSuffix string
 	// PCDNSServer: DNS da interrogare, host:porta (vuoto = quello del container).
 	PCDNSServer string
-	// ProxyToken: segreto che il reverse proxy manda in X-Proxy-Token; solo con
-	// quello si usa X-Real-Ip come IP del PC (vuoto = header ignorati).
-	ProxyToken string
 	// VAPIDSubject: contatto VAPID (mailto: o https:); vuoto = Web Push spento.
 	VAPIDSubject string
 	// OTRS: modulo ticket (vuoto = spento).
@@ -124,7 +121,6 @@ func Load() (Config, error) {
 		VAPIDSubject: strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
 		PCDNSSuffix:  strings.Trim(strings.TrimSpace(os.Getenv("PC_DNS_SUFFIX")), "."),
 		PCDNSServer:  dnsServer(os.Getenv("PC_DNS_SERVER")),
-		ProxyToken:   strings.TrimSpace(os.Getenv("PROXY_TOKEN")),
 		OTRS: OTRS{
 			URL:           strings.TrimRight(strings.TrimSpace(os.Getenv("OTRS_URL")), "/"),
 			RouteCreate:   getEnv("OTRS_ROUTE_CREATE", "/TicketCreate"),
@@ -176,9 +172,6 @@ func Load() (Config, error) {
 	}
 	if cfg.LDAP.Host != "mock" && len(cfg.SessionSecret) < 32 {
 		return Config{}, errors.New("SESSION_SECRET obbligatorio (almeno 32 caratteri) quando LDAP_HOST non è mock")
-	}
-	if cfg.ProxyToken != "" && len(cfg.ProxyToken) < 16 {
-		return Config{}, errors.New("PROXY_TOKEN: almeno 16 caratteri (vuoto = IP della connessione ignorato)")
 	}
 	if err := cfg.OTRS.validate(cfg.LDAP.Host == "mock"); err != nil {
 		return Config{}, err

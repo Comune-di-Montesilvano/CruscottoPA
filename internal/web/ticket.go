@@ -42,7 +42,7 @@ func pcBlock(pc string, a pcAddr, r *http.Request) string {
 		b += "\nIP: " + a.IP
 	}
 	if a.Mismatch() {
-		b += "\nAttenzione: il DNS indica " + a.DNS + " per questo PC (VPN, cambio di rete o record DNS vecchio)"
+		b += "\nAttenzione: il record DNS del PC indica " + a.DNS + ", diverso dall'IP della connessione (VPN, cambio di rete o record vecchio)"
 	}
 	for _, f := range []struct{ label, field string }{{"Browser", "browser"}, {"Sistema", "sistema"}, {"Schermo", "schermo"}} {
 		if v := oneLine(r.FormValue(f.field), 60); v != "" {
