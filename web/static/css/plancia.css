@@ -392,11 +392,33 @@ dialog.notify-blocked { width: min(600px, 94vw); max-height: 90vh; overflow-y: a
 .ff-help-status { color: #b42318; font-weight: 600; }
 
 /* Pagina di una guida (Markdown o GitHub) */
-.guida { max-width: 52rem; margin: 1.5rem auto 2rem; padding: 0 var(--p-gutter); }
+/* Il gutter della plancia cresce con la finestra: dentro un max-width toglierebbe spazio al testo. */
+.guida { max-width: 52rem; margin: 1.5rem auto 2rem; padding: 0 min(var(--p-gutter), 2rem); }
 .guida-body { background: #fff; border: 1px solid var(--p-line); border-radius: 14px; padding: 1.4rem 1.6rem; box-shadow: var(--p-shadow); line-height: 1.65; color: var(--p-text); }
 .guida-body a { color: var(--p-blue-2); }
 .guida-fonte { margin-top: .8rem; font-size: .88rem; color: var(--p-text-2); word-break: break-all; }
 .guida-fonte a { color: inherit; }
+.guida-body :is(h2, h3, h4, h5, h6) { color: var(--p-text); font-weight: 650; scroll-margin-top: 1rem; }
+.guida-body > h2:first-child { font-size: 1.5rem; }
+/* Indice: colonna fissa a sinistra su schermi larghi, tendina sopra il testo su quelli stretti. */
+.guida-con-indice { max-width: 76rem; display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.guida-testo { min-width: 0; }
+.guida-indice ul { list-style: none; margin: 0; padding: 0; }
+.guida-indice li a { display: block; padding: .3rem .6rem; border-radius: 8px; color: var(--p-text-2); text-decoration: none; font-size: .9rem; line-height: 1.35; }
+.guida-indice li a:hover, .guida-indice li a:focus-visible { background: var(--p-news-bg); color: var(--p-blue-2); }
+.guida-indice .toc-2 { margin-top: .35rem; }
+.guida-indice .toc-2 > a { font-weight: 600; color: var(--p-text); }
+.guida-indice .toc-3 > a { padding-left: 1.4rem; font-size: .86rem; }
+.guida-indice-fisso { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; background: #fff; border: 1px solid var(--p-line); border-radius: 14px; padding: .9rem .6rem; box-shadow: var(--p-shadow); }
+.guida-indice-titolo { margin: 0 .6rem .3rem; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--p-text-3); }
+.guida-indice-mobile { display: none; background: #fff; border: 1px solid var(--p-line); border-radius: 14px; padding: .7rem 1rem; box-shadow: var(--p-shadow); }
+.guida-indice-mobile summary { cursor: pointer; font-weight: 600; }
+.guida-indice-mobile[open] ul { margin-top: .5rem; max-height: 60vh; overflow-y: auto; }
+@media (max-width: 900px) {
+	.guida-con-indice { display: block; }
+	.guida-indice-fisso { display: none; }
+	.guida-indice-mobile { display: block; margin-bottom: 1rem; }
+}
 
 /* Ticket: dialog «Apri un ticket». */
 dialog.ticket { border: 0; border-radius: 16px; padding: 1.3rem 1.4rem; width: min(560px, 94vw); max-height: 92vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); color: var(--p-text); }

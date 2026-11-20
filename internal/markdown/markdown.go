@@ -7,7 +7,9 @@ import (
 	stdhtml "html"
 	"html/template"
 	"net/url"
+	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/yuin/goldmark"
@@ -31,9 +33,57 @@ type Options struct {
 // Render: a capo singolo = <br> (gli avvisi scritti in testo semplice restano
 // come prima), "#" diventa <h2> (l'<h1> è il titolo della pagina).
 func Render(src string, opt Options) template.HTML {
+	return render(src, sanitizer{opt: opt})
+}
+
+// Heading: voce dell'indice di una guida. Level è quello scritto nel
+// Markdown (2 = "##", 3 = "###"), prima dello spostamento di un livello.
+type Heading struct {
+	Level int
+	ID    string
+	Text  string
+}
+
+// AnchorPrefix: anteposto agli id dei titoli, perché non si scontrino con gli
+// id della pagina usati dagli script.
+const AnchorPrefix = "md-"
+
+// RenderDoc: come Render, per una pagina con un solo documento (guide). I
+// titoli prendono un id come su GitHub (AnchorPrefix + slug, doppioni -1, -2)
+// e i link "#slug" puntano lì; restituisce i titoli "##" e "###" per l'indice.
+func RenderDoc(src string, opt Options) (template.HTML, []Heading) {
+	d := &docState{used: map[string]int{}}
+	return render(src, sanitizer{opt: opt, doc: d}), d.heads
+}
+
+type docState struct {
+	used  map[string]int
+	heads []Heading
+}
+
+func (d *docState) id(text string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(text) {
+		switch {
+		case r == ' ':
+			b.WriteByte('-')
+		case r == '-' || r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsMark(r):
+			b.WriteRune(r)
+		}
+	}
+	slug := b.String()
+	n := d.used[slug]
+	d.used[slug] = n + 1
+	if n > 0 {
+		slug += "-" + strconv.Itoa(n)
+	}
+	return AnchorPrefix + slug
+}
+
+func render(src string, s sanitizer) template.HTML {
 	md := goldmark.New(
 		goldmark.WithExtensions(extension.GFM),
-		goldmark.WithParserOptions(parser.WithASTTransformers(util.Prioritized(sanitizer{opt}, 100))),
+		goldmark.WithParserOptions(parser.WithASTTransformers(util.Prioritized(s, 100))),
 		goldmark.WithRendererOptions(html.WithHardWraps()),
 	)
 	var b bytes.Buffer
@@ -43,7 +93,10 @@ func Render(src string, opt Options) template.HTML {
 	return template.HTML(b.String()) //nolint:gosec // HTML grezzo disattivato, URL filtrati da sanitizer
 }
 
-type sanitizer struct{ opt Options }
+type sanitizer struct {
+	opt Options
+	doc *docState // nil = niente id sui titoli
+}
 
 func (s sanitizer) Transform(doc *ast.Document, reader text.Reader, _ parser.Context) {
 	src := reader.Source()
@@ -54,12 +107,23 @@ func (s sanitizer) Transform(doc *ast.Document, reader text.Reader, _ parser.Con
 		}
 		switch n := n.(type) {
 		case *ast.Heading:
+			if s.doc != nil {
+				text := strings.Join(strings.Fields(nodeText(n, src)), " ")
+				id := s.doc.id(text)
+				n.SetAttributeString("id", []byte(id))
+				if n.Level == 2 || n.Level == 3 {
+					s.doc.heads = append(s.doc.heads, Heading{Level: n.Level, ID: id, Text: text})
+				}
+			}
 			n.Level = min(n.Level+1, 6)
 		case *ast.Link:
 			dest, ok := fixURL(string(n.Destination), s.opt.LinkBase, s.opt.LinkRoot, true)
 			if !ok {
 				unwrap = append(unwrap, n)
 				return ast.WalkContinue, nil
+			}
+			if s.doc != nil && strings.HasPrefix(dest, "#") && len(dest) > 1 {
+				dest = "#" + AnchorPrefix + strings.TrimPrefix(dest, "#")
 			}
 			n.Destination = []byte(dest)
 			external(n, dest)
@@ -155,6 +219,26 @@ func unescapeAll(s string) (string, bool) {
 		s = u
 	}
 	return "", false
+}
+
+// nodeText: testo di un nodo senza sintassi (titoli con enfasi, codice, link).
+func nodeText(n ast.Node, src []byte) string {
+	var out strings.Builder
+	_ = ast.Walk(n, func(nd ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch nd := nd.(type) {
+		case *ast.Text:
+			out.Write(nd.Segment.Value(src))
+		case *ast.String:
+			out.Write(nd.Value)
+		case *ast.AutoLink:
+			out.Write(nd.Label(src))
+		}
+		return ast.WalkContinue, nil
+	})
+	return out.String()
 }
 
 func parse(src []byte) ast.Node {
