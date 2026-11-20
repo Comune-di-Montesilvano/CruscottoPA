@@ -3,14 +3,16 @@ package web
 import (
 	"context"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
 
-// IP del PC: il nome della workstation (NTLM, dichiarato) più il suffisso del
-// dominio, risolto nel DNS di Active Directory, dove i PC si registrano da
-// soli. Solo un'etichetta per l'assistenza (VNC), mai per autorizzare.
+// IP del PC: quello della connessione (X-Real-Ip del reverse proxy);
+// altrimenti il nome della workstation (NTLM, dichiarato) più il
+// suffisso del dominio, risolto nel DNS di Active Directory, dove i PC si
+// registrano da soli. Solo un'etichetta per l'assistenza (VNC), mai per autorizzare.
 const (
 	pcIPTTL        = 10 * time.Minute
 	pcIPMissTTL    = time.Minute
@@ -25,6 +27,34 @@ type cachedIP struct {
 type pcIPCache struct {
 	mu sync.Mutex
 	m  map[string]cachedIP
+}
+
+// pcAddr: IP del PC da mostrare (connessione, altrimenti DNS) e quello del DNS,
+// per segnalare all'assistenza quando non coincidono.
+type pcAddr struct{ IP, DNS string }
+
+// Mismatch: connessione e DNS indicano IP diversi (VPN, cambio di rete, record vecchio).
+func (a pcAddr) Mismatch() bool { return a.IP != "" && a.DNS != "" && a.IP != a.DNS }
+
+// pcAddress: IP della connessione se c'è, altrimenti il DNS.
+func (s *Server) pcAddress(r *http.Request, pc string) pcAddr {
+	a := pcAddr{DNS: s.pcIP(pc)}
+	a.IP = s.realIP(r)
+	if a.IP == "" {
+		a.IP = a.DNS
+	}
+	return a
+}
+
+// realIP: X-Real-Ip messo dal reverse proxy (RemoteAddr è la rete di Podman).
+// Header accettato così com'è: l'IP è un'etichetta per l'assistenza, come il
+// nome NTLM. Solo IPv4 (serve a VNC); "" se assente o non valido.
+func (s *Server) realIP(r *http.Request) string {
+	p := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Real-Ip")))
+	if p == nil || p.To4() == nil {
+		return ""
+	}
+	return p.String()
 }
 
 // newPCLookup: resolver Go; con server il DNS interrogato è sempre quello
