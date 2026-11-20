@@ -31,13 +31,18 @@ type ticketRequester struct{ Name, Email, Phone, PC string }
 
 // pcBlock: informazioni sul PC in fondo alla descrizione. Il nome viene dal
 // cookie (NTLM), browser, sistema e schermo dal browser: una riga ciascuno.
-func pcBlock(pc, ip string, r *http.Request) string {
+// Se l'IP della connessione e quello del DNS differiscono, una riga avvisa
+// l'operatore (solo nel ticket: l'utente vede un solo IP).
+func pcBlock(pc string, a pcAddr, r *http.Request) string {
 	if pc == "" {
 		pc = "non rilevato"
 	}
 	b := "\n\n— Informazioni sul PC —\nPC: " + pc
-	if ip != "" {
-		b += "\nIP: " + ip
+	if a.IP != "" {
+		b += "\nIP: " + a.IP
+	}
+	if a.Mismatch() {
+		b += "\nAttenzione: il record DNS del PC indica " + a.DNS + ", diverso dall'IP della connessione (VPN, cambio di rete o record vecchio)"
 	}
 	for _, f := range []struct{ label, field string }{{"Browser", "browser"}, {"Sistema", "sistema"}, {"Schermo", "schermo"}} {
 		if v := oneLine(r.FormValue(f.field), 60); v != "" {
@@ -163,7 +168,7 @@ func (s *Server) handleTicketSend(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), ticketSendTimeout)
 	defer cancel()
 	created, err := s.tickets.Create(ctx, otrs.NewTicket{Name: req.Name, Email: req.Email, Phone: phone,
-		Subject: subject, Body: body + pcBlock(req.PC, s.pcIP(req.PC), r), Attachments: atts})
+		Subject: subject, Body: body + pcBlock(req.PC, s.pcAddress(r, req.PC), r), Attachments: atts})
 	if err != nil {
 		s.releaseTicketFiles(ids) // lo stesso dialog può riprovare con gli stessi allegati (il client ha già scritto il log)
 		reply(map[string]any{"errore": "otrs"})

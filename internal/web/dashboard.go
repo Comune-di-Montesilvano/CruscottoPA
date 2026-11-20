@@ -132,7 +132,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		User:        u,
 		Recognize:   !known && s.canRecognize(r),
 		Anonymous:   s.recognitionEnabled() && (!known || u.Anonymous),
-		PCIP:        s.pcIP(u.PC),
+		PCIP:        s.pcAddress(r, u.PC).IP,
 		RefreshPC:   known && !u.Anonymous && u.Username != "" && s.canRecognize(r),
 		Filter:      f,
 		Admin:       s.viewerIsAdmin(r),
@@ -299,5 +299,5 @@ func (s *Server) ticketViewFor(r *http.Request) ticketView {
 		return ticketView{}
 	}
 	req, problem := s.ticketRequester(r)
-	return ticketView{Enabled: true, Problem: problem, Name: req.Name, Email: req.Email, Phone: req.Phone, PC: req.PC, PCIP: s.pcIP(req.PC), Fallback: s.cfg.OTRS.FallbackEmail}
+	return ticketView{Enabled: true, Problem: problem, Name: req.Name, Email: req.Email, Phone: req.Phone, PC: req.PC, PCIP: s.pcAddress(r, req.PC).IP, Fallback: s.cfg.OTRS.FallbackEmail}
 }

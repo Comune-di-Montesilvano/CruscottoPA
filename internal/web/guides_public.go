@@ -24,6 +24,7 @@ const pdfCSP = "default-src 'none'; object-src 'self'; frame-ancestors 'none'"
 type guidaView struct {
 	Guide   *database.Guide
 	HTML    template.HTML
+	TOC     []markdown.Heading // indice: titoli "##" e "###", solo se almeno 3
 	Source  string // link al file su GitHub
 	Version string
 	Admin   bool
@@ -95,11 +96,12 @@ func (s *Server) showGuide(w http.ResponseWriter, r *http.Request, g *database.G
 	if g != nil {
 		switch g.Kind {
 		case database.GuideKindMarkdown:
-			view.Guide, view.HTML = g, markdown.Render(g.Body, markdown.Options{})
+			view.Guide = g
+			view.HTML, view.TOC = markdown.RenderDoc(g.Body, markdown.Options{})
 		case database.GuideKindGitHub:
 			src, _ := guidesrc.ParseGitHubURL(g.SourceURL)
 			view.Guide, view.Source = g, g.SourceURL
-			view.HTML = markdown.Render(g.Body, markdown.Options{LinkBase: src.LinkBase, ImageBase: src.ImageBase, LinkRoot: src.LinkRoot, ImageRoot: src.ImageRoot})
+			view.HTML, view.TOC = markdown.RenderDoc(g.Body, markdown.Options{LinkBase: src.LinkBase, ImageBase: src.ImageBase, LinkRoot: src.LinkRoot, ImageRoot: src.ImageRoot})
 		case database.GuideKindLink:
 			http.Redirect(w, r, g.URL, http.StatusSeeOther)
 			return
@@ -107,6 +109,9 @@ func (s *Server) showGuide(w http.ResponseWriter, r *http.Request, g *database.G
 			http.Redirect(w, r, fmt.Sprintf(pdfPath, g.ID), http.StatusSeeOther)
 			return
 		}
+	}
+	if len(view.TOC) < 3 {
+		view.TOC = nil // guida corta: l'indice sarebbe solo rumore
 	}
 	s.render(w, http.StatusOK, "guida.html", view)
 }
