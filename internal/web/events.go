@@ -7,8 +7,12 @@ import (
 	"time"
 )
 
-// sseHeartbeat: commento periodico, perché nginx chiude dopo 60 s di silenzio.
+// sseHeartbeat: ping periodico, perché nginx chiude dopo 60 s di silenzio. È un
+// evento vero e non un commento: notifiche.js lo usa per capire che il flusso è
+// vivo e si ricollega se non ne arrivano più.
 var sseHeartbeat = 25 * time.Second
+
+const ssePing = "event: ping\ndata: 1\n\n"
 
 // handleEvents è il flusso SSE delle plance aperte: arriva un evento quando
 // parte la notifica di un avviso visibile a chi guarda.
@@ -37,7 +41,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	h.Set("Content-Type", "text/event-stream")
 	h.Set("Cache-Control", "no-cache")
 	h.Set("X-Accel-Buffering", "no") // nginx: niente buffer sulla risposta
-	fmt.Fprint(w, ": ok\n\n")
+	fmt.Fprint(w, ": ok\n\n"+ssePing) // il primo ping conferma subito la connessione
 	flusher.Flush()
 
 	tick := time.NewTicker(sseHeartbeat)
@@ -49,7 +53,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		case <-s.hub.Done():
 			return
 		case <-tick.C:
-			fmt.Fprint(w, ": ping\n\n")
+			fmt.Fprint(w, ssePing)
 		case e := <-c.Events:
 			b, _ := json.Marshal(e)
 			name := "avviso"

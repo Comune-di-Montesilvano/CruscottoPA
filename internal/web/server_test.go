@@ -141,8 +141,9 @@ func newTestServerWith(t *testing.T, a auth.Authenticator, edit func(*Options)) 
 		t.Fatal(err)
 	}
 	o := Options{
-		DB:           db,
-		Config:       config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome, NTLMDomain: "COMUNE-MS"},
+		DB: db,
+		Config: config.Config{SessionSecret: strings.Repeat("s", 32), DBPath: dbPath, UploadDir: uploadDir, Location: rome, NTLMDomain: "COMUNE-MS",
+			StatsEnabled: true, StatsRetentionMonths: 13},
 		Auth:         a,
 		Directory:    testDirectory,
 		Backup:       bk,

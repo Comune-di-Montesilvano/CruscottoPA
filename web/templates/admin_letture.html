@@ -7,7 +7,7 @@
 <div class="card">
 	<h2>Letto da ({{len .Reads}})</h2>
 	<table class="list"><thead><tr><th>Utente</th><th>Quando</th><th>Come</th></tr></thead><tbody>
-	{{range .Reads}}<tr><td>{{.Name}}{{if ne .Name .Username}} <small class="muted">{{.Username}}</small>{{end}}</td><td>{{fmtDate .At}}</td><td>{{readLabel .How}}</td></tr>
+	{{range .Reads}}<tr><td>{{.Name}}{{if ne .Name .Username}} <small class="muted">{{.Username}}</small>{{end}}</td><td>{{if eq .How "plancia"}}{{fmtDay .At}}{{else}}{{fmtDate .At}}{{end}}</td><td>{{readLabel .How}}</td></tr>
 	{{else}}<tr><td colspan="3" class="muted">Nessuna lettura registrata.</td></tr>{{end}}
 	</tbody></table>
 </div>
@@ -20,13 +20,11 @@
 	</tbody></table>
 </div>
 
-{{if not .Trackable}}<div class="card">
-	<p class="hint">Avviso breve, quindi lettura non rilevabile: in plancia si legge per intero senza aprirlo. Si registra solo chi apre la pagina dell'avviso.</p>
-</div>{{else}}<div class="card">
+<div class="card">
 	<h2>Non ancora letto da{{if not .UnreadUnsure}} ({{len .Unread}}){{end}}</h2>
 	<p class="hint">Utenti attivi (accesso negli ultimi 15 giorni) che possono vedere l'avviso.</p>
 	{{if .UnreadUnsure}}<p class="flash error">Elenco non disponibile: AD non raggiungibile per verificare chi può vedere l'avviso.</p>
 	{{else}}{{range .Unread}}<span class="chip chip-plain">{{.}}</span> {{else}}<p class="muted">Nessuno.</p>{{end}}{{end}}
-</div>{{end}}
+</div>
 {{end}}
 {{template "admin_bottom" .}}{{end}}

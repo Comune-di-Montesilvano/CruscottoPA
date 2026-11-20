@@ -2,21 +2,22 @@
 	<div class="news-head">
 		<span class="news-level">{{levelLabel .Level}}</span>
 		<span class="news-source">{{alertSource .Source}}</span>
-		<span class="news-when">dal {{fmtDate .StartsAt}}{{if .EndsAt}} · fino al {{fmtDatePtr .EndsAt}}{{end}}</span>
 	</div>
 {{end}}
 
 {{/* Carosello: estratto in testo semplice; se non basta, il testo completo
    si espande nella card stessa. */}}
 {{define "alert_card"}}
-<article class="news news-{{.Level}}" data-alert="{{.ID}}">
+<article class="news news-{{.Level}}" data-alert="{{.ID}}"{{if .ReadByViewer}} data-letto{{end}}>
 	{{template "alert_head" .}}
 	<h3 class="news-title">{{.Title}}</h3>
 	{{if .Body}}<p class="news-body news-short">{{excerpt .Body}}</p>{{end}}
 	{{if needsMore .Body}}<details class="news-expand">
 		<summary><span class="more-open">Continua a leggere<span class="material-icons" aria-hidden="true">expand_more</span></span><span class="more-close">Chiudi<span class="material-icons" aria-hidden="true">close</span></span></summary>
 		<div class="news-body md">{{md .Body}}</div>
+		{{if .ReadByViewer}}<span class="news-read-done"><span class="material-icons" aria-hidden="true">check</span>Letto</span>{{else if .CanRead}}<button type="button" class="news-read" data-read disabled>Ho letto</button>{{end}}
 	</details>{{end}}
+	{{if .ReadPct}}<p class="news-readers">Letto dal {{.ReadPct}}% dei colleghi</p>{{end}}
 </article>
 {{end}}
 
@@ -33,7 +34,13 @@
 {{/* Refresh del carosello: con il contatore di "Mostra anche…" fuori banda. */}}
 {{define "alerts_partial"}}{{template "alerts_carousel" .Alerts}}
 <div id="audience-toggle" hx-swap-oob="true">{{template "audience_toggle" .Filter}}</div>
+{{/* Col refresh degli avvisi si aggiornano anche i colleghi di oggi e il widget del mese. */}}
+<span class="hero-pills" id="hero-pills" hx-swap-oob="true">{{template "hero_pills" .Pill}}</span>
+<div id="mese-slot" hx-swap-oob="true">{{template "widget_mese" .Month}}</div>
 {{end}}
+
+{{/* Testata: «Oggi siamo in N» e, il giorno di un traguardo, anche quello. */}}
+{{define "hero_pills"}}{{with .}}{{if .Milestone}}<span class="hero-together is-milestone"><span class="material-icons" aria-hidden="true">celebration</span>Abbiamo superato {{thousands .Milestone}} accessi</span>{{end}}{{if .Count}}<span class="hero-together"><span class="material-icons" aria-hidden="true">groups</span>Oggi siamo in {{.Count}}</span>{{end}}{{end}}{{end}}
 
 {{define "alerts_carousel"}}{{if .}}
 <section class="carousel" data-carousel tabindex="0" aria-roledescription="carosello" aria-label="Avvisi">
@@ -50,12 +57,12 @@
 	</div>
 </section>
 {{range .}}{{if and (eq .Level "urgent") (not .NotForViewer)}}
-<dialog class="urgent" data-urgent="{{.ID}}" data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
+<dialog class="urgent" data-urgent="{{.ID}}"{{if .ReadByViewer}} data-letto{{end}} data-version="{{alertVersion .}}" aria-labelledby="urgent-{{.ID}}">
 	<div class="urgent-head"><span class="urgent-badge">Urgente</span><span class="urgent-title" id="urgent-{{.ID}}">{{.Title}}</span></div>
 	{{if .Body}}<div class="urgent-body md">{{md .Body}}</div>{{end}}
 	<form method="dialog" class="urgent-foot">
-		<span>{{alertSource .Source}} · {{fmtDate .StartsAt}}</span>
-		<button value="letto">Ho letto</button>
+		<span>{{alertSource .Source}}</span>
+		<button value="letto" data-read disabled>Ho letto</button>
 	</form>
 </dialog>
 {{end}}{{end}}
@@ -65,18 +72,23 @@
 
 {{define "tile_icon"}}{{if eq .IconKind "pack"}}<span class="tile-icon" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}"><span class="material-icons" aria-hidden="true">{{.IconValue}}</span></span>{{else if eq .IconKind "upload"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="/uploads/icons/{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else if eq .IconKind "url"}}<span class="tile-icon"{{with .IconBg}} style="background:{{.}}"{{end}}><img src="{{.IconValue}}" alt="" data-fallback="{{monogram .Title}}" data-color="{{.IconColor}}"></span>{{else}}<span class="tile-icon tile-mono" style="{{with .IconBg}}background:{{.}};{{end}}color:{{.IconColor}}">{{monogram .Title}}</span>{{end}}{{end}}
 
+{{/* Riquadro di un'app (tileView): nelle categorie e, con Prefix "fav-", nei preferiti. */}}
 {{define "app_tile"}}
-<div class="tile" style="background:{{tint .IconColor}}">
+<div class="tile" data-tile-id="{{.ID}}"{{if .Pinned}} data-pinned{{end}}{{if .NotForViewer}} data-altri{{end}} style="background:{{tint .IconColor}}">
 	<div class="tile-card">
-	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener">
+	<span class="drag-handle material-icons" aria-hidden="true">drag_indicator</span>
+	{{if and .Fav .Pinned}}<span class="tile-pin-mark material-icons" title="Fissato" aria-hidden="true">push_pin</span>{{end}}
+	{{if .Pinnable}}<button type="button" class="tile-pin" data-pin="{{.ID}}" aria-pressed="{{if .Pinned}}true{{else}}false{{end}}" title="{{if .Pinned}}Sblocca{{else if .Fav}}Fissa{{else}}Aggiungi ai preferiti{{end}}"><span class="material-icons" aria-hidden="true">push_pin</span><span class="visually-hidden">{{if .Pinned}}Sblocca {{.Title}}{{else}}Fissa {{.Title}} nei preferiti{{end}}</span></button>{{end}}
+	{{if .Hot}}<span class="tile-hot" title="Tra i più aperti questa settimana"><span class="material-icons" aria-hidden="true">local_fire_department</span><span class="visually-hidden">Tra i più aperti questa settimana</span></span>{{end}}
+	<a class="tile-main" href="{{.URL}}" target="_blank" rel="noopener" data-app="{{.ID}}">
 		{{template "tile_icon" .App}}
 		<span class="tile-text">
 			<span class="tile-title">{{.Title}}</span>
 			{{with .Description}}<span class="tile-desc">{{.}}</span>{{end}}
 		</span>
 	</a>
-	{{if or .Guides .Support}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="guide-app-{{.ID}}">{{if .Support}}<span class="tile-support-flag material-icons" title="Assistenza disponibile" aria-hidden="true">support_agent</span><span class="visually-hidden">Assistenza disponibile</span>{{end}}{{with .Guides}}{{len .}} {{if eq (len .) 1}}guida{{else}}guide{{end}}{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
-	<div class="tile-more" id="guide-app-{{.ID}}">
+	{{if or .Guides .Support}}<button type="button" class="tile-badge" data-tile-toggle aria-expanded="false" aria-controls="{{.Prefix}}guide-app-{{.ID}}">{{if .Support}}<span class="tile-support-flag material-icons" title="Assistenza disponibile" aria-hidden="true">support_agent</span><span class="visually-hidden">Assistenza disponibile</span>{{end}}{{with .Guides}}{{len .}} {{if eq (len .) 1}}guida{{else}}guide{{end}}{{end}}<span class="material-icons" aria-hidden="true">expand_more</span></button>
+	<div class="tile-more" id="{{.Prefix}}guide-app-{{.ID}}">
 		{{with .Guides}}<ul>{{range .}}<li>{{template "guide_link" .}}</li>{{end}}</ul>{{end}}
 		{{$app := .Title}}{{range .Support}}<div class="tile-support">
 			<span class="material-icons" aria-hidden="true">support_agent</span>
@@ -128,5 +140,36 @@
 <section class="widget guides" aria-label="Guide generali">
 	<h2 class="widget-title">Guide generali</h2>
 	<ul>{{range .}}<li>{{template "guide_link" .}}</li>{{end}}</ul>
+</section>
+{{end}}{{end}}
+
+{{/* Ultimi 30 giorni: numeri solo di chi guarda, spille, riga di gruppo dell'assistenza. */}}
+{{define "widget_mese"}}{{with .}}
+<section class="widget widget-mese" aria-labelledby="mese-title">
+	<h2 class="widget-title" id="mese-title">I tuoi ultimi 30 giorni</h2>
+	<p class="month-big"><span class="month-days">{{.Days}}</span> {{plural .Days "giorno di cruscotto" "giorni di cruscotto"}}</p>
+	{{if .Tickets}}{{if .Sent}}<p class="month-line">{{.Sent}} {{plural .Sent "richiesta inviata" "richieste inviate"}}, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}}</p>
+	{{else}}<p class="month-line">Hai bisogno di aiuto? <button type="button" class="link-btn" data-ticket-open>Apri un ticket</button></p>{{end}}{{end}}
+	<ul class="badges">{{range .Badges}}
+		<li><button type="button" class="badge{{if .Earned}} earned{{end}}" data-badge="{{.Key}}" data-hint="{{if .Earned}}{{.Label}}{{else}}{{.Hint}}{{end}}" aria-describedby="badge-hint" title="{{.Label}}"><span class="material-icons" aria-hidden="true">{{.Icon}}</span><span class="visually-hidden">{{.Label}}{{if not .Earned}} (da ottenere){{end}}</span></button></li>
+	{{end}}</ul>
+	<p id="badge-hint" class="badge-hint" aria-live="polite"></p>
+	{{with .Assist}}{{if .Requests}}<p class="month-assist">Per tutti: {{.Requests}} {{plural .Requests "richiesta" "richieste"}} all'assistenza, {{.Resolved}} {{plural .Resolved "risolta" "risolte"}}{{with .MedianFirst}} · prima risposta di solito entro {{roughDuration .}}{{end}}</p>{{end}}{{end}}
+</section>
+{{end}}{{end}}
+
+{{/* Preferiti: fissati + più aperti, in cima alla colonna degli applicativi.
+   Vuota (favorites-empty) mostra solo «Personalizza». */}}
+{{define "favorites"}}{{with .}}
+<section class="favorites{{if not .Favorites}} favorites-empty{{end}}" id="preferiti" data-personalizza data-max="{{.Max}}"{{if .Full}} data-full{{end}} aria-labelledby="preferiti-title">
+	<div class="favorites-bar">
+		<h2 class="section-title" id="preferiti-title"><span class="material-icons" aria-hidden="true">star</span>Preferiti</h2>
+		<div class="favorites-tools">
+			<button type="button" class="pers-btn pers-reset" data-personalizza-reset hidden><span class="material-icons" aria-hidden="true">restart_alt</span>Ripristina</button>
+			<button type="button" class="pers-btn" data-personalizza-toggle aria-pressed="false"><span class="material-icons" aria-hidden="true">tune</span><span data-label>Personalizza</span></button>
+		</div>
+	</div>
+	<p class="personalizza-hint">Trascina per riordinare applicativi e categorie. Con la puntina fissi un applicativo nei preferiti: gli altri posti si riempiono con quelli che hai aperto di più negli ultimi tre mesi.</p>
+	<div class="grid" data-sortable="preferiti">{{range .Favorites}}{{template "app_tile" .}}{{end}}</div>
 </section>
 {{end}}{{end}}

@@ -94,6 +94,10 @@ type Config struct {
 	VAPIDSubject string
 	// OTRS: modulo ticket (vuoto = spento).
 	OTRS OTRS
+	// StatsEnabled: numeri di gruppo e traguardi in plancia («Noi del Comune»).
+	StatsEnabled bool
+	// StatsRetentionMonths: conservazione dei giorni di accesso e dei dati dei ticket.
+	StatsRetentionMonths int
 }
 
 // Load legge le variabili d'ambiente, applica i default e valida i valori.
@@ -151,6 +155,15 @@ func Load() (Config, error) {
 	}
 	if cfg.GuideRefreshHours, err = getEnvInt("GUIDE_REFRESH_HOURS", 6); err != nil {
 		return Config{}, err
+	}
+	if cfg.StatsEnabled, err = getEnvBool("STATS_ENABLED", true); err != nil {
+		return Config{}, err
+	}
+	if cfg.StatsRetentionMonths, err = getEnvInt("STATS_RETENTION_MONTHS", 13); err != nil {
+		return Config{}, err
+	}
+	if cfg.StatsRetentionMonths < 1 {
+		return Config{}, errors.New("STATS_RETENTION_MONTHS: almeno 1")
 	}
 
 	// Nessun default: "mock" rende admin chiunque, deve essere una scelta esplicita.

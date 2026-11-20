@@ -42,18 +42,22 @@ func (s *Server) funcs() template.FuncMap {
 		"thero": func(title, meta string, sub, action bool) map[string]any {
 			return map[string]any{"Title": title, "Meta": meta, "Sub": sub, "Action": action}
 		},
-		"ago":          func(t time.Time) string { return ago(t, s.now(), s.loc()) },
-		"humanSize":    humanSize,
-		"tint":         tint,
-		"alertVersion": alertVersion,
-		"alertSource":  alertSource,
-		"shortDay":     shortDay,
-		"occRange":     occRange,
-		"kindLabel":    kindLabel,
-		"guideKind":    guideKindLabel,
-		"guideHref":    guideHref,
-		"guideNewTab":  guideNewTab,
-		"fmtDate":      func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
+		"ago":           func(t time.Time) string { return ago(t, s.now(), s.loc()) },
+		"humanSize":     humanSize,
+		"tint":          tint,
+		"thousands":     thousands,
+		"roughDuration": roughDuration,
+		"plural":        plural,
+		"alertVersion":  alertVersion,
+		"alertSource":   alertSource,
+		"shortDay":      shortDay,
+		"occRange":      occRange,
+		"kindLabel":     kindLabel,
+		"guideKind":     guideKindLabel,
+		"guideHref":     guideHref,
+		"guideNewTab":   guideNewTab,
+		"fmtDate":       func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006 15:04") },
+		"fmtDay":        func(t time.Time) string { return t.In(s.loc()).Format("02/01/2006") },
 		"fmtDatePtr": func(t *time.Time) string {
 			if t == nil {
 				return ""
@@ -226,7 +230,9 @@ func readLabel(how string) string {
 	case database.ReadConfirm:
 		return "«Ho letto»"
 	case database.ReadOpen:
-		return "testo aperto"
+		return "pagina aperta"
+	case database.ReadPlancia:
+		return "in plancia"
 	}
 	return how
 }

@@ -2,7 +2,11 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -92,5 +96,91 @@ func TestPCIPInHeaderAndTicket(t *testing.T) {
 	}
 	if !strings.Contains(m.Sent[0].Body, "PC: PC-PROVA-001\nIP: 192.0.2.15") {
 		t.Fatalf("ticket senza IP: %q", m.Sent[0].Body)
+	}
+}
+
+func realIPHeaders(ip string) map[string]string {
+	return map[string]string{"X-Real-Ip": ip, "Sec-Fetch-Site": "same-origin"}
+}
+
+// IP della connessione da X-Real-Ip del proxy: solo IPv4.
+func TestRealIP(t *testing.T) {
+	s, _ := pcipServer(t, otrs.NewMock())
+	for _, c := range []struct{ name, ip, want string }{
+		{"IPv4", "192.0.2.30", "192.0.2.30"},
+		{"spazi", " 192.0.2.30 ", "192.0.2.30"},
+		{"assente", "", ""},
+		{"IPv6", "2001:db8::1", ""},
+		{"non IP", "pc-prova", ""},
+		{"elenco", "192.0.2.30, 192.0.2.31", ""},
+	} {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.Header.Set("X-Real-Ip", c.ip)
+		if got := s.realIP(r); got != c.want {
+			t.Errorf("%s: %q, atteso %q", c.name, got, c.want)
+		}
+	}
+}
+
+// Testata e dialog: l'IP della connessione vince sul DNS.
+func TestRealIPPreferredInHeader(t *testing.T) {
+	s, _ := pcipServer(t, otrs.NewMock())
+	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", PC: "PC-PROVA-001"})
+	page := do(t, s, "GET", "/", nil, c, realIPHeaders("192.0.2.30")).Body.String()
+	if !strings.Contains(page, `<span class="hero-pc-ip">Indirizzo IP 192.0.2.30</span>`) || !strings.Contains(page, "IP <strong>192.0.2.30</strong>") {
+		t.Fatal("testata o dialog senza l'IP della connessione")
+	}
+	if strings.Contains(page, "192.0.2.15") || strings.Contains(page, "Attenzione") {
+		t.Fatal("l'IP del DNS o l'incongruenza non vanno mostrati all'utente")
+	}
+}
+
+func postTicketWith(t *testing.T, s *Server, c *http.Cookie, path string, form url.Values, h map[string]string) map[string]any {
+	t.Helper()
+	rec := do(t, s, "POST", path, form, c, h)
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("JSON non valido: %s", rec.Body)
+	}
+	return out
+}
+
+// Ticket: IP della connessione e, se il DNS dice altro, una riga per l'operatore.
+func TestTicketFlagsDNSMismatch(t *testing.T) {
+	m := otrs.NewMock()
+	s, _ := pcipServer(t, m)
+	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", PC: "PC-PROVA-001"})
+	if out := postTicketWith(t, s, c, "/ticket", validTicket(), realIPHeaders("192.0.2.30")); out["ok"] != true {
+		t.Fatalf("invio: %v", out)
+	}
+	want := "PC: PC-PROVA-001\nIP: 192.0.2.30\nAttenzione: il record DNS del PC indica 192.0.2.15, diverso dall'IP della connessione (VPN, cambio di rete o record vecchio)"
+	if !strings.Contains(m.Sent[0].Body, want) {
+		t.Fatalf("ticket senza incongruenza: %q", m.Sent[0].Body)
+	}
+
+	// Stesso IP: nessuna riga.
+	if out := postTicketWith(t, s, c, "/ticket", validTicket(), realIPHeaders("192.0.2.15")); out["ok"] != true {
+		t.Fatalf("invio: %v", out)
+	}
+	if b := m.Sent[1].Body; !strings.Contains(b, "IP: 192.0.2.15") || strings.Contains(b, "Attenzione") {
+		t.Fatalf("IP coincidenti: %q", b)
+	}
+
+	// Senza header: solo il DNS, come prima.
+	if out := postTicketWith(t, s, c, "/ticket", validTicket(), map[string]string{"Sec-Fetch-Site": "same-origin"}); out["ok"] != true {
+		t.Fatalf("invio: %v", out)
+	}
+	if b := m.Sent[2].Body; !strings.Contains(b, "IP: 192.0.2.15") || strings.Contains(b, "Attenzione") {
+		t.Fatalf("senza X-Real-Ip: %q", b)
+	}
+}
+
+func TestPCBlockMismatch(t *testing.T) {
+	r := httptest.NewRequest("POST", "/ticket", nil)
+	if b := pcBlock("PC-PROVA-001", pcAddr{IP: "192.0.2.30", DNS: "192.0.2.15"}, r); !strings.Contains(b, "IP: 192.0.2.30\nAttenzione: il record DNS del PC indica 192.0.2.15") {
+		t.Fatalf("incongruenza: %q", b)
+	}
+	if b := pcBlock("PC-PROVA-001", pcAddr{IP: "192.0.2.30"}, r); strings.Contains(b, "Attenzione") {
+		t.Fatalf("senza DNS non c'è incongruenza: %q", b)
 	}
 }

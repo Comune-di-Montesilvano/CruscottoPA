@@ -50,10 +50,25 @@ jobs:
       # Scan bloccante su dipendenze go.mod/go.sum — coglie CVE note prima
       # ancora di arrivare al build immagine (che scansiona di nuovo,
       # report-only, in release.yml).
+      # Trivy si installa da qui: lo install.sh usato da setup-trivy scarica da
+      # get.trivy.dev, che dal 2026-11-03 non risolve più (NXDOMAIN). Binario
+      # dalle release GitHub con SHA256 fissato: per aggiornarlo cambiare
+      # versione e hash (dal file trivy_<ver>_checksums.txt della release).
+      - name: Install Trivy
+        env:
+          TRIVY_VERSION: 0.76.1
+          TRIVY_SHA256: c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
+        run: |
+          curl -fsSL -o /tmp/trivy.tar.gz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  /tmp/trivy.tar.gz" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf /tmp/trivy.tar.gz -C "$HOME/.local/bin" trivy
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Trivy scan filesystem dependencies
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          version: latest # il binario Trivy pinnato di default da questa release dell'action (0.69.1) non installa
+          skip-setup-trivy: true
           scan-type: fs
           scan-ref: .
           severity: CRITICAL,HIGH

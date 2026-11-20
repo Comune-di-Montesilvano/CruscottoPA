@@ -83,6 +83,7 @@ type Server struct {
 	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
 	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
 	pcIPs           pcIPCache
+	stats           statsCache // numeri di gruppo in plancia
 }
 
 func New(o Options) (*Server, error) {
@@ -208,10 +209,16 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
+	s.mux.HandleFunc("GET /partials/preferiti", s.handleFavoritesPartial)
+	s.mux.HandleFunc("POST /preferiti", s.handleSaveFavorites)
+	s.mux.HandleFunc("POST /ordine/categorie", s.handleSaveCategoryOrder)
+	s.mux.HandleFunc("POST /ordine/categorie/{id}", s.handleSaveAppOrder)
+	s.mux.HandleFunc("POST /ordine/ripristina", s.handleResetLayout)
 	s.mux.HandleFunc("GET /avvisi", s.handleAvvisi)
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
+	s.mux.HandleFunc("POST /app/{id}/clic", s.handleAppClick)
 	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
 	s.mux.HandleFunc("GET /partials/ticket", s.handleTicketWidget)
 	s.mux.HandleFunc("GET /ticket", s.handleTicketList)
@@ -277,6 +284,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/avvisi", s.requireAdmin(s.handleAlertSave))
 	s.mux.HandleFunc("POST /admin/notifiche/prova", s.requireAdmin(s.handlePushTest))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}", s.requireAdmin(s.handleAlertSave))
+	s.mux.HandleFunc("POST /admin/avvisi/{id}/archivia", s.requireAdmin(s.handleAlertArchive))
+	s.mux.HandleFunc("POST /admin/avvisi/{id}/ripristina", s.requireAdmin(s.handleAlertRestore))
 	s.mux.HandleFunc("POST /admin/avvisi/{id}/elimina", s.requireAdmin(s.handleAlertDelete))
 	s.mux.HandleFunc("GET /admin/calendario", s.requireAdmin(s.handleCalendarPage))
 	s.mux.HandleFunc("GET /admin/calendario/{id}/modifica", s.requireAdmin(s.handleCalendarEdit))

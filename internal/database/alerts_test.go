@@ -90,3 +90,51 @@ func TestAlertSource(t *testing.T) {
 		t.Fatalf("Source dopo update: %q", a.Source)
 	}
 }
+
+func TestArchiveAlert(t *testing.T) {
+	db := newTestDB(t)
+	end := now.Add(120 * time.Hour)
+	open := mkAlert(t, db, "Senza fine", LevelNews, now.Add(-time.Hour), nil)
+	later := mkAlert(t, db, "Fine tra 5 giorni", LevelNews, now.Add(-time.Hour), &end)
+	if _, err := db.Exec(`UPDATE alerts SET notify = 1`); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []int64{open, later} {
+		if err := db.ArchiveAlert(id, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if active, _ := db.ListActiveAlerts(now); len(active) != 0 {
+		t.Fatalf("archiviati: nessun avviso attivo, trovati %d", len(active))
+	}
+	if pending, _ := db.PendingNotifications(now); len(pending) != 0 {
+		t.Fatal("archiviati: nessuna notifica")
+	}
+	current, expired, _ := db.ListAlertsForAdmin(now)
+	if len(current) != 0 || len(expired) != 2 {
+		t.Fatalf("admin: %d correnti, %d archiviati", len(current), len(expired))
+	}
+	a, _ := db.GetAlert(later)
+	if a.ArchivedAt == nil || !a.ArchivedAt.Equal(now) || !a.EndsAt.Equal(end) || a.ActiveAt(now) {
+		t.Fatalf("archiviato: scadenza intatta, %+v", a)
+	}
+	// Archiviare di nuovo non sposta la data.
+	if err := db.ArchiveAlert(later, now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if a, _ := db.GetAlert(later); !a.ArchivedAt.Equal(now) {
+		t.Fatal("seconda archiviazione: resta la prima data")
+	}
+	if err := db.RestoreAlert(later); err != nil {
+		t.Fatal(err)
+	}
+	if active, _ := db.ListActiveAlerts(now); len(active) != 1 || active[0].ID != later || active[0].ArchivedAt != nil {
+		t.Fatalf("ripristinato: di nuovo attivo, %+v", active)
+	}
+	if err := db.ArchiveAlert(9999, now); err != ErrNotFound {
+		t.Fatalf("archivia inesistente: %v", err)
+	}
+	if err := db.RestoreAlert(9999); err != ErrNotFound {
+		t.Fatalf("ripristina inesistente: %v", err)
+	}
+}

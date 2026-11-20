@@ -26,14 +26,7 @@ type lettureView struct {
 	Deliveries   []database.Delivery
 	Unread       []string // utenti attivi che possono vederlo e non l'hanno letto
 	UnreadUnsure bool     // AD non disponibile per un avviso riservato: elenco non calcolato
-	Trackable    bool     // false: avviso breve non urgente, letto per intero nel carosello
 	Names        map[string]string
-}
-
-// readTrackable: la lettura si rileva solo se c'è un gesto (popup urgente da
-// confermare o testo da espandere); un avviso breve si legge già nel carosello.
-func readTrackable(a database.Alert) bool {
-	return a.Level == database.LevelUrgent || needsMore(a.Body)
 }
 
 // unreadBy: utenti attivi che possono vedere l'avviso e non l'hanno letto.
@@ -111,7 +104,7 @@ func (s *Server) handleAlertReaders(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	v := lettureView{Alert: a, Names: names, Trackable: readTrackable(a)}
+	v := lettureView{Alert: a, Names: names}
 	read := map[string]bool{}
 	for _, rd := range reads {
 		read[rd.Username] = true
@@ -121,23 +114,21 @@ func (s *Server) handleAlertReaders(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	if v.Trackable {
-		active, err := s.db.ActiveUsernames(s.now())
-		if err != nil {
-			s.serverError(w, err)
-			return
-		}
-		users, unsure, err := s.unreadBy(id, active, read)
-		if err != nil {
-			s.serverError(w, err)
-			return
-		}
-		v.UnreadUnsure = unsure
-		for _, u := range users {
-			v.Unread = append(v.Unread, display(u))
-		}
-		slices.Sort(v.Unread)
+	active, err := s.db.ActiveUsernames(s.now())
+	if err != nil {
+		s.serverError(w, err)
+		return
 	}
+	users, unsure, err := s.unreadBy(id, active, read)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	v.UnreadUnsure = unsure
+	for _, u := range users {
+		v.Unread = append(v.Unread, display(u))
+	}
+	slices.Sort(v.Unread)
 	s.renderPage(w, r, "admin_letture.html", "avvisi", v)
 }
 

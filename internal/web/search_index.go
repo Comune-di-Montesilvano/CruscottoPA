@@ -9,7 +9,8 @@ import (
 // searchItem: una voce della ricerca a tendina della plancia. L'indice è
 // scritto nella pagina (JSON, non eseguito) dopo il filtro per gruppi.
 type searchItem struct {
-	Kind   string `json:"k"` // app | guide | support
+	Kind   string `json:"k"`            // app | guide | support
+	ID     int64  `json:"id,omitempty"` // app: per contare l'apertura
 	Title  string `json:"t"`
 	Sub    string `json:"s,omitempty"` // categoria, app della guida, app coperte
 	Text   string `json:"x,omitempty"` // altro testo cercabile (descrizione, nota)
@@ -29,7 +30,7 @@ func buildSearchIndex(d database.Dashboard) []searchItem {
 	seen := map[int64]*chanApps{}
 	for _, c := range d.Categories {
 		for _, a := range c.Apps {
-			it := searchItem{Kind: "app", Title: a.Title, Sub: c.Name, Text: a.Description, URL: a.URL, NewTab: true, Color: a.IconColor}
+			it := searchItem{Kind: "app", ID: a.ID, Title: a.Title, Sub: c.Name, Text: a.Description, URL: a.URL, NewTab: true, Color: a.IconColor}
 			if a.IconKind == database.IconPack {
 				it.Icon = a.IconValue
 			}

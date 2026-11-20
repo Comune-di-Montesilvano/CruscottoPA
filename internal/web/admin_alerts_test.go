@@ -94,7 +94,7 @@ func TestExpiredAlertReactivation(t *testing.T) {
 		StartsAt: fixedNow.Add(-48 * time.Hour), EndsAt: &end, CreatedAt: fixedNow, CreatedBy: "gbianchi"})
 
 	page := do(t, s, "GET", "/admin/avvisi", nil, c, nil).Body.String()
-	if !strings.Contains(page, "Scaduti") || !strings.Contains(page, "Vecchio avviso") {
+	if !strings.Contains(page, "Archiviati e scaduti") || !strings.Contains(page, "Vecchio avviso") {
 		t.Fatal("gli avvisi scaduti vanno elencati a parte")
 	}
 	rec := do(t, s, "POST", "/admin/avvisi/"+itoa(id), alertValues(map[string]string{"title": "Vecchio avviso", "level": "news", "starts_at": "2026-10-04T10:00", "ends_at": ""}), c, hx)
@@ -110,6 +110,40 @@ func TestExpiredAlertReactivation(t *testing.T) {
 	}
 	if rec := do(t, s, "POST", "/admin/avvisi/"+itoa(id)+"/elimina", nil, c, hx); rec.Code != http.StatusNotFound {
 		t.Fatalf("elimina due volte: %d", rec.Code)
+	}
+}
+
+func TestAlertArchive(t *testing.T) {
+	s, db := newTestServer(t, nil)
+	c := login(t, s)
+	end := fixedNow.Add(120 * time.Hour)
+	id, _ := db.CreateAlert(database.Alert{Title: "Guasto internet", Level: "news",
+		StartsAt: fixedNow.Add(-time.Hour), EndsAt: &end, CreatedAt: fixedNow})
+	archive := `hx-post="/admin/avvisi/` + itoa(id) + `/archivia"`
+	restore := `hx-post="/admin/avvisi/` + itoa(id) + `/ripristina"`
+	if page := do(t, s, "GET", "/admin/avvisi", nil, c, nil).Body.String(); !strings.Contains(page, archive) || strings.Contains(page, restore) {
+		t.Fatal("avviso attivo: Archivia, non Ripristina")
+	}
+	rec := do(t, s, "POST", "/admin/avvisi/"+itoa(id)+"/archivia", nil, c, hx)
+	if body := rec.Body.String(); rec.Code != 200 || strings.Contains(body, archive) || !strings.Contains(body, restore) || !strings.Contains(body, "Archiviato") {
+		t.Fatalf("archivia: %d\n%s", rec.Code, body)
+	}
+	if a, _ := db.GetAlert(id); a.ArchivedAt == nil || !a.EndsAt.Equal(end) {
+		t.Fatalf("archiviato con la scadenza intatta: %+v", a)
+	}
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); strings.Contains(body, "Guasto internet") {
+		t.Fatal("archiviato: sparisce dalla plancia")
+	}
+	if rec := do(t, s, "POST", "/admin/avvisi/"+itoa(id)+"/ripristina", nil, c, hx); rec.Code != 200 {
+		t.Fatalf("ripristina: %d", rec.Code)
+	}
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, "Guasto internet") {
+		t.Fatal("ripristinato: torna in plancia")
+	}
+	for _, act := range []string{"archivia", "ripristina"} {
+		if rec := do(t, s, "POST", "/admin/avvisi/9999/"+act, nil, c, hx); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s inesistente: %d", act, rec.Code)
+		}
 	}
 }
 

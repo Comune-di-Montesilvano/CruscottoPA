@@ -44,8 +44,11 @@ type dashboardView struct {
 	PCIP        string        // IP del PC dal DNS del dominio ("" se non noto)
 	RefreshPC   bool          // riconosciuto: dashboard.js rinnova il nome del PC una volta per sessione
 	Filter      *contentFilter
-	Admin       bool       // link al pannello admin nel footer
-	Ticket      ticketView // tile e dialog «Apri un ticket»
+	Admin       bool        // link al pannello admin nel footer
+	Ticket      ticketView  // tile e dialog «Apri un ticket»
+	Pill        pillView    // «Oggi siamo in N» (vuota = nascosta)
+	Month       *monthView  // widget «I tuoi ultimi 30 giorni» (nil = solo riconosciuti)
+	Layout      *layoutView // preferiti e «Personalizza» (nil = non riconosciuto)
 }
 
 type avvisiView struct {
@@ -90,6 +93,18 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		if err := s.db.TouchPresence(u.Username, u.Name, s.now()); err != nil {
 			slog.Warn("presenza", "err", err)
 		}
+		if s.cfg.StatsEnabled {
+			s.recordAccess(u.Username)
+		}
+		d.Alerts = s.markViewerReads(u.Username, d.Alerts)
+	}
+	d.Alerts = s.withReadPct(d.Alerts, f)
+	s.markHot(&d)
+	me, _ := s.viewerName(r)
+	month, err := s.monthFor(me, f)
+	if err != nil {
+		slog.Warn("widget del mese", "err", err)
+		month = nil
 	}
 	var hero heroView
 	if _, p, ok := s.viewerProfile(r); ok {
@@ -100,9 +115,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		hero = heroLine(heroItems(p, attrs))
 	}
+	index := buildSearchIndex(d) // la ricerca resta nell'ordine dell'admin
+	layout := s.layoutFor(me, &d, f)
 	s.render(w, http.StatusOK, "dashboard.html", dashboardView{
 		Hero:        hero,
-		SearchIndex: buildSearchIndex(d),
+		Pill:        s.pill(),
+		Month:       month,
+		Layout:      layout,
+		SearchIndex: index,
 		Dashboard:   d,
 		Greeting:    greeting(now.Hour()),
 		Clock:       now.Format("15:04"),
@@ -112,7 +132,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		User:        u,
 		Recognize:   !known && s.canRecognize(r),
 		Anonymous:   s.recognitionEnabled() && (!known || u.Anonymous),
-		PCIP:        s.pcIP(u.PC),
+		PCIP:        s.pcAddress(r, u.PC).IP,
 		RefreshPC:   known && !u.Anonymous && u.Username != "" && s.canRecognize(r),
 		Filter:      f,
 		Admin:       s.viewerIsAdmin(r),
@@ -134,10 +154,20 @@ func (s *Server) handleAlertsPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.dashboard(&d)
+	user, _ := s.viewerName(r)
+	d.Alerts = s.withReadState(user, d.Alerts) // il refresh non è una nuova apertura
+	d.Alerts = s.withReadPct(d.Alerts, f)
+	month, err := s.monthFor(user, f)
+	if err != nil {
+		slog.Warn("widget del mese", "err", err)
+		month = nil
+	}
 	s.render(w, http.StatusOK, "alerts_partial", struct {
 		Alerts []database.Alert
 		Filter *contentFilter
-	}{d.Alerts, f})
+		Pill   pillView
+		Month  *monthView
+	}{d.Alerts, f, s.pill(), month})
 }
 
 // handleCalendarPartial: mese non valido → mese corrente (mai un errore).
@@ -269,5 +299,5 @@ func (s *Server) ticketViewFor(r *http.Request) ticketView {
 		return ticketView{}
 	}
 	req, problem := s.ticketRequester(r)
-	return ticketView{Enabled: true, Problem: problem, Name: req.Name, Email: req.Email, Phone: req.Phone, PC: req.PC, PCIP: s.pcIP(req.PC), Fallback: s.cfg.OTRS.FallbackEmail}
+	return ticketView{Enabled: true, Problem: problem, Name: req.Name, Email: req.Email, Phone: req.Phone, PC: req.PC, PCIP: s.pcAddress(r, req.PC).IP, Fallback: s.cfg.OTRS.FallbackEmail}
 }

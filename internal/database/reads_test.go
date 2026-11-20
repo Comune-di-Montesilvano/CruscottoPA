@@ -81,3 +81,49 @@ func TestReceiptBeforeSendResult(t *testing.T) {
 		t.Fatalf("conteggi: %+v", c)
 	}
 }
+
+func TestMarkReadPlancia(t *testing.T) {
+	db := newTestDB(t)
+	now := mustTime(t, "2026-10-10T08:00:00Z")
+	id, _ := db.CreateAlert(Alert{Title: "A", Level: LevelNews, StartsAt: now, CreatedAt: now})
+	db.MarkRead(id, "anna", "boh", now)
+	if err := db.MarkRead(id, "mrossi", ReadPlancia, now); err != nil {
+		t.Fatal(err)
+	}
+	if rs, _ := db.ReadsFor(id); len(rs) != 1 || rs[0].How != "plancia" {
+		t.Fatalf("letture: %+v", rs)
+	}
+}
+
+func TestMarkReadManyFirstWins(t *testing.T) {
+	db := newTestDB(t)
+	now := mustTime(t, "2026-10-10T08:00:00Z")
+	a, _ := db.CreateAlert(Alert{Title: "A", Level: LevelNews, StartsAt: now, CreatedAt: now})
+	b, _ := db.CreateAlert(Alert{Title: "B", Level: LevelNews, StartsAt: now, CreatedAt: now})
+	db.MarkRead(a, "mrossi", ReadConfirm, now)
+	if err := db.MarkReadMany([]int64{a, b}, "MRossi", ReadPlancia, now); err != nil {
+		t.Fatal(err)
+	}
+	if rs, _ := db.ReadsFor(a); len(rs) != 1 || rs[0].How != ReadConfirm {
+		t.Fatalf("prima lettura sostituita: %+v", rs)
+	}
+	if rs, _ := db.ReadsFor(b); len(rs) != 1 || rs[0].How != ReadPlancia {
+		t.Fatalf("B: %+v", rs)
+	}
+}
+
+func TestReadAlertIDsAndCounts(t *testing.T) {
+	db := newTestDB(t)
+	now := mustTime(t, "2026-10-10T08:00:00Z")
+	a, _ := db.CreateAlert(Alert{Title: "A", Level: LevelNews, StartsAt: now, CreatedAt: now})
+	b, _ := db.CreateAlert(Alert{Title: "B", Level: LevelNews, StartsAt: now, CreatedAt: now})
+	db.MarkRead(a, "mrossi", ReadOpen, now)
+	db.MarkRead(a, "anna", ReadOpen, now)
+	db.MarkRead(b, "anna", ReadOpen, now)
+	if c, _ := db.ReadCounts(); c[a] != 2 || c[b] != 1 {
+		t.Fatalf("conteggi: %v", c)
+	}
+	if ids, _ := db.ReadAlertIDs("MRossi"); len(ids) != 1 || !ids[a] {
+		t.Fatalf("letti da mrossi: %v", ids)
+	}
+}

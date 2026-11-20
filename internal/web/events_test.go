@@ -136,3 +136,54 @@ func TestCloseWaitsForDispatcher(t *testing.T) {
 		t.Fatal("Close è tornato con il dispatcher ancora attivo")
 	}
 }
+
+// Il ping è un evento vero (non un commento SSE): il browser lo vede e capisce
+// quando il flusso è morto senza errori (sospensione, cambio di rete).
+func TestEventsPingIsEvent(t *testing.T) {
+	sseHeartbeat = 50 * time.Millisecond
+	defer func() { sseHeartbeat = 25 * time.Second }()
+	s, _ := newTestServer(t, nil)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", ts.URL+"/eventi", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	r := bufio.NewReader(resp.Body)
+	pings := 0
+	for pings < 2 {
+		line, err := r.ReadString('\n')
+		if err != nil {
+			t.Fatalf("ping ricevuti: %d (%v)", pings, err)
+		}
+		if line == "event: ping\n" {
+			pings++
+		}
+	}
+}
+
+// notifiche.js si ricollega da solo: lo standard chiude per sempre l'EventSource
+// su una risposta non SSE (la pagina di cortesia del proxy durante un riavvio),
+// e senza ping per un po' il flusso va considerato morto. Al ritorno ricarica
+// avvisi e ticket, per gli eventi persi nel frattempo.
+func TestEventsScriptReconnects(t *testing.T) {
+	js := readFile(t, "../../web/static/js/notifiche.js")
+	for _, want := range []string{
+		`es.readyState === EventSource.CLOSED`,
+		`addEventListener("ping"`,
+		`STALE_MS`,
+		`refreshAll()`,
+		`kind: "refresh"`,
+		`"online"`,
+		`"visibilitychange"`,
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("notifiche.js: manca %q", want)
+		}
+	}
+}
