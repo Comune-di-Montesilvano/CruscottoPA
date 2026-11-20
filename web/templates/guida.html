@@ -9,9 +9,15 @@
 		<div class="hero-bar"><a class="back-btn" href="/"><span class="material-icons" aria-hidden="true">arrow_back</span>Torna alla plancia</a><span class="brand">CruscottoPA{{with (ente).EnteName}} · {{.}}{{end}}</span></div>
 		<h1 class="hello">{{with .Guide}}{{.Title}}{{else}}Guida{{end}}</h1>
 	</header>
-	<main class="guida">
-		{{if .Guide}}<article class="guida-body md">{{.HTML}}</article>
-		{{with .Source}}<p class="guida-fonte">Fonte: <a href="{{.}}" target="_blank" rel="noopener">{{.}}</a>{{with $.Guide.FetchedAt}} · aggiornata il {{fmtDatePtr .}}{{end}}</p>{{end}}
+	<main class="guida{{if .TOC}} guida-con-indice{{end}}">
+		{{if .Guide}}{{with .TOC}}<nav class="guida-indice" aria-label="Indice della guida">
+			<details class="guida-indice-mobile"><summary>Indice</summary>{{template "guida_toc" .}}</details>
+			<div class="guida-indice-fisso"><p class="guida-indice-titolo">Indice</p>{{template "guida_toc" .}}</div>
+		</nav>{{end}}
+		<div class="guida-testo">
+			<article class="guida-body md">{{.HTML}}</article>
+			{{with .Source}}<p class="guida-fonte">Fonte: <a href="{{.}}" target="_blank" rel="noopener">{{.}}</a>{{with $.Guide.FetchedAt}} · aggiornata il {{fmtDatePtr .}}{{end}}</p>{{end}}
+		</div>
 		{{else}}<p class="empty">Guida non disponibile: non esiste più o non è destinata a te.</p>{{end}}
 	</main>
 	<footer class="foot"><a class="foot-link" href="{{repoURL}}" target="_blank" rel="noopener"><img class="foot-mark" src="/static/img/logo-on-light.svg" alt="">CruscottoPA v{{.Version}}</a>{{if .Admin}} · <a class="foot-link" href="/admin">Amministrazione</a>{{end}}</footer>
@@ -32,3 +38,5 @@
 	</dialog>
 </body>
 </html>{{end}}
+
+{{define "guida_toc"}}<ul>{{range .}}<li class="toc-{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ul>{{end}}
