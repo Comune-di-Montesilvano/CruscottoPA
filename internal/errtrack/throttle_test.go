@@ -52,6 +52,19 @@ func TestThrottleGlobalCap(t *testing.T) {
 	}
 }
 
+func TestThrottleBrowserCannotStarveServer(t *testing.T) {
+	th := newThrottleAt(newClock())
+	for i := 0; i < 100; i++ {
+		th.allowBrowser(fmt.Sprint("b", i))
+	}
+	if !th.allow("server") {
+		t.Fatal("errori del browser hanno esaurito il tetto del server")
+	}
+	if th.allowBrowser("b-oltre") {
+		t.Fatal("tetto del browser non applicato")
+	}
+}
+
 func TestThrottleBounded(t *testing.T) {
 	c := newClock()
 	th := newThrottleAt(c)

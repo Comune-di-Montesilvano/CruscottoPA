@@ -144,7 +144,9 @@ func (t *Tracker) CaptureBrowser(e BrowserError, userID string) {
 	if e.UserAgent != "" {
 		ev.Contexts[detailsKey]["browser"] = truncate(e.UserAgent, maxUA)
 	}
-	t.send(ev, fp, userID)
+	if t.throttle.allowBrowser(fp + "|" + userID) {
+		t.client.CaptureEvent(ev, nil, nil)
+	}
 }
 
 func (t *Tracker) Flush(d time.Duration) {

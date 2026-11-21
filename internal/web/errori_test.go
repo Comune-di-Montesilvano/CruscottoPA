@@ -147,3 +147,25 @@ func TestErroriJS(t *testing.T) {
 		t.Error("errori.js non deve mandare query o URL completo")
 	}
 }
+
+func TestErroriProxyHost(t *testing.T) {
+	s, events := newTrackedServer(t)
+	body := strings.Replace(erroreJS, `"file":"/static/js/dashboard.js"`, `"file":"https://cruscotto.example.it/static/js/dashboard.js"`, 1)
+	req := httptest.NewRequest("POST", "/errori", strings.NewReader(body))
+	req.Host = "cruscottopa:8080" // il proxy può passare il nome dell'upstream
+	req.Header.Set("Origin", "https://cruscotto.example.it")
+	req.Header.Set("Sec-Fetch-Site", "same-origin") // come i browser veri
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	evs := events()
+	if len(evs) != 1 || evs[0].Contexts["dettagli"]["file"] != "/static/js/dashboard.js" {
+		t.Fatalf("eventi = %d", len(evs))
+	}
+}
+
+func TestErroriBeaconTextPlain(t *testing.T) {
+	b, _ := os.ReadFile("../../web/static/js/errori.js")
+	if !strings.Contains(string(b), `type: "text/plain"`) || strings.Contains(string(b), `type: "application/json"`) {
+		t.Fatal("sendBeacon deve usare un Blob text/plain (tipo ammesso senza CORS)")
+	}
+}

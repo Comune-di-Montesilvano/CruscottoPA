@@ -97,6 +97,8 @@ func main() {
 		AppVersion: AppVersion,
 		MaxSchema:  database.CurrentSchemaVersion(),
 		Location:   cfg.Location,
+		// Il ripristino esce dal processo: prima gli eventi in coda (es. uno swap fallito).
+		Exit: func(code int) { tracker.Flush(2 * time.Second); os.Exit(code) },
 	})
 	if err != nil {
 		fatal("inizializzazione backup", err)

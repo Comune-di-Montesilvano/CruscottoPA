@@ -17,6 +17,7 @@ var (
 	personalKs = map[string]bool{
 		"user": true, "username": true, "utente": true, "mail": true, "email": true,
 		"pc": true, "ip": true, "name": true, "nome": true, "remote": true,
+		"ticket": true, // numero OTRS: porta dritto al ticket di una persona
 	}
 )
 
@@ -47,13 +48,19 @@ func NormalizePath(p string) string {
 	for i, seg := range parts {
 		switch {
 		case seg == "":
-		case i == last && strings.Contains(seg, "."):
+		case i == last && (strings.Contains(seg, ".") || userFile(parts, i)):
 			parts[i] = "{file}"
 		case rePathID.MatchString(seg):
 			parts[i] = "{id}"
 		}
 	}
 	return strings.Join(parts, "/")
+}
+
+// userFile: nomi scelti dagli utenti anche senza estensione (allegati dei
+// ticket, file caricati).
+func userFile(parts []string, i int) bool {
+	return (i >= 2 && parts[i-2] == "allegati") || (len(parts) > 3 && parts[1] == "uploads" && i >= 3)
 }
 
 // PersonalKey: attributi di slog che non vanno mai inviati (anche dentro un gruppo).

@@ -44,7 +44,8 @@
 				page: location.pathname,
 				ua: String(navigator.userAgent || "").slice(0, 300)
 			});
-			if (navigator.sendBeacon && navigator.sendBeacon("/errori", new Blob([corpo], { type: "application/json" }))) return;
+			// text/plain: tipo ammesso da sendBeacon senza CORS (il server legge il JSON comunque).
+			if (navigator.sendBeacon && navigator.sendBeacon("/errori", new Blob([corpo], { type: "text/plain" }))) return;
 			fetch("/errori", {
 				method: "POST",
 				body: corpo,

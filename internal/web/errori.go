@@ -49,7 +49,7 @@ func (s *Server) reportBrowserError(w http.ResponseWriter, r *http.Request) bool
 	if !s.errs.Enabled() {
 		return true
 	}
-	file, own := ownFile(e.File, r.Host)
+	file, own := ownFile(e.File, siteHost(r))
 	if !own || (e.Message == "Script error." && file == "") || hasExtension(e.Stack) || hasExtension(e.File) {
 		return true // non è nostro: scartato in silenzio
 	}
@@ -65,7 +65,18 @@ func (s *Server) reportBrowserError(w http.ResponseWriter, r *http.Request) bool
 	return true
 }
 
-// ownFile: percorso dello script se è del sito (relativo o assoluto sullo
+// siteHost: host del sito visto dal browser. Dietro il proxy r.Host può essere
+// il nome dell'upstream; Origin (mandato da sendBeacon e fetch) no.
+func siteHost(r *http.Request) string {
+	if o := r.Header.Get("Origin"); o != "" {
+		if u, err := url.Parse(o); err == nil && u.Host != "" {
+			return u.Host
+		}
+	}
+	return r.Host
+}
+
+// ownFile: percorso dello script se è del sito (relativo, o assoluto sullo
 // stesso host), senza query. "" (es. unhandledrejection) è ammesso.
 func ownFile(f, host string) (string, bool) {
 	f = strings.TrimSpace(f)

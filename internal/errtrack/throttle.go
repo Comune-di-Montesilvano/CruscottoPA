@@ -6,40 +6,65 @@ import (
 )
 
 const (
-	dedupWindow = 10 * time.Minute // stessa chiave (fingerprint + utente) al massimo una volta
-	perMinute   = 60               // tetto globale di eventi
-	maxKeys     = 5000             // memoria limitata
+	dedupWindow      = 10 * time.Minute // stessa chiave (fingerprint + utente) al massimo una volta
+	perMinute        = 60               // tetto degli errori del server (slog, panic)
+	browserPerMinute = 30               // tetto a parte per /errori: non può zittire il server
+	maxKeys          = 5000             // memoria limitata
 )
+
+// bucket: token bucket di n eventi al minuto.
+type bucket struct {
+	tokens, rate float64
+	last         time.Time
+}
+
+func (b *bucket) take(now time.Time) bool {
+	b.tokens += now.Sub(b.last).Seconds() * b.rate / 60
+	if b.tokens > b.rate {
+		b.tokens = b.rate
+	}
+	b.last = now
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
 
 // throttle: anti-pioggia comune a errori del server, panic ed errori del browser.
 type throttle struct {
-	mu     sync.Mutex
-	seen   map[string]time.Time
-	tokens float64
-	last   time.Time
-	now    func() time.Time
+	mu              sync.Mutex
+	seen            map[string]time.Time
+	server, browser bucket
+	now             func() time.Time
 }
 
 func newThrottle(now func() time.Time) *throttle {
-	return &throttle{seen: map[string]time.Time{}, tokens: perMinute, last: now(), now: now}
+	t0 := now()
+	return &throttle{
+		seen:    map[string]time.Time{},
+		server:  bucket{tokens: perMinute, rate: perMinute, last: t0},
+		browser: bucket{tokens: browserPerMinute, rate: browserPerMinute, last: t0},
+		now:     now,
+	}
 }
 
-func (t *throttle) allow(key string) bool {
+// allow: errori del server.
+func (t *throttle) allow(key string) bool { return t.check(key, &t.server) }
+
+// allowBrowser: errori arrivati da /errori.
+func (t *throttle) allowBrowser(key string) bool { return t.check(key, &t.browser) }
+
+func (t *throttle) check(key string, b *bucket) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	now := t.now()
 	if at, ok := t.seen[key]; ok && now.Sub(at) < dedupWindow {
 		return false
 	}
-	t.tokens += now.Sub(t.last).Seconds() * perMinute / 60
-	if t.tokens > perMinute {
-		t.tokens = perMinute
-	}
-	t.last = now
-	if t.tokens < 1 {
+	if !b.take(now) {
 		return false
 	}
-	t.tokens--
 	if _, ok := t.seen[key]; !ok && len(t.seen) >= maxKeys {
 		t.evict(now)
 	}

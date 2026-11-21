@@ -33,6 +33,8 @@ func TestNormalizePath(t *testing.T) {
 		{"/avvisi", "/avvisi"},
 		{"/avvisi#x", "/avvisi"},
 		{"", "/"},
+		{"/ticket/12/allegati/3/Mario_Rossi", "/ticket/{id}/allegati/{id}/{file}"},
+		{"/uploads/guide/abc", "/uploads/guide/{file}"},
 	}
 	for _, c := range cases {
 		if got := NormalizePath(c.in); got != c.want {
@@ -42,12 +44,12 @@ func TestNormalizePath(t *testing.T) {
 }
 
 func TestPersonalKey(t *testing.T) {
-	for _, k := range []string{"user", "username", "utente", "mail", "email", "pc", "ip", "name", "nome", "remote", "User", "gruppo.mail"} {
+	for _, k := range []string{"user", "username", "utente", "mail", "email", "pc", "ip", "name", "nome", "remote", "User", "gruppo.mail", "ticket"} {
 		if !PersonalKey(k) {
 			t.Errorf("PersonalKey(%q) = false", k)
 		}
 	}
-	for _, k := range []string{"err", "ticket", "da"} {
+	for _, k := range []string{"err", "da", "stato"} {
 		if PersonalKey(k) {
 			t.Errorf("PersonalKey(%q) = true", k)
 		}
