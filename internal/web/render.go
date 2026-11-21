@@ -184,10 +184,11 @@ func kindLabel(kind string) string {
 
 // tileColor restituisce il colore dell'app per la variabile CSS --c della
 // tile: il pastello lo calcola plancia.css con color-mix (chiaro o scuro a
-// seconda del tema). Colore non valido → grigio ardesia.
+// seconda del tema). Colore non valido → grigio che al 15% su bianco dà
+// #eef1f5, il pastello di sempre.
 func tileColor(hexColor string) string {
 	if !colorRe.MatchString(hexColor) {
-		return "#64748b"
+		return "#8ea2bc"
 	}
 	return hexColor
 }

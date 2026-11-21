@@ -46,9 +46,9 @@ func TestTileColor(t *testing.T) {
 	for in, want := range map[string]string{
 		"#2563eb": "#2563eb",
 		"#FFFFFF": "#FFFFFF",
-		"red":     "#64748b",
-		"":        "#64748b",
-		"#12345":  "#64748b",
+		"red":     "#8ea2bc",
+		"":        "#8ea2bc",
+		"#12345":  "#8ea2bc",
 	} {
 		if got := tileColor(in); got != want {
 			t.Errorf("tileColor(%q) = %q, atteso %q", in, got, want)
