@@ -251,8 +251,7 @@
 		if (!d.active) return;
 		d.ph.replaceWith(d.el);
 		d.el.classList.remove("dragging");
-		d.el.removeAttribute("style");
-		if (d.el.matches(".tile")) d.el.style.background = d.bg;
+		restoreStyle(d);
 		// Rilasciato al suo posto: niente salvataggio (l'ordine admin resta,
 		// un automatico non diventa fissato).
 		if (items(d.box).indexOf(d.el) === d.from) return;
@@ -271,13 +270,18 @@
 		if (!d || !d.active) return false;
 		d.ph.remove();
 		d.el.classList.remove("dragging");
-		d.el.removeAttribute("style");
-		if (d.el.matches(".tile")) d.el.style.background = d.bg;
+		restoreStyle(d);
 		return true;
+	}
+	// Dopo il trascinamento torna lo style di partenza: sulle tile porta --c,
+	// il colore da cui il CSS calcola il pastello.
+	function restoreStyle(d) {
+		if (d.style === null) d.el.removeAttribute("style");
+		else d.el.setAttribute("style", d.style);
 	}
 	document.addEventListener("pointerdown", (e) => {
 		onDown(e);
-		if (drag) drag.bg = drag.el.style.background; // colore pastello inline della tile
+		if (drag) drag.style = drag.el.getAttribute("style");
 	});
 	document.addEventListener("pointermove", onMove);
 	document.addEventListener("pointerup", finish);

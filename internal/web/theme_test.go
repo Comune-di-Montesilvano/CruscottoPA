@@ -111,3 +111,32 @@ func TestThemeTemplates(t *testing.T) {
 		}
 	}
 }
+
+// Una sostituzione rotta (es. "#fff3c4" → "var(--x)3c4") rende invalida la
+// dichiarazione senza errori: il browser la scarta in silenzio.
+func TestThemeCSSNoMangledVars(t *testing.T) {
+	mangled := regexp.MustCompile(`var\(--[a-z0-9-]+\)[0-9a-zA-Z]`)
+	for _, f := range []string{"../../web/static/css/app.css", "../../web/static/css/admin.css", "../../web/static/css/plancia.css", "../../web/editor/src/editor.css"} {
+		b, _ := os.ReadFile(f)
+		if m := mangled.FindAllString(string(b), -1); len(m) > 0 {
+			t.Errorf("%s: var() seguito da testo: %q", f, m)
+		}
+	}
+	b, _ := os.ReadFile("../../web/static/css/plancia.css")
+	if !strings.Contains(string(b), ".hero-together.is-milestone { color: var(--p-milestone);") {
+		t.Error("pastiglia del traguardo: colore crema --p-milestone")
+	}
+}
+
+// Il colore della tile sta in style="--c:…": il trascinamento in Personalizza
+// deve ripristinare l'attributo style intero, non solo background.
+func TestPersonalizzaKeepsTileColor(t *testing.T) {
+	b, _ := os.ReadFile("../../web/static/js/personalizza.js")
+	js := string(b)
+	if strings.Contains(js, "style.background") {
+		t.Error("personalizza.js salva/ripristina style.background: --c della tile andrebbe perso")
+	}
+	if !strings.Contains(js, `getAttribute("style")`) {
+		t.Error("personalizza.js deve salvare l'attributo style della tile prima del trascinamento")
+	}
+}
