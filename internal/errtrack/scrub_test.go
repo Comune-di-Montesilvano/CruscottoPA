@@ -14,6 +14,13 @@ func TestScrub(t *testing.T) {
 		{"template plancia: line 3", "template plancia: line 3"},
 		{"alle 10:00:00 ok", "alle 10:00:00 ok"},
 		{"versione 0.19.0", "versione 0.19.0"},
+		{"Mozilla/5.0 Chrome/131.0.0.0 Safari/537.36 Edg/131.0.2903.86", "Mozilla/5.0 Chrome/131.0.0.0 Safari/537.36 Edg/131.0.2903.86"},
+		{"GET http://192.0.2.15/x", "GET http://<ip>/x"},
+		{"chiamare 085 1234567", "chiamare <tel>"},
+		{"cell. +39 333 1234567.", "cell. <tel>."},
+		{"tel 085-4481111", "tel <tel>"},
+		{"interno 4321, riga 12345", "interno 4321, riga 12345"},
+		{"il 2026-11-21 10:00:00", "il 2026-11-21 10:00:00"},
 	}
 	for _, c := range cases {
 		if got := Scrub(c.in); got != c.want {

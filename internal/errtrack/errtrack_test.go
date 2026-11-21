@@ -178,3 +178,60 @@ func TestFingerprintScrubbed(t *testing.T) {
 		t.Fatalf("eventi = %d", len(events()))
 	}
 }
+
+func stdlibPanicker() { _ = strings.Repeat("x", -1) }
+
+// Panic dentro la stdlib: il fingerprint resta sul nostro codice, non su
+// strings.Repeat (altrimenti panic diversi finirebbero nella stessa issue).
+func TestCapturePanicStdlibFrame(t *testing.T) {
+	tr, events := NewForTest(t)
+	func() {
+		defer func() {
+			if v := recover(); v != nil {
+				tr.CapturePanic(v, Request{}, "")
+			}
+		}()
+		stdlibPanicker()
+	}()
+	fp := one(t, events()).Fingerprint[0]
+	if !strings.Contains(fp, "stdlibPanicker") || strings.Contains(fp, "Repeat") {
+		t.Fatalf("fingerprint = %q", fp)
+	}
+}
+
+func TestCaptureBrowserLongFingerprint(t *testing.T) {
+	tr, events := NewForTest(t)
+	long := strings.Repeat("m", 16<<10)
+	tr.CaptureBrowser(BrowserError{Message: long, File: "/static/js/" + long, Line: 1}, "")
+	ev := one(t, events())
+	if n := len(ev.Fingerprint[0]); n > 1000 {
+		t.Fatalf("fingerprint lungo %d", n)
+	}
+	if f, _ := ev.Contexts["dettagli"]["file"].(string); len(f) > 400 {
+		t.Fatalf("file lungo %d", len(f))
+	}
+}
+
+func TestCaptureBrowserPersonal(t *testing.T) {
+	tr, events := NewForTest(t)
+	tr.CaptureBrowser(BrowserError{
+		Message:  "Benvenuto Mario Rossi (MROSSI) su PC-PROVA-001",
+		Stack:    "at saluta (rossi) /static/js/a.js:1:1",
+		File:     "/static/js/a.js",
+		Line:     1,
+		Personal: []string{"mrossi", "Mario Rossi", "PC-PROVA-001", ""},
+	}, "")
+	ev := one(t, events())
+	stack, _ := ev.Contexts["dettagli"]["stack"].(string)
+	for _, s := range []string{ev.Message, ev.Fingerprint[0], stack} {
+		low := strings.ToLower(s)
+		for _, bad := range []string{"mario", "rossi", "pc-prova"} {
+			if strings.Contains(low, bad) {
+				t.Fatalf("dato personale %q in %q", bad, s)
+			}
+		}
+	}
+	if !strings.Contains(stack, "/static/js/a.js:1:1") {
+		t.Fatalf("stack rovinato: %q", stack)
+	}
+}

@@ -19,6 +19,8 @@ const (
 	maxMessage = 500
 	maxStack   = 8 << 10
 	maxUA      = 300
+	maxFile    = 300
+	modulePath = "github.com/Comune-di-Montesilvano/CruscottoPA"
 	serverName = "cruscottopa"
 	// detailsKey: contesto con gli attributi dell'errore (sentry-go non ha più Extra).
 	detailsKey = "dettagli"
@@ -107,8 +109,8 @@ func (t *Tracker) CapturePanic(v any, req Request, userID string) {
 	typ := fmt.Sprintf("%T", v)
 	fp := "panic|" + typ + "|" + val
 	if st := sentry.NewStacktrace(); st != nil && len(st.Frames) > 0 {
-		f := st.Frames[len(st.Frames)-1]
-		fp = "panic|" + f.Function + ":" + strconv.Itoa(f.Lineno)
+		f := panicFrame(st.Frames)
+		fp = "panic|" + f.Module + "." + f.Function + ":" + strconv.Itoa(f.Lineno)
 		ev := t.event(sentry.LevelFatal, "server", fp, &req, userID)
 		ev.Exception = []sentry.Exception{{Type: typ, Value: val, Stacktrace: st}}
 		t.send(ev, fp, userID)
@@ -119,27 +121,42 @@ func (t *Tracker) CapturePanic(v any, req Request, userID string) {
 	t.send(ev, fp, userID)
 }
 
+// panicFrame: il frame più interno del nostro codice. Un panic dentro la
+// stdlib (es. strings.Repeat) va raggruppato per chi l'ha chiamata.
+func panicFrame(frames []sentry.Frame) sentry.Frame {
+	for i := len(frames) - 1; i >= 0; i-- {
+		if strings.HasPrefix(frames[i].Module, modulePath) {
+			return frames[i]
+		}
+	}
+	return frames[len(frames)-1]
+}
+
 // BrowserError: quanto manda errori.js (già validato da chi chiama).
 type BrowserError struct {
 	Message, Stack, File string
 	Line, Col            int
 	Page, UserAgent      string
+	// Personal: username, nome e PC di chi scrive, tolti dal testo libero.
+	Personal []string
 }
 
 func (t *Tracker) CaptureBrowser(e BrowserError, userID string) {
 	if t == nil {
 		return
 	}
-	fp := e.Message + "|" + e.File + "|" + strconv.Itoa(e.Line)
+	msg := truncate(scrubKnown(e.Message, e.Personal), maxMessage)
+	file := truncate(scrubKnown(e.File, e.Personal), maxFile)
+	fp := msg + "|" + file + "|" + strconv.Itoa(e.Line)
 	ev := t.event(sentry.LevelError, "browser", fp, nil, userID)
 	ev.Platform = "javascript"
-	ev.Message = truncate(e.Message, maxMessage)
+	ev.Message = msg
 	ev.Tags["pagina"] = NormalizePath(e.Page)
-	ev.Contexts[detailsKey]["file"] = e.File
+	ev.Contexts[detailsKey]["file"] = file
 	ev.Contexts[detailsKey]["riga"] = e.Line
 	ev.Contexts[detailsKey]["colonna"] = e.Col
 	if e.Stack != "" {
-		ev.Contexts[detailsKey]["stack"] = truncate(e.Stack, maxStack)
+		ev.Contexts[detailsKey]["stack"] = truncate(scrubKnown(e.Stack, e.Personal), maxStack)
 	}
 	if e.UserAgent != "" {
 		ev.Contexts[detailsKey]["browser"] = truncate(e.UserAgent, maxUA)

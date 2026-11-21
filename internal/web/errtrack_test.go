@@ -91,3 +91,24 @@ func TestServerErrorFingerprint(t *testing.T) {
 		t.Fatalf("fingerprint col frame di serverError: %q", a)
 	}
 }
+
+func renderA(s *Server, w http.ResponseWriter) { s.render(w, 200, "inesistente-a", nil) }
+func renderB(s *Server, w http.ResponseWriter) { s.render(w, 200, "inesistente-b", nil) }
+
+// Errori di template: una issue per template e per punto del codice, non una
+// sola per tutti (il PC sarebbe sempre quello di render).
+func TestTemplateErrorFingerprint(t *testing.T) {
+	s, events := newTrackedServer(t)
+	s.mux.HandleFunc("GET /tpl-a", func(w http.ResponseWriter, _ *http.Request) { renderA(s, w) })
+	s.mux.HandleFunc("GET /tpl-b", func(w http.ResponseWriter, _ *http.Request) { renderB(s, w) })
+	do(t, s, "GET", "/tpl-a", nil, nil, nil)
+	do(t, s, "GET", "/tpl-b", nil, nil, nil)
+	evs := events()
+	if len(evs) != 2 {
+		t.Fatalf("eventi = %d, want 2", len(evs))
+	}
+	a, b := evs[0].Fingerprint[0], evs[1].Fingerprint[0]
+	if !strings.Contains(a, "inesistente-a") || !strings.Contains(a, "renderA") || !strings.Contains(b, "renderB") {
+		t.Fatalf("fingerprint = %q, %q", a, b)
+	}
+}

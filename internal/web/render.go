@@ -82,7 +82,9 @@ func (s *Server) funcs() template.FuncMap {
 func (s *Server) render(w http.ResponseWriter, status int, name string, data any) {
 	var buf bytes.Buffer
 	if err := s.tmpl.ExecuteTemplate(&buf, name, data); err != nil {
-		s.serverError(w, fmt.Errorf("template %s: %w", name, err))
+		// messaggio col nome del template e PC di chi chiama render: una issue
+		// per template e per punto del codice.
+		s.internalError(w, "errore template "+name, err, callerPC())
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -93,9 +95,18 @@ func (s *Server) render(w http.ResponseWriter, status int, name string, data any
 func (s *Server) serverError(w http.ResponseWriter, err error) {
 	// Il record porta il PC di chi chiama serverError: su GlitchTip ogni
 	// punto del codice fa una issue sua invece di un unico «errore interno».
+	s.internalError(w, "errore interno", err, callerPC())
+}
+
+// callerPC: PC di chi ha chiamato la funzione che chiama callerPC.
+func callerPC() uintptr {
 	var pcs [1]uintptr
-	runtime.Callers(2, pcs[:])
-	rec := slog.NewRecord(time.Now(), slog.LevelError, "errore interno", pcs[0])
+	runtime.Callers(3, pcs[:])
+	return pcs[0]
+}
+
+func (s *Server) internalError(w http.ResponseWriter, msg string, err error, pc uintptr) {
+	rec := slog.NewRecord(time.Now(), slog.LevelError, msg, pc)
 	rec.AddAttrs(slog.Any("err", err))
 	if h := slog.Default().Handler(); h.Enabled(context.Background(), slog.LevelError) {
 		_ = h.Handle(context.Background(), rec)

@@ -169,3 +169,20 @@ func TestErroriBeaconTextPlain(t *testing.T) {
 		t.Fatal("sendBeacon deve usare un Blob text/plain (tipo ammesso senza CORS)")
 	}
 }
+
+func TestErroriPersonalRemoved(t *testing.T) {
+	s, events := newTrackedServer(t)
+	c := viewerCookie(t, s, identity.User{Username: "mrossi", Name: "Mario Rossi", PC: "PC-PROVA-001"})
+	body := strings.Replace(erroreJS, `"x is undefined"`, `"Ciao Mario Rossi (mrossi) PC-PROVA-001"`, 1)
+	postErrori(t, s, body, c, nil)
+	evs := events()
+	if len(evs) != 1 {
+		t.Fatalf("eventi = %d", len(evs))
+	}
+	low := strings.ToLower(evs[0].Message + evs[0].Fingerprint[0])
+	for _, bad := range []string{"mario", "rossi", "pc-prova"} {
+		if strings.Contains(low, bad) {
+			t.Fatalf("dato personale %q: %q", bad, low)
+		}
+	}
+}
