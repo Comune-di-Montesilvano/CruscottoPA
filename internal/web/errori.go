@@ -61,8 +61,19 @@ func (s *Server) reportBrowserError(w http.ResponseWriter, r *http.Request) bool
 		Col:       e.Col,
 		Page:      e.Page,
 		UserAgent: e.UA,
+		Personal:  s.reportPersonal(r),
 	}, s.reportUser(r))
 	return true
+}
+
+// reportPersonal: username, nome e PC di chi scrive, da togliere dal testo
+// libero dell'errore (la pagina li mostra, uno script può riportarli).
+func (s *Server) reportPersonal(r *http.Request) []string {
+	// Il cookie dell'admin ha Path=/admin e non arriva qui: resta il riconoscimento.
+	if u, ok := s.viewer(r); ok && !u.Anonymous {
+		return []string{u.Username, u.Name, u.PC}
+	}
+	return nil
 }
 
 // siteHost: host del sito visto dal browser. Dietro il proxy r.Host può essere
