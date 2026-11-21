@@ -1,0 +1,55 @@
+package errtrack
+
+import "testing"
+
+func TestScrub(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"mario.rossi@example.it", "<mail>"},
+		{"dial 192.0.2.15:389", "dial <ip>:389"},
+		{"host 2001:db8::1 down", "host <ip> down"},
+		{`MOCK\mrossi`, "<utente>"},
+		{"CN=Mario Rossi,OU=Uffici,DC=example,DC=it: invalid", "<dn>: invalid"},
+		{`LDAP Result Code 49 "Invalid Credentials": cn=x,dc=it`, `LDAP Result Code 49 "Invalid Credentials": <dn>`},
+		{"ticket: registro", "ticket: registro"},
+		{"template plancia: line 3", "template plancia: line 3"},
+		{"alle 10:00:00 ok", "alle 10:00:00 ok"},
+		{"versione 0.19.0", "versione 0.19.0"},
+	}
+	for _, c := range cases {
+		if got := Scrub(c.in); got != c.want {
+			t.Errorf("Scrub(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestNormalizePath(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"/ticket/123", "/ticket/{id}"},
+		{"/ticket/123/allegati/4/foto.png", "/ticket/{id}/allegati/{id}/{file}"},
+		{"/uploads/icons/a1b2c3d4e5.png", "/uploads/icons/{file}"},
+		{"/guide/7/pdf", "/guide/{id}/pdf"},
+		{"/admin/media/9f8e7d6c5b4a/pezzo?n=2", "/admin/media/{id}/pezzo"},
+		{"/", "/"},
+		{"/avvisi", "/avvisi"},
+		{"/avvisi#x", "/avvisi"},
+		{"", "/"},
+	}
+	for _, c := range cases {
+		if got := NormalizePath(c.in); got != c.want {
+			t.Errorf("NormalizePath(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestPersonalKey(t *testing.T) {
+	for _, k := range []string{"user", "username", "utente", "mail", "email", "pc", "ip", "name", "nome", "remote", "User", "gruppo.mail"} {
+		if !PersonalKey(k) {
+			t.Errorf("PersonalKey(%q) = false", k)
+		}
+	}
+	for _, k := range []string{"err", "ticket", "da"} {
+		if PersonalKey(k) {
+			t.Errorf("PersonalKey(%q) = true", k)
+		}
+	}
+}
