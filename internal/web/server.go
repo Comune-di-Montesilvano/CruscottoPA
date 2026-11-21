@@ -86,7 +86,8 @@ type Server struct {
 	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
 	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
 	pcIPs           pcIPCache
-	stats           statsCache // numeri di gruppo in plancia
+	stats           statsCache        // numeri di gruppo in plancia
+	errs            *errtrack.Tracker // nil = GlitchTip spento
 }
 
 func New(o Options) (*Server, error) {
@@ -120,6 +121,7 @@ func New(o Options) (*Server, error) {
 		now:          o.Now,
 		fetchGuide:   o.GuideFetch,
 		tickets:      o.Tickets,
+		errs:         o.Errors,
 		mux:          http.NewServeMux(),
 	}
 	b, err := o.DB.GetBranding()
@@ -193,7 +195,7 @@ func (s *Server) ente() database.Branding { return *s.branding.Load() }
 // Handler applica, dall'esterno: header di sicurezza, protezione CSRF
 // (Sec-Fetch-Site/Origin, solo metodi non sicuri), routing.
 func (s *Server) Handler() http.Handler {
-	return securityHeaders(http.NewCrossOriginProtection().Handler(s.mux))
+	return securityHeaders(s.recoverPanic(http.NewCrossOriginProtection().Handler(s.mux)))
 }
 
 func (s *Server) routes() {
