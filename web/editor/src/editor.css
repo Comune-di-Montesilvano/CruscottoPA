@@ -1,21 +1,34 @@
-/* Editor visuale dell'admin (TipTap). I contenuti usano le regole .md di app.css. */
-.md-editor { border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; margin: .3rem 0 .2rem; }
-.md-editor:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
-.md-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px 8px 0 0; }
-.md-toolbar button { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #334155; cursor: pointer; padding: 0; }
-.md-toolbar button:hover { background: #e2e8f0; }
-.md-toolbar button[aria-pressed="true"] { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+/* Editor visuale dell'admin (TipTap). I contenuti usano le regole .md di app.css.
+   Colori solo come token: il tema scuro li ridefinisce sotto (prefers-color-scheme). */
+:root {
+	--ed-line: #cbd5e1; --ed-bg: #fff; --ed-focus: #2563eb; --ed-bar-line: #e2e8f0; --ed-bar-bg: #f8fafc;
+	--ed-btn: #334155; --ed-btn-hover: #e2e8f0; --ed-on-bg: #dbeafe; --ed-on-line: #93c5fd; --ed-on-text: #1d4ed8;
+	--ed-placeholder: #94a3b8; --ed-select: #3b82f6; --ed-error: #b42318; --ed-cursor: #000;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ed-line: #3a465b; --ed-bg: #111827; --ed-focus: #5b9cf0; --ed-bar-line: #2a3446; --ed-bar-bg: #1a2232;
+		--ed-btn: #c3cbd8; --ed-btn-hover: #2a3446; --ed-on-bg: #1f3050; --ed-on-line: #3f6fb8; --ed-on-text: #a9c9ff;
+		--ed-placeholder: #6f7b8f; --ed-select: #5b9cf0; --ed-error: #ff9b93; --ed-cursor: #e6eaf2;
+	}
+}
+.md-editor { border: 1px solid var(--ed-line); border-radius: 8px; background: var(--ed-bg); margin: .3rem 0 .2rem; }
+.md-editor:focus-within { border-color: var(--ed-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ed-focus) 15%, transparent); }
+.md-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-bottom: 1px solid var(--ed-bar-line); background: var(--ed-bar-bg); border-radius: 8px 8px 0 0; }
+.md-toolbar button { width: 34px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--ed-btn); cursor: pointer; padding: 0; }
+.md-toolbar button:hover { background: var(--ed-btn-hover); }
+.md-toolbar button[aria-pressed="true"] { background: var(--ed-on-bg); border-color: var(--ed-on-line); color: var(--ed-on-text); }
 .md-toolbar button[hidden] { display: none; }
 .md-toolbar .material-icons { font-size: 20px; }
 .md-editor-area { min-height: 12rem; max-height: 60vh; overflow-y: auto; padding: .75rem .9rem; outline: none; line-height: 1.6; }
-.md-editor-area p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #94a3b8; float: left; height: 0; pointer-events: none; }
-.md-editor-area img.ProseMirror-selectednode { outline: 2px solid #3b82f6; }
+.md-editor-area p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--ed-placeholder); float: left; height: 0; pointer-events: none; }
+.md-editor-area img.ProseMirror-selectednode { outline: 2px solid var(--ed-select); }
 .md-editor-area table { display: table; width: 100%; table-layout: fixed; }
-.md-editor-area .selectedCell { background: #dbeafe; }
+.md-editor-area .selectedCell { background: var(--ed-on-bg); }
 .md-editor-area .tableWrapper { overflow-x: auto; }
-.md-status { margin: 0; padding: 0 .9rem .4rem; min-height: 1em; font-size: .85rem; color: #b42318; }
+.md-status { margin: 0; padding: 0 .9rem .4rem; min-height: 1em; font-size: .85rem; color: var(--ed-error); }
 .md-status:empty { padding: 0; }
 .ProseMirror { white-space: pre-wrap; word-wrap: break-word; }
 .ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; }
-.ProseMirror-gapcursor:after { content: ""; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid #000; }
+.ProseMirror-gapcursor:after { content: ""; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid var(--ed-cursor); }
 .ProseMirror-focused .ProseMirror-gapcursor { display: block; }

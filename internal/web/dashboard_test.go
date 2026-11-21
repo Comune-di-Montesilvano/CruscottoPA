@@ -51,7 +51,7 @@ func TestDashboardTilesGuidesAlerts(t *testing.T) {
 	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
 	for _, want := range []string{
 		`href="https://rubrica.local"`, `href="https://mail.local"`,
-		`style="background:#dee8fc"`, // tinta di #2563eb (Rubrica)
+		`style="--c:#2563eb"`, // colore di Rubrica, il pastello lo fa il CSS
 		`data-tile-toggle`, "1 guida", "Cercare un interno",
 		`class="widget guides"`, "VPN da casa",
 		"data-carousel", `class="news news-urgent"`, "CED",

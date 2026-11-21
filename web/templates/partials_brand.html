@@ -5,3 +5,6 @@
 
 {{/* Il nome, quando c'è, è scritto accanto al logo: alt vuoto per non farlo leggere due volte. */}}
 {{define "ente_logo"}}{{with ente}}{{if .LogoFile}}<img class="ente-logo" src="/uploads/branding/{{.LogoFile}}" alt="{{if not .EnteName}}Logo dell'ente{{end}}">{{end}}{{end}}{{end}}
+
+{{/* Logo CruscottoPA per fondi chiari; col tema scuro del sistema passa alla versione per fondi scuri. Argomento: classe dell'<img>. */}}
+{{define "logo_light_dark"}}<picture><source srcset="/static/img/logo-on-dark.svg" media="(prefers-color-scheme: dark)"><img class="{{.}}" src="/static/img/logo-on-light.svg" alt=""></picture>{{end}}
