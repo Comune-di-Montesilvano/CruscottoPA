@@ -8,11 +8,9 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
-	"math"
 	"net/http"
 	"net/url"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -47,7 +45,7 @@ func (s *Server) funcs() template.FuncMap {
 		},
 		"ago":           func(t time.Time) string { return ago(t, s.now(), s.loc()) },
 		"humanSize":     humanSize,
-		"tint":          tint,
+		"tileColor":     tileColor,
 		"thousands":     thousands,
 		"roughDuration": roughDuration,
 		"plural":        plural,
@@ -184,18 +182,15 @@ func kindLabel(kind string) string {
 	}
 }
 
-// tint schiarisce un colore #rrggbb mescolandolo all'85% con il bianco
-// (sfondo pastello delle tile). Colore non valido → grigio chiaro.
-func tint(hexColor string) string {
+// tileColor restituisce il colore dell'app per la variabile CSS --c della
+// tile: il pastello lo calcola plancia.css con color-mix (chiaro o scuro a
+// seconda del tema). Colore non valido → grigio che al 15% su bianco dà
+// #eef1f5, il pastello di sempre.
+func tileColor(hexColor string) string {
 	if !colorRe.MatchString(hexColor) {
-		return "#eef1f5"
+		return "#8ea2bc"
 	}
-	var c [3]int64
-	for i := range c {
-		v, _ := strconv.ParseInt(hexColor[1+2*i:3+2*i], 16, 64)
-		c[i] = v + int64(math.Round(float64(255-v)*0.85))
-	}
-	return fmt.Sprintf("#%02x%02x%02x", c[0], c[1], c[2])
+	return hexColor
 }
 
 // alertVersion identifica il contenuto di un avviso: cambia se cambiano

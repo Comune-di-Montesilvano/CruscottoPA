@@ -10,7 +10,7 @@
 </head>
 <body class="login">
 	<form class="login-card" method="post" action="/admin/login">
-		<img class="login-mark" src="/static/img/logo-on-light.svg" alt="">
+		{{template "logo_light_dark" "login-mark"}}
 		<h1>CruscottoPA</h1>
 		{{with ente}}{{if or .LogoFile .EnteName}}<p class="login-ente">{{template "ente_logo"}}{{.EnteName}}</p>{{end}}{{end}}
 		<p class="hint">Accesso amministratori con le credenziali di dominio.</p>

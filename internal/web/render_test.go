@@ -1,6 +1,8 @@
 package web
 
 import (
+	"os"
+	"strings"
 	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/calendar"
@@ -40,17 +42,29 @@ func TestHumanSizeAndKindLabel(t *testing.T) {
 	}
 }
 
-func TestTint(t *testing.T) {
+func TestTileColor(t *testing.T) {
 	for in, want := range map[string]string{
-		"#000000": "#d9d9d9",
-		"#ffffff": "#ffffff",
-		"#2563eb": "#dee8fc",
-		"red":     "#eef1f5",
-		"":        "#eef1f5",
+		"#2563eb": "#2563eb",
+		"#FFFFFF": "#FFFFFF",
+		"red":     "#8ea2bc",
+		"":        "#8ea2bc",
+		"#12345":  "#8ea2bc",
 	} {
-		if got := tint(in); got != want {
-			t.Errorf("tint(%q) = %q, atteso %q", in, got, want)
+		if got := tileColor(in); got != want {
+			t.Errorf("tileColor(%q) = %q, atteso %q", in, got, want)
 		}
+	}
+}
+
+// Il pastello delle tile si calcola in CSS: chiaro col tema chiaro,
+// scuro tinto col tema scuro (--tile-base cambia nel blocco dark).
+func TestTileTintCSS(t *testing.T) {
+	css, err := os.ReadFile("../../web/static/css/plancia.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(css), "color-mix(in srgb, var(--c) 15%, var(--tile-base))") {
+		t.Fatal("la tile deve mescolare --c con --tile-base")
 	}
 }
 

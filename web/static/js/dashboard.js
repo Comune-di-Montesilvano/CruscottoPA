@@ -137,7 +137,7 @@
 				if (it.n) { a.target = "_blank"; a.rel = "noopener"; }
 				const ic = el("span", "material-icons", it.k === "app" && it.i ? it.i : icon);
 				ic.setAttribute("aria-hidden", "true");
-				if (it.k === "app" && it.c) ic.style.color = it.c;
+				if (it.k === "app" && it.c) { ic.classList.add("search-app-icon"); ic.style.setProperty("--c", it.c); }
 				const txt = el("span", "search-text");
 				txt.append(el("span", "search-title", it.t));
 				if (it.s) txt.append(el("span", "search-sub", it.k === "support" ? `Assistenza per ${it.s}` : it.s));

@@ -134,7 +134,7 @@ func TestPushTestAndNotifiedLabel(t *testing.T) {
 func TestDashboardNotifyMarkup(t *testing.T) {
 	s, _ := newTestServer(t, nil)
 	body := do(t, s, "GET", "/", nil, nil, nil).Body.String()
-	for _, want := range []string{`<script src="/static/js/notifiche.js" defer></script>`, `<dialog class="notify-ask"`, `<dialog class="notify-ask notify-blocked"`, `<meta name="theme-color" content="#1565c0">`} {
+	for _, want := range []string{`<script src="/static/js/notifiche.js" defer></script>`, `<dialog class="notify-ask"`, `<dialog class="notify-ask notify-blocked"`, `<meta name="theme-color" content="#1565c0" media="(prefers-color-scheme: light)">`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("plancia: manca %q", want)
 		}
