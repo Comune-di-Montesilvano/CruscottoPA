@@ -162,3 +162,19 @@ func one(t *testing.T, evs []*sentryEvent) *sentryEvent {
 	}
 	return evs[0]
 }
+
+func TestFingerprintScrubbed(t *testing.T) {
+	tr, events := NewForTest(t)
+	tr.CaptureBrowser(BrowserError{Message: "prova mario.rossi@example.it 192.0.2.15", File: "/static/js/a.js", Line: 1}, "")
+	tr.CaptureMessage("bind", "bind CN=Mario,DC=it|web.f", nil, nil, "")
+	for _, ev := range events() {
+		for _, fp := range ev.Fingerprint {
+			if strings.Contains(fp, "example.it") || strings.Contains(fp, "192.0.2.15") || strings.Contains(fp, "CN=Mario") {
+				t.Fatalf("fingerprint con dati personali: %q", fp)
+			}
+		}
+	}
+	if len(events()) != 2 {
+		t.Fatalf("eventi = %d", len(events()))
+	}
+}

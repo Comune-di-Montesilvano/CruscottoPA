@@ -180,6 +180,9 @@ func (t *Tracker) send(ev *sentry.Event, fp, userID string) {
 func scrubEvent(ev *sentry.Event, _ *sentry.EventHint) *sentry.Event {
 	ev.Message = Scrub(ev.Message)
 	ev.ServerName = serverName
+	for i := range ev.Fingerprint {
+		ev.Fingerprint[i] = Scrub(ev.Fingerprint[i])
+	}
 	for i := range ev.Exception {
 		ev.Exception[i].Value = Scrub(ev.Exception[i].Value)
 	}
