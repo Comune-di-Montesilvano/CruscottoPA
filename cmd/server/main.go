@@ -18,6 +18,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/errtrack"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/web"
@@ -51,8 +52,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
+	// GlitchTip prima di tutto il resto: anche gli errori di avvio vi arrivano.
+	tracker, terr := errtrack.New(errtrack.Options{
+		DSN:         cfg.SentryDSN,
+		Environment: cfg.SentryEnvironment,
+		Release:     AppVersion,
+		Secret:      cfg.SessionSecret,
+	})
+	logger := slog.New(tracker.Handler(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel})))
 	slog.SetDefault(logger)
+	if terr != nil {
+		slog.Warn("SENTRY_DSN non valida: errori non inviati a GlitchTip", "err", terr)
+	}
+	// fatal: log, invio degli eventi in coda, uscita.
+	fatal := func(msg string, err error) {
+		slog.Error(msg, "err", err)
+		tracker.Flush(2 * time.Second)
+		os.Exit(1)
+	}
 	if cfg.LDAP.Host == "mock" {
 		slog.Warn("LDAP_HOST=mock: qualsiasi credenziale accede a /admin. Solo per sviluppo, MAI in produzione.")
 	}
@@ -62,14 +79,12 @@ func main() {
 
 	db, err := database.Open(cfg.DBPath)
 	if err != nil {
-		slog.Error("inizializzazione database", "err", err)
-		os.Exit(1)
+		fatal("inizializzazione database", err)
 	}
 	defer db.Close()
 
 	if err := os.MkdirAll(cfg.UploadDir, 0o750); err != nil {
-		slog.Error("creazione UPLOAD_DIR", "err", err)
-		os.Exit(1)
+		fatal("creazione UPLOAD_DIR", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -84,8 +99,7 @@ func main() {
 		Location:   cfg.Location,
 	})
 	if err != nil {
-		slog.Error("inizializzazione backup", "err", err)
-		os.Exit(1)
+		fatal("inizializzazione backup", err)
 	}
 	go bk.Scheduler(ctx, time.Duration(cfg.BackupIntervalHours)*time.Hour)
 	go bk.Janitor(ctx)
@@ -118,10 +132,10 @@ func main() {
 		Backup:    bk,
 		Version:   AppVersion,
 		Tickets:   tickets,
+		Errors:    tracker,
 	})
 	if err != nil {
-		slog.Error("inizializzazione web", "err", err)
-		os.Exit(1)
+		fatal("inizializzazione web", err)
 	}
 	srv.StartNotifications(ctx)
 	srv.StartGuideRefresh(ctx)
@@ -150,6 +164,7 @@ func main() {
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown", "err", err)
 	}
+	tracker.Flush(2 * time.Second)
 }
 
 func runHealthcheck(port string) int {

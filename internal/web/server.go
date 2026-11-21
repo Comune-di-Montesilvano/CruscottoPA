@@ -22,6 +22,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/errtrack"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
@@ -49,6 +50,8 @@ type Options struct {
 	PCLookup func(ctx context.Context, host string) ([]string, error)
 	// Tickets: invio dei ticket a OTRS (nil = modulo spento).
 	Tickets otrs.Client
+	// Errors: invio degli errori a GlitchTip (nil = spento).
+	Errors *errtrack.Tracker
 }
 
 type Server struct {

@@ -7,6 +7,7 @@ import (
 )
 
 var allVars = []string{
+	"SENTRY_DSN", "SENTRY_ENVIRONMENT",
 	"PORT", "DB_PATH", "UPLOAD_DIR", "SESSION_SECRET", "SECURE_COOKIES", "LOG_LEVEL", "TZ",
 	"LDAP_HOST", "LDAP_BASE_DN", "LDAP_USER_DN_TEMPLATE", "LDAP_STARTTLS", "LDAP_TLS_SKIP_VERIFY",
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
@@ -295,5 +296,25 @@ func TestStatsConfig(t *testing.T) {
 	t.Setenv("STATS_RETENTION_MONTHS", "0")
 	if _, err = Load(); err == nil || !strings.Contains(err.Error(), "STATS_RETENTION_MONTHS: almeno 1") {
 		t.Fatalf("0 mesi: %v", err)
+	}
+}
+
+func TestLoadSentry(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SentryDSN != "" || cfg.SentryEnvironment != "production" {
+		t.Fatalf("default: %q %q", cfg.SentryDSN, cfg.SentryEnvironment)
+	}
+	t.Setenv("SENTRY_DSN", "  https://chiave@glitchtip.example.it/3 ")
+	t.Setenv("SENTRY_ENVIRONMENT", "sviluppo")
+	if cfg, err = Load(); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SentryDSN != "https://chiave@glitchtip.example.it/3" || cfg.SentryEnvironment != "sviluppo" {
+		t.Fatalf("lette: %q %q", cfg.SentryDSN, cfg.SentryEnvironment)
 	}
 }
