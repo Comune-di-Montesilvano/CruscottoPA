@@ -22,6 +22,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/config"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/errtrack"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/guidesrc"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
@@ -49,6 +50,8 @@ type Options struct {
 	PCLookup func(ctx context.Context, host string) ([]string, error)
 	// Tickets: invio dei ticket a OTRS (nil = modulo spento).
 	Tickets otrs.Client
+	// Errors: invio degli errori a GlitchTip (nil = spento).
+	Errors *errtrack.Tracker
 }
 
 type Server struct {
@@ -83,7 +86,8 @@ type Server struct {
 	ticketDownloads chan struct{}                                            // download di allegati in corso (al massimo cap)
 	pcLookup        func(ctx context.Context, host string) ([]string, error) // IP del PC dal DNS
 	pcIPs           pcIPCache
-	stats           statsCache // numeri di gruppo in plancia
+	stats           statsCache        // numeri di gruppo in plancia
+	errs            *errtrack.Tracker // nil = GlitchTip spento
 }
 
 func New(o Options) (*Server, error) {
@@ -117,6 +121,7 @@ func New(o Options) (*Server, error) {
 		now:          o.Now,
 		fetchGuide:   o.GuideFetch,
 		tickets:      o.Tickets,
+		errs:         o.Errors,
 		mux:          http.NewServeMux(),
 	}
 	b, err := o.DB.GetBranding()
@@ -190,7 +195,7 @@ func (s *Server) ente() database.Branding { return *s.branding.Load() }
 // Handler applica, dall'esterno: header di sicurezza, protezione CSRF
 // (Sec-Fetch-Site/Origin, solo metodi non sicuri), routing.
 func (s *Server) Handler() http.Handler {
-	return securityHeaders(http.NewCrossOriginProtection().Handler(s.mux))
+	return securityHeaders(s.recoverPanic(http.NewCrossOriginProtection().Handler(s.mux)))
 }
 
 func (s *Server) routes() {
@@ -218,6 +223,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /avvisi/{id}", s.handleAvviso)
 	s.mux.HandleFunc("POST /avvisi/{id}/letto", s.handleAlertRead)
 	s.mux.HandleFunc("POST /presenza", s.handlePresence)
+	s.mux.HandleFunc("POST /errori", s.handleErrori)
 	s.mux.HandleFunc("POST /app/{id}/clic", s.handleAppClick)
 	s.mux.HandleFunc("POST /ticket", s.handleTicketSend)
 	s.mux.HandleFunc("GET /partials/ticket", s.handleTicketWidget)

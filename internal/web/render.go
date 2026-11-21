@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +29,7 @@ func (s *Server) funcs() template.FuncMap {
 	return template.FuncMap{
 		"monogram":      monogram,
 		"ente":          s.ente,
+		"errori":        s.errs.Enabled,
 		"repoURL":       func() string { return repoURL },
 		"levelLabel":    levelLabel,
 		"webSearchName": webSearchName,
@@ -88,7 +91,15 @@ func (s *Server) render(w http.ResponseWriter, status int, name string, data any
 }
 
 func (s *Server) serverError(w http.ResponseWriter, err error) {
-	slog.Error("errore interno", "err", err)
+	// Il record porta il PC di chi chiama serverError: su GlitchTip ogni
+	// punto del codice fa una issue sua invece di un unico «errore interno».
+	var pcs [1]uintptr
+	runtime.Callers(2, pcs[:])
+	rec := slog.NewRecord(time.Now(), slog.LevelError, "errore interno", pcs[0])
+	rec.AddAttrs(slog.Any("err", err))
+	if h := slog.Default().Handler(); h.Enabled(context.Background(), slog.LevelError) {
+		_ = h.Handle(context.Background(), rec)
+	}
 	http.Error(w, "Si è verificato un errore. Riprova più tardi.", http.StatusInternalServerError)
 }
 

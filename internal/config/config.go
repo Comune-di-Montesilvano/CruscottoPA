@@ -94,6 +94,10 @@ type Config struct {
 	VAPIDSubject string
 	// OTRS: modulo ticket (vuoto = spento).
 	OTRS OTRS
+	// SentryDSN: progetto su GlitchTip per gli errori (vuota = spento).
+	SentryDSN string
+	// SentryEnvironment: ambiente degli eventi (default "production").
+	SentryEnvironment string
 	// StatsEnabled: numeri di gruppo e traguardi in plancia («Noi del Comune»).
 	StatsEnabled bool
 	// StatsRetentionMonths: conservazione dei giorni di accesso e dei dati dei ticket.
@@ -117,10 +121,12 @@ func Load() (Config, error) {
 			AdminGroup:     os.Getenv("LDAP_ADMIN_GROUP"),
 			AdminUsers:     splitList(os.Getenv("ADMIN_USERS")),
 		},
-		NTLMDomain:   strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
-		VAPIDSubject: strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
-		PCDNSSuffix:  strings.Trim(strings.TrimSpace(os.Getenv("PC_DNS_SUFFIX")), "."),
-		PCDNSServer:  dnsServer(os.Getenv("PC_DNS_SERVER")),
+		NTLMDomain:        strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
+		SentryDSN:         strings.TrimSpace(os.Getenv("SENTRY_DSN")),
+		SentryEnvironment: getEnv("SENTRY_ENVIRONMENT", "production"),
+		VAPIDSubject:      strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
+		PCDNSSuffix:       strings.Trim(strings.TrimSpace(os.Getenv("PC_DNS_SUFFIX")), "."),
+		PCDNSServer:       dnsServer(os.Getenv("PC_DNS_SERVER")),
 		OTRS: OTRS{
 			URL:           strings.TrimRight(strings.TrimSpace(os.Getenv("OTRS_URL")), "/"),
 			RouteCreate:   getEnv("OTRS_ROUTE_CREATE", "/TicketCreate"),
