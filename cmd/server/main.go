@@ -21,6 +21,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/errtrack"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/rubrica"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/web"
 )
 
@@ -134,6 +135,7 @@ func main() {
 		Backup:    bk,
 		Version:   AppVersion,
 		Tickets:   tickets,
+		Rubrica:   rubrica.New(cfg.RubricaURL),
 		Errors:    tracker,
 	})
 	if err != nil {
