@@ -721,7 +721,12 @@ dialog.chat[open] { display: flex; }
 .chat-logout:hover, .chat-logout:focus-visible { color: var(--p-text-2); text-decoration: underline; }
 .chat-emoji-btn { border: 0; background: none; color: var(--p-text-3); cursor: pointer; padding: .2rem; border-radius: 50%; display: inline-grid; place-items: center; }
 .chat-emoji-btn:hover, .chat-emoji-btn[aria-expanded="true"] { background: var(--p-hover-bg); color: var(--p-blue-2); }
-.chat-emoji { position: absolute; left: 1rem; bottom: calc(100% - .4rem); z-index: 2; display: grid; grid-template-columns: repeat(8, 2.1rem); gap: .1rem; padding: .4rem; background: var(--p-surface); border: 1px solid var(--p-line); border-radius: 12px; box-shadow: var(--p-shadow); }
+.chat-emoji { position: absolute; left: 1rem; bottom: calc(100% - .4rem); z-index: 2; width: min(20.5rem, calc(100% - 2rem)); display: grid; gap: .3rem; padding: .4rem; background: var(--p-surface); border: 1px solid var(--p-line); border-radius: 12px; box-shadow: var(--p-shadow); }
+.chat-emoji-tabs { display: flex; gap: .1rem; border-bottom: 1px solid var(--p-line); padding-bottom: .3rem; }
+.chat-emoji-tab { flex: 1; border: 0; background: none; font-size: 1.1rem; line-height: 1; padding: .3rem 0; border-radius: 8px; cursor: pointer; opacity: .6; }
+.chat-emoji-tab:hover, .chat-emoji-tab:focus-visible { background: var(--p-hover-bg); opacity: 1; }
+.chat-emoji-tab[aria-selected="true"] { opacity: 1; background: var(--p-active-bg); }
+.chat-emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.1rem, 1fr)); gap: .1rem; max-height: 13rem; overflow-y: auto; }
 .chat-emoji[hidden] { display: none; }
 .chat-emoji-item { border: 0; background: none; font-size: 1.25rem; line-height: 1; width: 2.1rem; height: 2.1rem; border-radius: 8px; cursor: pointer; }
 .chat-emoji-item:hover, .chat-emoji-item:focus-visible { background: var(--p-hover-bg); }

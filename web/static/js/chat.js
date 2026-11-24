@@ -305,27 +305,68 @@
 		area.focus();
 	});
 
-	// Emoji: griglia fissa, inserite nel punto del cursore.
-	const EMOJI = ["😀", "😂", "😊", "🙂", "😉", "😍", "😎", "🤔", "😅", "😮", "😢", "😴", "😡", "🙄", "🤗", "🥳",
-		"👍", "👎", "👏", "🙏", "💪", "👌", "✌️", "🤝", "👋", "❤️", "🎉", "🔥", "⭐", "✅", "❌", "⚠️",
-		"☕", "🍕", "🎂", "📎", "📅", "📞", "💻", "📄"];
+	// Emoji per categoria (testo separato da spazi), più le ultime usate
+	// ricordate nel browser. Inserite nel punto del cursore.
+	const EMOJI = [
+		["🕘", "Recenti", ""],
+		["😀", "Faccine", "😀 😃 😄 😁 😆 😅 🤣 😂 🙂 🙃 😉 😊 😇 🥰 😍 🤩 😘 😗 😚 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 😌 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤧 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 💀 🤡 👻 👽 🤖 💩 🙈 🙉 🙊"],
+		["👍", "Gesti e persone", "👍 👎 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🤝 🙏 👏 🙌 👐 🤲 💪 ✍️ 💅 🤳 👀 👁️ 🧠 👂 👃 👄 🙋 🙆 🙅 🤷 🤦 🙇 💁 🧑‍💻 👩‍💻 👨‍💻 🧑‍🏫 🧑‍⚖️ 🧑‍🔧 🧑‍🍳 👮 🕵️ 👷 🧑‍⚕️ 🧑‍🎓 🏃 🚶 💃 🕺 👪 👶 🧓"],
+		["❤️", "Cuori e simboli", "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💯 ✅ ☑️ ✔️ ❌ ❎ ➕ ➖ ❓ ❗ ‼️ ⁉️ ⚠️ 🚫 ⛔ 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ ⭐ 🌟 ✨ ⚡ 🔥 💥 💫 💤 💬 💭 🗯️ 🔔 🔕 ♻️ 🆗 🆕 🆒 🆘 ℹ️ 🔝 🔜"],
+		["💻", "Lavoro e oggetti", "💻 🖥️ ⌨️ 🖱️ 🖨️ 📱 ☎️ 📞 📠 💾 💿 📀 🔌 🔋 📷 📹 🎧 📺 ⏰ ⏳ ⌛ 📅 📆 🗓️ 📇 📈 📉 📊 📋 📌 📍 📎 🖇️ 📏 📐 ✂️ 🗂️ 📁 📂 📄 📃 📑 🧾 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 ✏️ ✒️ 🖊️ 🖋️ 🖍️ 📝 📧 📨 📩 📤 📥 📦 📫 🗳️ 🔒 🔓 🔑 🗝️ 🔨 🛠️ 🔧 🔩 ⚙️ 🧰 🧲 💡 🔦 🧯 🗑️ 💰 💶 💳 🏦 ⚖️"],
+		["☕", "Cibo", "☕ 🍵 🧃 🥤 🧋 🍺 🍻 🥂 🍷 🍾 🍕 🍔 🍟 🌭 🥪 🌮 🌯 🥙 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🍤 🍙 🍚 🥗 🥘 🍳 🥐 🥖 🥨 🧀 🥓 🍖 🍗 🥩 🍰 🎂 🧁 🥧 🍫 🍬 🍭 🍮 🍩 🍪 🍦 🍨 🍧 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🥕 🌽 🌶️ 🥒 🥦 🧄 🧅 🥜 🌰"],
+		["🌞", "Natura e meteo", "🌞 🌝 🌛 ⭐ 🌈 ☀️ 🌤️ ⛅ 🌥️ ☁️ 🌦️ 🌧️ ⛈️ 🌩️ 🌨️ ❄️ ☃️ ⛄ 🌬️ 💨 🌪️ 🌫️ ☔ 💧 🌊 🌍 🌋 🏔️ ⛰️ 🏖️ 🌲 🌳 🌴 🌵 🌱 🌿 ☘️ 🍀 🍁 🍂 🍃 🌷 🌹 🥀 🌺 🌸 🌼 🌻 💐 🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦆 🦉 🐴 🦄 🐝 🦋 🐌 🐞 🐢 🐍 🐙 🐬 🐳 🐟"],
+		["⚽", "Attività e viaggi", "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🥅 ⛳ 🎣 🏊 🚴 🧘 🏋️ 🎿 ⛷️ 🏆 🥇 🥈 🥉 🏅 🎖️ 🎉 🎊 🎈 🎁 🎀 🎄 🎃 🎆 🎇 🧨 🎂 🎵 🎶 🎤 🎸 🎹 🎺 🎻 🥁 🎬 🎨 🎭 🎮 🎲 🧩 ♟️ 🎯 🚗 🚕 🚙 🚌 🚎 🚑 🚒 🚓 🚲 🛵 🏍️ 🚂 🚆 🚇 🚊 ✈️ 🛫 🛬 🚀 🛳️ ⛵ 🚢 🗺️ 🧭 🏠 🏡 🏢 🏛️ 🏥 🏫 ⛪ 🏰 🗼 🗽 ⛲ 🏟️ 🅿️ 🚦 🚧 ⛽"],
+	];
+	const RECENT_KEY = "cruscotto-chat-emoji", RECENT_MAX = 24;
 	const emojiBtn = $("[data-chat-emoji]");
 	const emojiPanel = $("[data-chat-emoji-panel]");
+	const emojiTabs = el("div", "chat-emoji-tabs");
+	emojiTabs.setAttribute("role", "tablist");
+	const emojiGrid = el("div", "chat-emoji-grid");
+	emojiGrid.setAttribute("role", "tabpanel");
+	emojiPanel.append(emojiTabs, emojiGrid);
+	function recent() {
+		try { const r = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); return Array.isArray(r) ? r.filter((x) => typeof x === "string").slice(0, RECENT_MAX) : []; } catch (_) { return []; }
+	}
+	function remember(e) {
+		const r = [e, ...recent().filter((x) => x !== e)].slice(0, RECENT_MAX);
+		try { localStorage.setItem(RECENT_KEY, JSON.stringify(r)); } catch (_) {}
+	}
+	let emojiCat = 1;
+	function showEmojiCat(i) {
+		let list = i === 0 ? recent() : EMOJI[i][2].split(" ");
+		if (i === 0 && !list.length) { i = 1; list = EMOJI[1][2].split(" "); }
+		emojiCat = i;
+		emojiTabs.querySelectorAll("button").forEach((b, k) => b.setAttribute("aria-selected", String(k === i)));
+		emojiGrid.setAttribute("aria-label", EMOJI[i][1]);
+		emojiGrid.replaceChildren(...list.map((e) => {
+			const b = el("button", "chat-emoji-item", e);
+			b.type = "button";
+			b.addEventListener("click", () => {
+				const s = area.selectionStart ?? area.value.length, en = area.selectionEnd ?? s;
+				area.setRangeText(e, s, en, "end");
+				remember(e);
+				area.focus();
+				updateCount();
+			});
+			return b;
+		}));
+		emojiGrid.scrollTop = 0;
+	}
+	EMOJI.forEach(([icon, label], i) => {
+		const t = el("button", "chat-emoji-tab", icon);
+		t.type = "button";
+		t.title = label;
+		t.setAttribute("role", "tab");
+		t.setAttribute("aria-label", label);
+		t.addEventListener("click", () => showEmojiCat(i));
+		emojiTabs.append(t);
+	});
 	function emojiOpen(on) {
+		if (on) showEmojiCat(recent().length ? 0 : emojiCat || 1);
 		emojiPanel.hidden = !on;
 		emojiBtn.setAttribute("aria-expanded", String(on));
 	}
-	EMOJI.forEach((e) => {
-		const b = el("button", "chat-emoji-item", e);
-		b.type = "button";
-		b.addEventListener("click", () => {
-			const s = area.selectionStart ?? area.value.length, en = area.selectionEnd ?? s;
-			area.setRangeText(e, s, en, "end");
-			area.focus();
-			updateCount();
-		});
-		emojiPanel.append(b);
-	});
 	emojiBtn.addEventListener("click", () => emojiOpen(emojiPanel.hidden));
 	panel.addEventListener("keydown", (e) => { if (e.key === "Escape" && !emojiPanel.hidden) { e.stopPropagation(); e.preventDefault(); emojiOpen(false); emojiBtn.focus(); } });
 	document.addEventListener("click", (e) => { if (!emojiPanel.hidden && !e.target.closest("[data-chat-emoji-panel], [data-chat-emoji]")) emojiOpen(false); });
