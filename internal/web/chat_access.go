@@ -18,6 +18,8 @@ func (s *Server) chatEnabled() bool { return s.cfg.ChatEnabled && s.recognitionE
 // chatRoutes registra le route pubbliche della chat (solo con chatEnabled;
 // quelle dell'admin stanno in routes, dove le controlla TestAuditRoutesCover).
 func (s *Server) chatRoutes() {
+	s.mux.HandleFunc("POST /chat/accesso", s.handleChatLogin)
+	s.mux.HandleFunc("POST /chat/esci", s.handleChatLogout)
 }
 
 // chatAllowed: username può scrivere e ricevere messaggi. Serve un profilo AD

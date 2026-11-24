@@ -148,6 +148,7 @@ func New(o Options) (*Server, error) {
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.chatCookies = identity.NewChatCodec(o.Config.SessionSecret)
+	s.chatCookies.SetClock(o.Now)
 	s.profiles = newProfileCache(o.Now)
 	s.ticketCache = newTicketCache(o.Now)
 	s.ticketDownloads = make(chan struct{}, 4)

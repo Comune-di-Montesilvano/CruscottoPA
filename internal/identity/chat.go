@@ -51,3 +51,6 @@ func (c *ChatCodec) Decode(v string) (ChatSession, bool) {
 	}
 	return s, true
 }
+
+// SetClock sostituisce l'orologio (test e Server con Options.Now).
+func (c *ChatCodec) SetClock(now func() time.Time) { c.now = now }
