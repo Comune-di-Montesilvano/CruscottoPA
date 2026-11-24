@@ -182,7 +182,7 @@
 
 	function renderThread(d, prepend) {
 		if (!prepend) {
-			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato };
+			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato, lastId: lastId(d) };
 			$("[data-chat-with]").textContent = d.nome;
 			$("[data-chat-avatar]").textContent = initials(d.nome);
 			msgs.replaceChildren();
@@ -224,11 +224,27 @@
 		markRead();
 	}
 
+	// Ridisegna solo se è arrivato qualcosa: chi sta leggendo i messaggi
+	// precedenti non viene riportato in fondo.
+	const lastId = (d) => (d.messaggi.length ? d.messaggi[d.messaggi.length - 1].id : 0);
 	async function reloadCurrent() {
 		if (!current || !verified) return;
-		const d = await api("GET", "/chat/con/" + encodeURIComponent(current.con));
-		if (d.ok) { renderThread(d, false); markRead(); }
+		const con = current.con;
+		const d = await api("GET", "/chat/con/" + encodeURIComponent(con));
+		if (!d.ok || !current || current.con !== con) return;
+		if (lastId(d) !== current.lastId || !!d.bloccato !== current.bloccato) renderThread(d, false);
+		markRead();
 	}
+
+	// Riserva dell'evento SSE (flusso caduto, scheda aperta prima di un
+	// aggiornamento che tiene la connessione condivisa): controllo periodico a
+	// pannello aperto e scheda visibile.
+	const POLL_MS = 20000;
+	setInterval(() => {
+		if (!verified || document.visibilityState !== "visible" || (dialog && !dialog.open)) return;
+		loadList();
+		reloadCurrent();
+	}, POLL_MS);
 
 	function openPanel(who) {
 		if (dialog && !dialog.open) dialog.showModal();

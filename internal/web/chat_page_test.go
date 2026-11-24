@@ -146,6 +146,9 @@ func TestChatEmojiPicker(t *testing.T) {
 	if src := string(b); !strings.Contains(src, "NOTICE_DAYS = 7") || !strings.Contains(src, "localStorage") {
 		t.Fatal("avviso chiuso senza ritorno dopo 7 giorni")
 	}
+	if src := string(b); !strings.Contains(src, "POLL_MS") || !strings.Contains(src, "lastId(d) !== current.lastId") {
+		t.Fatal("chat.js senza controllo periodico dei messaggi nuovi")
+	}
 	if src := string(b); !strings.Contains(src, "setRangeText") || !strings.Contains(src, "EMOJI") {
 		t.Fatal("chat.js non inserisce le emoji nel testo")
 	}
