@@ -378,12 +378,30 @@ var mockGroups = []ADGroup{
 	{DN: "CN=Utenti Mock,OU=Mock,DC=mock", Name: "Utenti Mock"},
 }
 
+// mockPeople: colleghi di esempio con nome e cognome (ricerca della chat).
+// Gli altri username restano validi, con il nome uguale allo username.
+var mockPeople = []Person{
+	{Username: "mrossi", Name: "Mario Rossi"},
+	{Username: "abianchi", Name: "Anna Bianchi"},
+	{Username: "lverdi", Name: "Luca Verdi"},
+	{Username: "gesposito", Name: "Giulia Esposito"},
+}
+
+func mockName(username string) string {
+	for _, p := range mockPeople {
+		if p.Username == strings.ToLower(username) {
+			return p.Name
+		}
+	}
+	return username
+}
+
 func (MockDirectory) Lookup(username string) (Person, error) {
 	if !usernameRe.MatchString(username) {
 		return Person{}, ErrUnknownUser
 	}
 	username, _, _ = strings.Cut(username, "@") // UPN: il mock usa la parte prima della @
-	return Person{Username: strings.ToLower(username), Name: username}, nil
+	return Person{Username: strings.ToLower(username), Name: mockName(username)}, nil
 }
 
 func (MockDirectory) Profile(username string, attrs []string) (audience.Profile, error) {
@@ -396,6 +414,7 @@ func (MockDirectory) Profile(username string, attrs []string) (audience.Profile,
 		"description":                "CED",
 		"mail":                       strings.ToLower(username) + "@example.it",
 		"telephonenumber":            "731",
+		"displayname":                mockName(username),
 	}
 	for _, a := range attrs {
 		if v, ok := mock[strings.ToLower(a)]; ok {
@@ -416,10 +435,17 @@ func (MockDirectory) SearchGroups(q string) ([]ADGroup, error) {
 }
 
 func (MockDirectory) SearchUsers(q string) ([]Person, error) {
-	if !usernameRe.MatchString(q) {
-		return []Person{}, nil
+	out := []Person{}
+	lq := strings.ToLower(strings.TrimSpace(q))
+	for _, p := range mockPeople {
+		if lq != "" && (strings.Contains(strings.ToLower(p.Name), lq) || strings.HasPrefix(p.Username, lq)) {
+			out = append(out, p)
+		}
 	}
-	return []Person{{Username: strings.ToLower(q), Name: q}}, nil
+	if len(out) == 0 && usernameRe.MatchString(q) {
+		out = append(out, Person{Username: strings.ToLower(q), Name: q})
+	}
+	return out, nil
 }
 
 func (MockDirectory) AttributeValues(attr string) ([]string, error) {

@@ -1,0 +1,94 @@
+{{define "widget_chat"}}{{with .}}
+<section class="widget chat-widget" id="widget-chat" aria-labelledby="chat-widget-title" hx-get="/partials/chat" hx-trigger="every 300s, chat from:body, chat-local from:body" hx-swap="outerHTML">
+	<div class="cw-head">
+		<span class="material-icons" aria-hidden="true">forum</span>
+		<h2 class="widget-title" id="chat-widget-title">Messaggi</h2>
+		{{if .Unread}}<span class="cw-badge" aria-label="{{.Unread}} {{plural .Unread "messaggio nuovo" "messaggi nuovi"}}">{{.Unread}}</span>{{end}}
+		<button type="button" class="cw-new" data-chat-open=""><span class="material-icons" aria-hidden="true">edit</span>Nuovo</button>
+	</div>
+	{{if .Verified}}
+		{{with .Recent}}<ul class="cw-list">{{range .}}
+			<li><button type="button" class="cw-item{{if .Nuovi}} is-new{{end}}" data-chat-open="{{.Con}}">
+				<span class="chat-avatar" aria-hidden="true">{{monogram .Nome}}</span>
+				<span class="cw-name">{{.Nome}}</span>
+				{{if .Nuovi}}<span class="cw-new-count">{{.Nuovi}} {{plural .Nuovi "nuovo" "nuovi"}}</span>{{end}}
+			</button></li>{{end}}
+		</ul>{{else}}<p class="cw-empty">Nessun messaggio negli ultimi 30 giorni. Scrivi a un collega con «Nuovo».</p>{{end}}
+	{{else}}
+		<button type="button" class="cw-locked" data-chat-open="">
+			<span class="material-icons" aria-hidden="true">lock</span>
+			<span>{{if .Unread}}Hai <strong>{{.Unread}} {{plural .Unread "messaggio nuovo" "messaggi nuovi"}}</strong>. {{end}}Accedi per leggerli.</span>
+		</button>
+	{{end}}
+</section>
+{{end}}{{end}}
+
+{{define "chat_notice"}}<p class="chat-notice"><span class="material-icons" aria-hidden="true">info</span><span>Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza.</span></p>{{end}}
+
+{{define "chat_panel"}}
+<div class="chat-panel" data-chat-panel data-me="{{.Username}}"{{if .Verified}} data-verified="1"{{end}}{{with .Open}} data-open="{{.}}"{{end}}{{with .OpenConv}} data-open-conv="{{.}}"{{end}}>
+	<div class="chat-head">
+		<span class="material-icons" aria-hidden="true">forum</span>
+		<h2 id="chat-title">Messaggi</h2>
+		{{if .Verified}}<button type="button" class="chat-link" data-chat-logout>Esci dalla chat</button>{{end}}
+		<button type="button" class="chat-x" data-chat-close aria-label="Chiudi"><span class="material-icons" aria-hidden="true">close</span></button>
+	</div>
+	{{template "chat_notice"}}
+	<div class="chat-body" data-chat-body>
+		<aside class="chat-side">
+			<label class="chat-search">
+				<span class="material-icons" aria-hidden="true">search</span>
+				<input type="search" placeholder="Scrivi a un collega…" data-chat-search autocomplete="off" aria-label="Cerca un collega per nome e cognome" aria-controls="chat-results">
+			</label>
+			<ul class="chat-results" id="chat-results" data-chat-results hidden></ul>
+			{{if .Verified}}
+			<ul class="chat-list" data-chat-list aria-label="Conversazioni"></ul>
+			{{else}}
+			<div class="chat-login">
+				<span class="material-icons" aria-hidden="true">lock</span>
+				<p>Per leggere i messaggi accedi con la password di Windows (una volta sola su questo PC).</p>
+				{{if .Unread}}<p class="chat-login-new">Hai {{.Unread}} {{plural .Unread "messaggio nuovo" "messaggi nuovi"}}.</p>{{end}}
+				<form data-chat-login-form>
+					<p class="chat-as">Accedi come <strong>{{.Name}}</strong></p>
+					<input type="password" name="password" autocomplete="current-password" required aria-label="Password di Windows">
+					<button type="submit" class="primary">Accedi</button>
+					<small class="chat-err" data-chat-login-err hidden></small>
+				</form>
+				<p class="chat-login-hint">Puoi comunque scrivere a un collega: cercalo qui sopra.</p>
+			</div>
+			{{end}}
+		</aside>
+		<section class="chat-thread" data-chat-thread hidden aria-labelledby="chat-with">
+			<header class="chat-thread-head">
+				<button type="button" class="chat-back" data-chat-back aria-label="Torna alle conversazioni"><span class="material-icons" aria-hidden="true">arrow_back</span></button>
+				<span class="chat-avatar" data-chat-avatar aria-hidden="true"></span>
+				<h3 id="chat-with" data-chat-with></h3>
+				{{if .Verified}}<button type="button" class="chat-link" data-chat-block>Blocca</button>{{end}}
+			</header>
+			<div class="chat-msgs-wrap">
+				<button type="button" class="chat-more" data-chat-more hidden>Messaggi precedenti</button>
+				<ol class="chat-msgs" data-chat-msgs aria-live="polite"></ol>
+				{{if not .Verified}}<p class="chat-unverified-hint">Senza l'accesso non vedi i messaggi precedenti né le risposte, e i tuoi arrivano segnati come «non verificato».</p>{{end}}
+			</div>
+			<p class="chat-blocked-note" data-chat-blocked hidden>Hai bloccato questo collega: non ricevi i suoi messaggi.</p>
+			<form class="chat-form" data-chat-form>
+				<textarea name="testo" rows="2" maxlength="2000" required placeholder="Scrivi un messaggio… (Invio per inviare, Maiuscolo+Invio per andare a capo)" aria-label="Messaggio"></textarea>
+				<div class="chat-form-row">
+					<small class="chat-count" data-chat-count>0/2000</small>
+					<small class="chat-err" data-chat-err role="alert" hidden></small>
+					<button type="submit" class="primary"><span class="material-icons" aria-hidden="true">send</span>Invia</button>
+				</div>
+			</form>
+		</section>
+		<div class="chat-empty" data-chat-empty>
+			<span class="material-icons" aria-hidden="true">chat_bubble_outline</span>
+			<p>Scegli una conversazione o cerca un collega per scrivergli.</p>
+		</div>
+	</div>
+	<p class="visually-hidden" role="status" data-chat-status></p>
+</div>
+{{end}}
+
+{{define "chat_dialog"}}{{with .}}
+<dialog class="chat" aria-labelledby="chat-title">{{template "chat_panel" .}}</dialog>
+{{end}}{{end}}

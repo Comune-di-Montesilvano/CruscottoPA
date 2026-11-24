@@ -14,6 +14,7 @@
 	<script src="/static/js/dashboard.js" defer></script>
 	<script src="/static/js/notifiche.js" defer></script>
 	<script src="/static/js/ticket.js" defer></script>
+	<script src="/static/js/chat.js" defer></script>
 	<script src="/static/js/personalizza.js" defer></script>
 {{end}}
 
@@ -101,6 +102,7 @@
 
 		<aside class="widgets" aria-label="Oggi, calendario e guide">
 {{template "widget_assist" .Ticket}}
+			{{template "widget_chat" .Chat}}
 			<div id="mese-slot">{{template "widget_mese" .Month}}</div>
 			{{template "widget_guide" .GeneralGuides}}
 			{{template "widget_calendario" .Calendar}}
@@ -145,5 +147,6 @@
 		</div>
 	</dialog>
 {{template "ticket_dialog" .Ticket}}
+{{template "chat_dialog" .Chat}}
 </body>
 </html>{{end}}

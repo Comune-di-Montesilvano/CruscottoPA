@@ -157,6 +157,17 @@
 			});
 		}
 	}
+	// Chat: l'evento non porta testo. Senza titolo (messaggio scritto da questo
+	// utente, da un'altra scheda o PC) si aggiornano solo widget e pannello.
+	function onChat(c, leader) {
+		document.body.dispatchEvent(new Event("chat")); // widget (hx-trigger "chat from:body") e chat.js
+		if (leader && c.title && supported && active() && document.visibilityState !== "visible") {
+			const opts = { body: "", icon: "/static/img/icon-192.png", tag: "chat-" + c.id, data: { url: c.url } };
+			navigator.serviceWorker.getRegistration().then((reg) => {
+				if (reg) reg.showNotification(c.title, opts); else new Notification(c.title, opts);
+			});
+		}
+	}
 	// Avvisi e ticket ricaricati dal server: dopo un buco nel flusso o una scheda
 	// rimasta a lungo in secondo piano, gli eventi persi non tornano da soli.
 	function refreshAll() {
@@ -164,6 +175,7 @@
 			htmx.ajax("GET", "/partials/alerts", { target: "#alerts", swap: "innerHTML" });
 		}
 		document.body.dispatchEvent(new Event("ticket"));
+		document.body.dispatchEvent(new Event("chat"));
 	}
 	if ("EventSource" in window) {
 		const bc = "BroadcastChannel" in window ? new BroadcastChannel("cruscotto-eventi") : null;
@@ -209,6 +221,13 @@
 					onTicket(t, true);
 					if (bc) bc.postMessage(t);
 				});
+				es.addEventListener("chat", (e) => {
+					alive();
+					let c = {};
+					try { c = JSON.parse(e.data); } catch (_) { return; }
+					onChat(c, true);
+					if (bc) bc.postMessage(c);
+				});
 				es.addEventListener("error", () => {
 					lost = true;
 					// Risposta non SSE (es. la pagina di cortesia del proxy durante un
@@ -229,6 +248,7 @@
 				const k = e.data && e.data.kind;
 				if (k === "refresh") refreshAll();
 				else if (k === "ticket") onTicket(e.data, false);
+				else if (k === "chat") onChat(e.data, false);
 				else onAvviso(e.data, false);
 			};
 			navigator.locks.request("cruscotto-eventi", stream);

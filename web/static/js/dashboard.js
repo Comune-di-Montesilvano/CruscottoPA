@@ -209,6 +209,24 @@
 				a.addEventListener("mousemove", () => { navigated = true; setActive(options.indexOf(a), false); });
 				options.push(a);
 				group.append(a);
+				// Chat: «Scrivi a …» se il collega può riceverla (chat.js apre il pannello).
+				if (p.chat && p.uid) {
+					const c = el("a", "search-option search-chat");
+					c.id = `search-opt-${options.length}`;
+					c.href = "/chat?a=" + encodeURIComponent(p.uid);
+					c.dataset.chatOpen = p.uid;
+					c.setAttribute("role", "option");
+					c.tabIndex = -1;
+					const ci = el("span", "material-icons", "chat");
+					ci.setAttribute("aria-hidden", "true");
+					const ct = el("span", "search-text");
+					ct.append(el("span", "search-title", "Scrivi a " + p.nome));
+					c.append(ci, ct);
+					c.addEventListener("mousemove", () => { navigated = true; setActive(options.indexOf(c), false); });
+					c.addEventListener("click", () => closeResults());
+					options.push(c);
+					group.append(c);
+				}
 			});
 			if (group.children.length > 1) list.append(group);
 		}

@@ -1,0 +1,112 @@
+package web
+
+import (
+	"os"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+)
+
+const chatNotice = "Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza."
+
+func TestChatWidgetDeclared(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	chatSend(t, s, "mrossi", "abianchi", "uno", false)
+	chatSend(t, s, "mrossi", "abianchi", "due", false)
+	rec := do(t, s, "GET", "/partials/chat", nil, nil, chatAs(t, s, "abianchi", false))
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, `id="widget-chat"`) || !strings.Contains(body, "2 messaggi nuovi") || !strings.Contains(body, "Accedi per leggerli") {
+		t.Fatalf("widget non verificato: %d\n%s", rec.Code, body)
+	}
+	if strings.Contains(body, "Mario") || strings.Contains(body, "mrossi") {
+		t.Fatalf("mittente visibile senza accesso:\n%s", body)
+	}
+}
+
+func TestChatWidgetVerified(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	chatSend(t, s, "mrossi", "abianchi", "testo del messaggio", false)
+	body := do(t, s, "GET", "/partials/chat", nil, nil, chatAs(t, s, "abianchi", true)).Body.String()
+	if !strings.Contains(body, "Mario Rossi") || !strings.Contains(body, `data-chat-open="mrossi"`) || strings.Contains(body, "testo del messaggio") {
+		t.Fatalf("widget verificato:\n%s", body)
+	}
+}
+
+func TestChatWidgetHiddenOutside(t *testing.T) {
+	s, db := newChatServer(t, nil)
+	g := chatGroup(t, db, "Chat", "mrossi")
+	db.SetContentAudience(database.ContentChat, database.ChatAudienceID, database.ContentAudience{Mode: audience.ModeOnly, Groups: []int64{g}})
+	body := do(t, s, "GET", "/", nil, nil, chatAs(t, s, "abianchi", false)).Body.String()
+	if strings.Contains(body, `id="widget-chat"`) || strings.Contains(body, "data-chat-panel") {
+		t.Fatal("chat in plancia per chi è fuori dal pubblico")
+	}
+	if rec := do(t, s, "GET", "/partials/chat", nil, nil, chatAs(t, s, "abianchi", false)); rec.Code != 200 || strings.Contains(rec.Body.String(), "widget-chat") {
+		t.Fatalf("widget per chi è fuori: %d %s", rec.Code, rec.Body)
+	}
+	if body := do(t, s, "GET", "/", nil, nil, chatAs(t, s, "mrossi", false)).Body.String(); !strings.Contains(body, `id="widget-chat"`) || !strings.Contains(body, "data-chat-panel") {
+		t.Fatal("chat assente per chi è dentro")
+	}
+	off, _ := newTestServer(t, nil)
+	if body := do(t, off, "GET", "/", nil, nil, chatAs(t, off, "mrossi", false)).Body.String(); strings.Contains(body, "data-chat-panel") {
+		t.Fatal("chat in plancia a chat spenta")
+	}
+}
+
+func TestChatNoticeText(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	if body := do(t, s, "GET", "/", nil, nil, chatAs(t, s, "mrossi", false)).Body.String(); !strings.Contains(body, chatNotice) {
+		t.Fatal("avviso fisso della chat assente o diverso")
+	}
+	body := do(t, s, "GET", "/chat?a=abianchi", nil, nil, chatAs(t, s, "mrossi", false)).Body.String()
+	if !strings.Contains(body, chatNotice) || !strings.Contains(body, `data-open="abianchi"`) || !strings.Contains(body, "Accedi come <strong>Mario Rossi</strong>") {
+		t.Fatalf("pagina /chat:\n%s", body)
+	}
+}
+
+func TestChatPageUnavailable(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	rec := do(t, s, "GET", "/chat", nil, nil, nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "La chat non è disponibile") {
+		t.Fatalf("anonimo: %d\n%s", rec.Code, rec.Body)
+	}
+}
+
+// Review Focus 4: il testo dei messaggi entra nel DOM solo come testo.
+func TestChatJSSafeDOM(t *testing.T) {
+	b, err := os.ReadFile("../../web/static/js/chat.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	for _, bad := range []string{"innerHTML", "insertAdjacentHTML", "outerHTML", "document.write", "eval("} {
+		if strings.Contains(src, bad) {
+			t.Errorf("chat.js usa %s", bad)
+		}
+	}
+	if !strings.Contains(src, "textContent") || !regexp.MustCompile(`protocol\s*===?\s*"https?:"`).MatchString(src) {
+		t.Error("chat.js: manca textContent o il controllo del protocollo dei link")
+	}
+}
+
+func TestDashboardJSChatOption(t *testing.T) {
+	b, err := os.ReadFile("../../web/static/js/dashboard.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src := string(b); !strings.Contains(src, "p.chat && p.uid") || !strings.Contains(src, `"Scrivi a "`) {
+		t.Fatal("dashboard.js senza la voce «Scrivi a» nelle persone")
+	}
+}
+
+func TestNotificheJSChatEvent(t *testing.T) {
+	b, err := os.ReadFile("../../web/static/js/notifiche.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if src := string(b); !strings.Contains(src, `addEventListener("chat"`) || !strings.Contains(src, `"chat-"`) {
+		t.Fatal("notifiche.js non gestisce l'evento chat")
+	}
+}

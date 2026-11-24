@@ -49,6 +49,7 @@ type dashboardView struct {
 	Pill        pillView    // «Oggi siamo in N» (vuota = nascosta)
 	Month       *monthView  // widget «I tuoi ultimi 30 giorni» (nil = solo riconosciuti)
 	Layout      *layoutView // preferiti e «Personalizza» (nil = non riconosciuto)
+	Chat        *chatView   // widget e pannello della chat (nil = non disponibile)
 }
 
 type avvisiView struct {
@@ -137,6 +138,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		Filter:      f,
 		Admin:       s.viewerIsAdmin(r),
 		Ticket:      s.ticketViewFor(r),
+		Chat:        s.chatViewFor(w, r),
 	})
 }
 

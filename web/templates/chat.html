@@ -1,0 +1,21 @@
+{{define "chat.html"}}<!doctype html>
+<html lang="it">
+<head>
+	{{template "plancia_head"}}
+	<title>Messaggi · CruscottoPA{{template "title_ente"}}</title>
+</head>
+<body class="plancia chat-page">
+	<header class="thero">
+		<div class="thero-bar"><a class="back-btn" href="/"><span class="material-icons" aria-hidden="true">arrow_back</span>Torna alla plancia</a></div>
+	</header>
+	<main class="tpage chat-tpage">
+		{{with .Chat}}{{template "chat_panel" .}}{{else}}
+		<div class="tpage-empty">
+			<span class="material-icons" aria-hidden="true">lock</span>
+			<p>La chat non è disponibile: il Cruscotto deve riconoscerti e la chat deve essere aperta al tuo gruppo.</p>
+			<a class="tpage-back" href="/">Torna alla plancia</a>
+		</div>
+		{{end}}
+	</main>
+</body>
+</html>{{end}}

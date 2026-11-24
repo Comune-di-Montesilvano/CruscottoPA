@@ -32,8 +32,14 @@ func TestUserFilter(t *testing.T) {
 func TestMockDirectory(t *testing.T) {
 	var d Directory = MockDirectory{}
 	p, err := d.Lookup("MRossi")
-	if err != nil || !reflect.DeepEqual(p, Person{Username: "mrossi", Name: "MRossi"}) {
+	if err != nil || !reflect.DeepEqual(p, Person{Username: "mrossi", Name: "Mario Rossi"}) {
 		t.Fatalf("Lookup: %+v %v", p, err)
+	}
+	if p, _ := d.Lookup("PNuovo"); p.Name != "PNuovo" {
+		t.Fatalf("utente fuori dagli esempi: %+v", p)
+	}
+	if us, _ := d.SearchUsers("bianc"); len(us) != 1 || us[0].Username != "abianchi" {
+		t.Fatalf("ricerca per cognome: %+v", us)
 	}
 	if _, err := d.Lookup("a b"); !errors.Is(err, ErrUnknownUser) {
 		t.Fatal("username non valido accettato")
