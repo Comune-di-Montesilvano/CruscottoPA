@@ -66,7 +66,7 @@ func (s *Server) handleChatConversations(w http.ResponseWriter, r *http.Request)
 func (s *Server) chatThread(v chatViewer, convID int64, other string, before int64) (map[string]any, error) {
 	s.chatTouch(v.Username)
 	out := map[string]any{"id": convID, "con": other, "nome": s.chatName(other), "dettaglio": s.chatDetail(other), "accesso": true,
-		"oggi": s.chatTodayFor(v.Username, []string{other})[other],
+		"oggi": s.chatTodayFor(v.Username, []string{other})[other], "notifiche": s.chatNotifyState(v.Username, other),
 		"messaggi": []map[string]any{}, "altri": false}
 	blocked, err := s.db.ChatBlocked(v.Username, other)
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *Server) handleChatWith(w http.ResponseWriter, r *http.Request) {
 	}
 	if !v.Verified {
 		chatReply(w, map[string]any{"id": 0, "con": other, "nome": s.chatName(other), "dettaglio": s.chatDetail(other), "accesso": false,
-			"oggi": s.chatTodayFor(v.Username, []string{other})[other],
+			"oggi": s.chatTodayFor(v.Username, []string{other})[other], "notifiche": s.chatNotifyState(v.Username, other),
 			"messaggi": []map[string]any{}, "altri": false, "bloccato": false})
 		return
 	}

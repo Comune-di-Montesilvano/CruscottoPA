@@ -40,9 +40,10 @@
 				<input type="search" placeholder="Scrivi a un collega…" data-chat-search autocomplete="off" aria-label="Cerca un collega per nome e cognome" aria-controls="chat-results">
 			</label>
 			<ul class="chat-results" id="chat-results" data-chat-results hidden></ul>
+			<p class="chat-notify-ask" data-chat-notify-ask hidden><span class="material-icons" aria-hidden="true">notifications_off</span><span>Attiva le notifiche per sapere quando ti scrivono.</span><button type="button" data-chat-notify>Attiva</button></p>
 			{{if .Verified}}
 			<ul class="chat-list" data-chat-list aria-label="Conversazioni"></ul>
-			{{if .StatusOn}}<label class="chat-visibility" title="Chi lo nasconde non vede quello degli altri"><input type="checkbox" data-chat-visibility{{if .ShowMine}} checked{{end}}> Mostra quando sono in chat</label>{{end}}
+			{{if .StatusOn}}<label class="chat-visibility" title="Oggi in chat e notifiche attive. Chi lo nasconde non vede quello degli altri"><input type="checkbox" data-chat-visibility{{if .ShowMine}} checked{{end}}> Mostra il mio stato</label>{{end}}
 			<button type="button" class="chat-logout" data-chat-logout title="Su questo PC servirà di nuovo la password per leggere i messaggi">Logout</button>
 			{{else}}
 			<div class="chat-login">
@@ -65,6 +66,7 @@
 				<span class="chat-avatar" data-chat-avatar aria-hidden="true"></span>
 				<span class="chat-with-text"><h3 id="chat-with" data-chat-with></h3><small class="chat-with-sub" data-chat-with-sub></small></span>
 				<span class="chat-today" data-chat-today hidden><span class="chat-dot" aria-hidden="true"></span>Oggi in chat</span>
+				<span class="chat-notify-state" data-chat-notify-state hidden></span>
 				{{if .Verified}}<button type="button" class="chat-link" data-chat-block>Blocca</button>{{end}}
 			</header>
 			<div class="chat-msgs-wrap">
@@ -92,6 +94,20 @@
 	<p class="visually-hidden" role="status" data-chat-status></p>
 </div>
 {{end}}
+
+{{define "chat_toast"}}{{with .}}{{if .Unread}}
+<aside class="chat-toast" data-chat-toast data-unread="{{.Unread}}" role="status" aria-labelledby="chat-toast-title" hidden>
+	<span class="material-icons chat-toast-icon" aria-hidden="true">forum</span>
+	<div class="chat-toast-body">
+		<p class="chat-toast-title" id="chat-toast-title">Hai {{.Unread}} {{plural .Unread "messaggio nuovo" "messaggi nuovi"}} nella chat</p>
+		<p class="chat-toast-intro" data-chat-toast-intro hidden>I colleghi possono scriverti dal Cruscotto: messaggi brevi e informali, che si cancellano dopo 30 giorni.{{if not .Verified}} Per leggerli la prima volta serve la password di Windows.{{end}} Se non ti interessa, puoi ignorarli.</p>
+		<div class="chat-toast-actions">
+			<button type="button" class="primary" data-chat-open="" data-chat-toast-close>Leggi</button>
+			<button type="button" data-chat-toast-close>Ignora</button>
+		</div>
+	</div>
+</aside>
+{{end}}{{end}}{{end}}
 
 {{define "chat_dialog"}}{{with .}}
 <dialog class="chat" aria-labelledby="chat-title">{{template "chat_panel" .}}</dialog>

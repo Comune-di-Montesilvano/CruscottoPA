@@ -650,6 +650,24 @@ dialog.ticket-close p { margin: 0 0 .4rem; color: var(--p-text-2); line-height: 
 .chat-today { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: var(--p-green-text); }
 .chat-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--p-green); }
 .chat-today[hidden] { display: none; }
+.chat-notify-state { font-size: .76rem; color: var(--p-text-3); }
+.chat-notify-state.is-off { color: var(--p-red-text); }
+.chat-notify-state[hidden] { display: none; }
+.chat-notify-ask { display: flex; align-items: center; gap: .45rem; margin: 0 0 .5rem; padding: .45rem .6rem; border-radius: 10px; background: var(--p-surface-2); color: var(--p-text-2); font-size: .8rem; line-height: 1.35; }
+.chat-notify-ask[hidden] { display: none; }
+.chat-notify-ask .material-icons { font-size: 1.1rem; color: var(--p-red-text); }
+.chat-notify-ask button { margin-left: auto; flex: none; border: 1px solid var(--p-line); background: var(--p-surface); color: var(--p-blue-2); border-radius: 999px; padding: .2rem .65rem; font: inherit; font-weight: 600; cursor: pointer; }
+.chat-toast { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 50; width: min(23rem, calc(100vw - 2rem)); display: flex; gap: .7rem; padding: .9rem 1rem; background: var(--p-surface); color: var(--p-text); border: 1px solid var(--p-line); border-radius: 14px; box-shadow: var(--p-shadow); animation: chat-toast-in .25s ease-out; }
+.chat-toast[hidden] { display: none; }
+.chat-toast-icon { color: var(--p-blue-2); }
+.chat-toast-body { min-width: 0; }
+.chat-toast-title { margin: 0; font-weight: 700; }
+.chat-toast-intro { margin: .35rem 0 0; font-size: .84rem; color: var(--p-text-2); line-height: 1.4; }
+.chat-toast-actions { display: flex; gap: .5rem; margin-top: .6rem; }
+.chat-toast-actions button { border: 1px solid var(--p-line); background: var(--p-surface); color: var(--p-text); border-radius: 999px; padding: .3rem .85rem; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.chat-toast-actions button.primary { background: var(--p-blue-solid); border-color: var(--p-blue-solid); color: var(--p-on-fill); }
+@keyframes chat-toast-in { from { opacity: 0; transform: translateY(.6rem); } }
+@media (prefers-reduced-motion: reduce) { .chat-toast { animation: none; } }
 .chat-visibility { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--p-text-3); margin-bottom: .4rem; cursor: pointer; }
 
 dialog.chat { border: 0; padding: 0; background: var(--p-surface); color: var(--p-text); border-radius: 16px; width: min(880px, 96vw); height: min(640px, 92vh); box-shadow: 0 30px 80px color-mix(in srgb, var(--p-shadow-deep) 35%, transparent); overflow: hidden; }

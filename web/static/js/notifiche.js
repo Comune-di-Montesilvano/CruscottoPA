@@ -105,11 +105,12 @@
 	const offBtn = document.querySelector("[data-notify-off]");
 	function refreshOff() {
 		if (offBtn) offBtn.hidden = !supported || active();
+		document.dispatchEvent(new Event("notifiche-cambiate")); // es. invito nella chat
 	}
 	refreshOff();
 	// Anche la spilla «Notifiche attive» non ancora presa chiede il permesso.
 	document.addEventListener("click", async (e) => {
-		if (!supported || !e.target.closest?.('[data-notify-off], [data-badge="notifiche"]:not(.earned)')) return;
+		if (!supported || !e.target.closest?.('[data-notify-off], [data-chat-notify], [data-badge="notifiche"]:not(.earned)')) return;
 		if (Notification.permission === "denied") {
 			if (blocked && !blocked.open) blocked.showModal();
 			return;

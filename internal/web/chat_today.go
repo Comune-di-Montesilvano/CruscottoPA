@@ -46,6 +46,26 @@ func (s *Server) chatTodayFor(viewer string, users []string) map[string]bool {
 	return m
 }
 
+// chatNotifyState: «si» se other riceve le notifiche push, «no» se no, ""
+// se chi guarda non può saperlo (stato nascosto o spento). Stesse regole del
+// pallino: chi nasconde il proprio stato non vede quello degli altri.
+func (s *Server) chatNotifyState(viewer, other string) string {
+	if on, mine := s.chatStatusOn(viewer); !on || !mine {
+		return ""
+	}
+	if hidden, err := s.db.ChatHideStatus(other); err != nil || hidden {
+		return ""
+	}
+	on, err := s.db.ChatPushUser(other)
+	if err != nil {
+		return ""
+	}
+	if on {
+		return "si"
+	}
+	return "no"
+}
+
 // handleChatVisibility: «Mostra quando sono in chat» (nascondi=1 per nasconderlo).
 func (s *Server) handleChatVisibility(w http.ResponseWriter, r *http.Request) {
 	v, ok := s.chatViewer(w, r)
