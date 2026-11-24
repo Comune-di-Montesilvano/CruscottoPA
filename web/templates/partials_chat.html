@@ -30,7 +30,6 @@
 	<div class="chat-head">
 		<span class="material-icons" aria-hidden="true">forum</span>
 		<h2 id="chat-title">Messaggi</h2>
-		{{if .Verified}}<button type="button" class="chat-link" data-chat-logout>Esci dalla chat</button>{{end}}
 		<button type="button" class="chat-x" data-chat-close aria-label="Chiudi"><span class="material-icons" aria-hidden="true">close</span></button>
 	</div>
 	{{template "chat_notice"}}
@@ -43,6 +42,7 @@
 			<ul class="chat-results" id="chat-results" data-chat-results hidden></ul>
 			{{if .Verified}}
 			<ul class="chat-list" data-chat-list aria-label="Conversazioni"></ul>
+			<button type="button" class="chat-logout" data-chat-logout title="Su questo PC servirà di nuovo la password per leggere i messaggi">Logout</button>
 			{{else}}
 			<div class="chat-login">
 				<span class="material-icons" aria-hidden="true">lock</span>

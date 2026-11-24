@@ -136,6 +136,9 @@ func TestChatEmojiPicker(t *testing.T) {
 	if !strings.Contains(body, "data-chat-emoji") || !strings.Contains(body, "data-chat-emoji-panel") {
 		t.Fatal("selettore emoji assente")
 	}
+	if !strings.Contains(body, `class="chat-logout" data-chat-logout`) || strings.Contains(body, "Esci dalla chat") {
+		t.Fatal("logout non spostato in fondo all'elenco")
+	}
 	b, _ := os.ReadFile("../../web/static/js/chat.js")
 	if src := string(b); !strings.Contains(src, "setRangeText") || !strings.Contains(src, "EMOJI") {
 		t.Fatal("chat.js non inserisce le emoji nel testo")
