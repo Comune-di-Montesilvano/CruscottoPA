@@ -712,6 +712,11 @@ dialog.chat[open] { display: flex; }
 .chat-empty p { margin: 0; max-width: 34ch; }
 .search-option.search-chat { padding-left: 2.2rem; }
 .chat-form { position: relative; }
+.chat-notice[hidden] { display: none; }
+.chat-notice > span:not(.material-icons) { flex: 1; }
+.chat-notice-x { flex: none; border: 0; background: none; color: inherit; cursor: pointer; padding: 0 .1rem; border-radius: 50%; display: inline-grid; place-items: center; opacity: .75; }
+.chat-notice-x:hover, .chat-notice-x:focus-visible { opacity: 1; background: color-mix(in srgb, var(--p-maint-text) 12%, transparent); }
+.chat-notice-x .material-icons { font-size: 1.05rem; margin: 0; }
 .chat-logout { margin-top: auto; align-self: flex-start; border: 0; background: none; padding: .2rem .3rem; font: inherit; font-size: .75rem; color: var(--p-text-4); cursor: pointer; }
 .chat-logout:hover, .chat-logout:focus-visible { color: var(--p-text-2); text-decoration: underline; }
 .chat-emoji-btn { border: 0; background: none; color: var(--p-text-3); cursor: pointer; padding: .2rem; border-radius: 50%; display: inline-grid; place-items: center; }

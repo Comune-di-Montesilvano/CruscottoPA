@@ -276,6 +276,19 @@
 		}, 250);
 	});
 
+	// Avviso fisso: chiudibile, si ripresenta dopo NOTICE_DAYS giorni.
+	const NOTICE_KEY = "cruscotto-chat-avviso", NOTICE_DAYS = 7;
+	const notice = $("[data-chat-notice]");
+	try {
+		const t = Number(localStorage.getItem(NOTICE_KEY));
+		if (t && Date.now() - t < NOTICE_DAYS * 864e5) notice.hidden = true;
+	} catch (_) {}
+	$("[data-chat-notice-close]").addEventListener("click", () => {
+		notice.hidden = true;
+		try { localStorage.setItem(NOTICE_KEY, String(Date.now())); } catch (_) {}
+		area.focus();
+	});
+
 	// Emoji: griglia fissa, inserite nel punto del cursore.
 	const EMOJI = ["😀", "😂", "😊", "🙂", "😉", "😍", "😎", "🤔", "😅", "😮", "😢", "😴", "😡", "🙄", "🤗", "🥳",
 		"👍", "👎", "👏", "🙏", "💪", "👌", "✌️", "🤝", "👋", "❤️", "🎉", "🔥", "⭐", "✅", "❌", "⚠️",

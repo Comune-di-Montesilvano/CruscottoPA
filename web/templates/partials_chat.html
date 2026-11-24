@@ -23,7 +23,7 @@
 </section>
 {{end}}{{end}}
 
-{{define "chat_notice"}}<p class="chat-notice"><span class="material-icons" aria-hidden="true">info</span><span>Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza.</span></p>{{end}}
+{{define "chat_notice"}}<p class="chat-notice" data-chat-notice><span class="material-icons" aria-hidden="true">info</span><span>Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza.</span><button type="button" class="chat-notice-x" data-chat-notice-close aria-label="Chiudi l'avviso (torna tra 7 giorni)"><span class="material-icons" aria-hidden="true">close</span></button></p>{{end}}
 
 {{define "chat_panel"}}
 <div class="chat-panel" data-chat-panel data-me="{{.Username}}"{{if .Verified}} data-verified="1"{{end}}{{with .Open}} data-open="{{.}}"{{end}}{{with .OpenConv}} data-open-conv="{{.}}"{{end}}>
