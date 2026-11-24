@@ -2,6 +2,7 @@ package web
 
 import (
 	"log/slog"
+	"strings"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
@@ -28,6 +29,7 @@ func (s *Server) chatRoutes() {
 	s.mux.HandleFunc("POST /chat/blocchi", s.handleChatBlock)
 	s.mux.HandleFunc("GET /chat/persone", s.handleChatPeople)
 	s.mux.HandleFunc("GET /chat/stato", s.handleChatState)
+	s.mux.HandleFunc("POST /chat/visibilita", s.handleChatVisibility)
 	s.mux.HandleFunc("GET /partials/chat", s.handleChatWidget)
 	s.mux.HandleFunc("GET /chat", s.handleChatPage)
 }
@@ -35,6 +37,21 @@ func (s *Server) chatRoutes() {
 // chatAllowed: username può scrivere e ricevere messaggi. Serve un profilo AD
 // e, se l'admin ha scelto dei gruppi, la regola di visibilità della chat.
 // down = AD non raggiungibile (allowed è false).
+// chatUsername: collega indicato con lo username (sAMAccountName), mai con
+// l'UPN: mrossi@dominio sarebbe un'altra conversazione.
+func chatUsername(raw string) (string, bool) {
+	u := strings.ToLower(strings.TrimSpace(raw))
+	if u == "" || len(u) > 64 {
+		return "", false
+	}
+	for _, r := range u {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-') {
+			return "", false
+		}
+	}
+	return u, true
+}
+
 // chatPublic: chat aperta a tutti (nessun gruppo). Chi arriva da AD o dalla
 // Rubrica esiste già: non serve leggerne il profilo.
 func (s *Server) chatPublic() bool {

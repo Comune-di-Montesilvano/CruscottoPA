@@ -169,10 +169,10 @@
 			const b = el("button", "chat-conv" + (c.nuovi ? " is-new" : "") + (current && current.con === c.con ? " is-current" : ""));
 			b.type = "button";
 			b.addEventListener("click", () => openWith(c.con));
-			const av = el("span", "chat-avatar", initials(c.nome));
-			av.setAttribute("aria-hidden", "true");
+			const av = avatar(c.nome, c.oggi);
 			const txt = el("span", "chat-conv-text");
 			txt.append(el("span", "chat-conv-name", c.nome), el("span", "chat-conv-when", when(c.ultimo)));
+			if (c.oggi) txt.append(el("span", "visually-hidden", "Oggi in chat"));
 			b.append(av, txt);
 			if (c.nuovi) b.append(el("span", "chat-conv-badge", String(c.nuovi)));
 			li.append(b);
@@ -180,11 +180,24 @@
 		});
 	}
 
+	// Avatar con il pallino verde di «Oggi in chat».
+	function avatar(nome, oggi) {
+		const av = el("span", "chat-avatar" + (oggi ? " is-today" : ""), initials(nome));
+		av.setAttribute("aria-hidden", "true");
+		if (oggi) av.title = "Oggi in chat";
+		return av;
+	}
+	function showToday(d) {
+		const t = $("[data-chat-today]");
+		if (t) t.hidden = !d.oggi;
+	}
+
 	function renderThread(d, prepend) {
 		if (!prepend) {
-			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato };
+			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato, lastId: lastId(d) };
 			$("[data-chat-with]").textContent = d.nome;
 			$("[data-chat-avatar]").textContent = initials(d.nome);
+			showToday(d);
 			msgs.replaceChildren();
 			oldest = 0;
 			if (blockBtn) blockBtn.textContent = current.bloccato ? "Sblocca" : "Blocca";
@@ -224,11 +237,28 @@
 		markRead();
 	}
 
+	// Ridisegna solo se è arrivato qualcosa: chi sta leggendo i messaggi
+	// precedenti non viene riportato in fondo.
+	const lastId = (d) => (d.messaggi.length ? d.messaggi[d.messaggi.length - 1].id : 0);
 	async function reloadCurrent() {
 		if (!current || !verified) return;
-		const d = await api("GET", "/chat/con/" + encodeURIComponent(current.con));
-		if (d.ok) { renderThread(d, false); markRead(); }
+		const con = current.con;
+		const d = await api("GET", "/chat/con/" + encodeURIComponent(con));
+		if (!d.ok || !current || current.con !== con) return;
+		showToday(d);
+		if (lastId(d) !== current.lastId || !!d.bloccato !== current.bloccato) renderThread(d, false);
+		markRead();
 	}
+
+	// Riserva dell'evento SSE (flusso caduto, scheda aperta prima di un
+	// aggiornamento che tiene la connessione condivisa): controllo periodico a
+	// pannello aperto e scheda visibile.
+	const POLL_MS = 20000;
+	setInterval(() => {
+		if (!verified || document.visibilityState !== "visible" || (dialog && !dialog.open)) return;
+		loadList();
+		reloadCurrent();
+	}, POLL_MS);
 
 	function openPanel(who) {
 		if (dialog && !dialog.open) dialog.showModal();
@@ -260,9 +290,8 @@
 					const li = el("li");
 					const b = el("button", "chat-conv");
 					b.type = "button";
-					const av = el("span", "chat-avatar", initials(p.nome));
-					av.setAttribute("aria-hidden", "true");
-					b.append(av, el("span", "chat-conv-name", p.nome));
+					b.append(avatar(p.nome, p.oggi), el("span", "chat-conv-name", p.nome));
+					if (p.oggi) b.append(el("span", "visually-hidden", "Oggi in chat"));
 					b.addEventListener("click", () => {
 						search.value = "";
 						results.hidden = true;
@@ -275,6 +304,85 @@
 			results.hidden = false;
 		}, 250);
 	});
+
+	// Avviso fisso: chiudibile, si ripresenta dopo NOTICE_DAYS giorni.
+	const NOTICE_KEY = "cruscotto-chat-avviso", NOTICE_DAYS = 7;
+	const notice = $("[data-chat-notice]");
+	try {
+		const t = Number(localStorage.getItem(NOTICE_KEY));
+		if (t && Date.now() - t < NOTICE_DAYS * 864e5) notice.hidden = true;
+	} catch (_) {}
+	$("[data-chat-notice-close]").addEventListener("click", () => {
+		notice.hidden = true;
+		try { localStorage.setItem(NOTICE_KEY, String(Date.now())); } catch (_) {}
+		area.focus();
+	});
+
+	// Emoji per categoria (testo separato da spazi), più le ultime usate
+	// ricordate nel browser. Inserite nel punto del cursore.
+	const EMOJI = [
+		["🕘", "Recenti", ""],
+		["😀", "Faccine", "😀 😃 😄 😁 😆 😅 🤣 😂 🙂 🙃 😉 😊 😇 🥰 😍 🤩 😘 😗 😚 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 😌 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤧 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 💀 🤡 👻 👽 🤖 💩 🙈 🙉 🙊"],
+		["👍", "Gesti e persone", "👍 👎 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🤝 🙏 👏 🙌 👐 🤲 💪 ✍️ 💅 🤳 👀 👁️ 🧠 👂 👃 👄 🙋 🙆 🙅 🤷 🤦 🙇 💁 🧑‍💻 👩‍💻 👨‍💻 🧑‍🏫 🧑‍⚖️ 🧑‍🔧 🧑‍🍳 👮 🕵️ 👷 🧑‍⚕️ 🧑‍🎓 🏃 🚶 💃 🕺 👪 👶 🧓"],
+		["❤️", "Cuori e simboli", "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💯 ✅ ☑️ ✔️ ❌ ❎ ➕ ➖ ❓ ❗ ‼️ ⁉️ ⚠️ 🚫 ⛔ 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ ⭐ 🌟 ✨ ⚡ 🔥 💥 💫 💤 💬 💭 🗯️ 🔔 🔕 ♻️ 🆗 🆕 🆒 🆘 ℹ️ 🔝 🔜"],
+		["💻", "Lavoro e oggetti", "💻 🖥️ ⌨️ 🖱️ 🖨️ 📱 ☎️ 📞 📠 💾 💿 📀 🔌 🔋 📷 📹 🎧 📺 ⏰ ⏳ ⌛ 📅 📆 🗓️ 📇 📈 📉 📊 📋 📌 📍 📎 🖇️ 📏 📐 ✂️ 🗂️ 📁 📂 📄 📃 📑 🧾 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 ✏️ ✒️ 🖊️ 🖋️ 🖍️ 📝 📧 📨 📩 📤 📥 📦 📫 🗳️ 🔒 🔓 🔑 🗝️ 🔨 🛠️ 🔧 🔩 ⚙️ 🧰 🧲 💡 🔦 🧯 🗑️ 💰 💶 💳 🏦 ⚖️"],
+		["☕", "Cibo", "☕ 🍵 🧃 🥤 🧋 🍺 🍻 🥂 🍷 🍾 🍕 🍔 🍟 🌭 🥪 🌮 🌯 🥙 🍝 🍜 🍲 🍛 🍣 🍱 🥟 🍤 🍙 🍚 🥗 🥘 🍳 🥐 🥖 🥨 🧀 🥓 🍖 🍗 🥩 🍰 🎂 🧁 🥧 🍫 🍬 🍭 🍮 🍩 🍪 🍦 🍨 🍧 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🥕 🌽 🌶️ 🥒 🥦 🧄 🧅 🥜 🌰"],
+		["🌞", "Natura e meteo", "🌞 🌝 🌛 ⭐ 🌈 ☀️ 🌤️ ⛅ 🌥️ ☁️ 🌦️ 🌧️ ⛈️ 🌩️ 🌨️ ❄️ ☃️ ⛄ 🌬️ 💨 🌪️ 🌫️ ☔ 💧 🌊 🌍 🌋 🏔️ ⛰️ 🏖️ 🌲 🌳 🌴 🌵 🌱 🌿 ☘️ 🍀 🍁 🍂 🍃 🌷 🌹 🥀 🌺 🌸 🌼 🌻 💐 🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦆 🦉 🐴 🦄 🐝 🦋 🐌 🐞 🐢 🐍 🐙 🐬 🐳 🐟"],
+		["⚽", "Attività e viaggi", "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🎱 🏓 🏸 🥅 ⛳ 🎣 🏊 🚴 🧘 🏋️ 🎿 ⛷️ 🏆 🥇 🥈 🥉 🏅 🎖️ 🎉 🎊 🎈 🎁 🎀 🎄 🎃 🎆 🎇 🧨 🎂 🎵 🎶 🎤 🎸 🎹 🎺 🎻 🥁 🎬 🎨 🎭 🎮 🎲 🧩 ♟️ 🎯 🚗 🚕 🚙 🚌 🚎 🚑 🚒 🚓 🚲 🛵 🏍️ 🚂 🚆 🚇 🚊 ✈️ 🛫 🛬 🚀 🛳️ ⛵ 🚢 🗺️ 🧭 🏠 🏡 🏢 🏛️ 🏥 🏫 ⛪ 🏰 🗼 🗽 ⛲ 🏟️ 🅿️ 🚦 🚧 ⛽"],
+	];
+	const RECENT_KEY = "cruscotto-chat-emoji", RECENT_MAX = 24;
+	const emojiBtn = $("[data-chat-emoji]");
+	const emojiPanel = $("[data-chat-emoji-panel]");
+	const emojiTabs = el("div", "chat-emoji-tabs");
+	emojiTabs.setAttribute("role", "tablist");
+	const emojiGrid = el("div", "chat-emoji-grid");
+	emojiGrid.setAttribute("role", "tabpanel");
+	emojiPanel.append(emojiTabs, emojiGrid);
+	function recent() {
+		try { const r = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); return Array.isArray(r) ? r.filter((x) => typeof x === "string").slice(0, RECENT_MAX) : []; } catch (_) { return []; }
+	}
+	function remember(e) {
+		const r = [e, ...recent().filter((x) => x !== e)].slice(0, RECENT_MAX);
+		try { localStorage.setItem(RECENT_KEY, JSON.stringify(r)); } catch (_) {}
+	}
+	let emojiCat = 1;
+	function showEmojiCat(i) {
+		let list = i === 0 ? recent() : EMOJI[i][2].split(" ");
+		if (i === 0 && !list.length) { i = 1; list = EMOJI[1][2].split(" "); }
+		emojiCat = i;
+		emojiTabs.querySelectorAll("button").forEach((b, k) => b.setAttribute("aria-selected", String(k === i)));
+		emojiGrid.setAttribute("aria-label", EMOJI[i][1]);
+		emojiGrid.replaceChildren(...list.map((e) => {
+			const b = el("button", "chat-emoji-item", e);
+			b.type = "button";
+			b.addEventListener("click", () => {
+				const s = area.selectionStart ?? area.value.length, en = area.selectionEnd ?? s;
+				area.setRangeText(e, s, en, "end");
+				remember(e);
+				area.focus();
+				updateCount();
+			});
+			return b;
+		}));
+		emojiGrid.scrollTop = 0;
+	}
+	EMOJI.forEach(([icon, label], i) => {
+		const t = el("button", "chat-emoji-tab", icon);
+		t.type = "button";
+		t.title = label;
+		t.setAttribute("role", "tab");
+		t.setAttribute("aria-label", label);
+		t.addEventListener("click", () => showEmojiCat(i));
+		emojiTabs.append(t);
+	});
+	function emojiOpen(on) {
+		if (on) showEmojiCat(recent().length ? 0 : emojiCat || 1);
+		emojiPanel.hidden = !on;
+		emojiBtn.setAttribute("aria-expanded", String(on));
+	}
+	emojiBtn.addEventListener("click", () => emojiOpen(emojiPanel.hidden));
+	panel.addEventListener("keydown", (e) => { if (e.key === "Escape" && !emojiPanel.hidden) { e.stopPropagation(); e.preventDefault(); emojiOpen(false); emojiBtn.focus(); } });
+	document.addEventListener("click", (e) => { if (!emojiPanel.hidden && !e.target.closest("[data-chat-emoji-panel], [data-chat-emoji]")) emojiOpen(false); });
 
 	// Invio.
 	function updateCount() {
@@ -305,6 +413,7 @@
 			return;
 		}
 		area.value = "";
+		emojiOpen(false);
 		updateCount();
 		if (verified) {
 			reloadCurrent();
@@ -361,6 +470,15 @@
 		try { sessionStorage.setItem(OPEN_KEY, current ? current.con : ""); } catch (_) {}
 		location.reload();
 	});
+	// «Mostra quando sono in chat»: chi lo nasconde non vede quello degli altri.
+	const visibility = $("[data-chat-visibility]");
+	if (visibility) visibility.addEventListener("change", async () => {
+		const d = await api("POST", "/chat/visibilita", "nascondi=" + (visibility.checked ? "0" : "1"));
+		if (!d.ok) { visibility.checked = !visibility.checked; return; }
+		loadList();
+		reloadCurrent();
+	});
+
 	const logout = $("[data-chat-logout]");
 	if (logout) logout.addEventListener("click", async () => {
 		await api("POST", "/chat/esci");

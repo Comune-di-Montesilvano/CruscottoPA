@@ -295,7 +295,7 @@ func (db *DB) AddAudienceRule(r AudienceRule) (int64, error) {
 	if audience.IsRequirement(r.Kind) {
 		r.Value = ""
 	}
-	if r.Kind == audience.KindADGroup {
+	if r.Kind == audience.KindADGroup || r.Kind == audience.KindOU || r.Kind == audience.KindExcludeOU {
 		dn, err := audience.NormalizeDN(r.Value)
 		if err != nil {
 			return 0, err

@@ -23,14 +23,13 @@
 </section>
 {{end}}{{end}}
 
-{{define "chat_notice"}}<p class="chat-notice"><span class="material-icons" aria-hidden="true">info</span><span>Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza.</span></p>{{end}}
+{{define "chat_notice"}}<p class="chat-notice" data-chat-notice><span class="material-icons" aria-hidden="true">info</span><span>Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza.</span><button type="button" class="chat-notice-x" data-chat-notice-close aria-label="Chiudi l'avviso (torna tra 7 giorni)"><span class="material-icons" aria-hidden="true">close</span></button></p>{{end}}
 
 {{define "chat_panel"}}
 <div class="chat-panel" data-chat-panel data-me="{{.Username}}"{{if .Verified}} data-verified="1"{{end}}{{with .Open}} data-open="{{.}}"{{end}}{{with .OpenConv}} data-open-conv="{{.}}"{{end}}>
 	<div class="chat-head">
 		<span class="material-icons" aria-hidden="true">forum</span>
 		<h2 id="chat-title">Messaggi</h2>
-		{{if .Verified}}<button type="button" class="chat-link" data-chat-logout>Esci dalla chat</button>{{end}}
 		<button type="button" class="chat-x" data-chat-close aria-label="Chiudi"><span class="material-icons" aria-hidden="true">close</span></button>
 	</div>
 	{{template "chat_notice"}}
@@ -43,6 +42,8 @@
 			<ul class="chat-results" id="chat-results" data-chat-results hidden></ul>
 			{{if .Verified}}
 			<ul class="chat-list" data-chat-list aria-label="Conversazioni"></ul>
+			{{if .StatusOn}}<label class="chat-visibility" title="Chi lo nasconde non vede quello degli altri"><input type="checkbox" data-chat-visibility{{if .ShowMine}} checked{{end}}> Mostra quando sono in chat</label>{{end}}
+			<button type="button" class="chat-logout" data-chat-logout title="Su questo PC servirà di nuovo la password per leggere i messaggi">Logout</button>
 			{{else}}
 			<div class="chat-login">
 				<span class="material-icons" aria-hidden="true">lock</span>
@@ -63,6 +64,7 @@
 				<button type="button" class="chat-back" data-chat-back aria-label="Torna alle conversazioni"><span class="material-icons" aria-hidden="true">arrow_back</span></button>
 				<span class="chat-avatar" data-chat-avatar aria-hidden="true"></span>
 				<h3 id="chat-with" data-chat-with></h3>
+				<span class="chat-today" data-chat-today hidden><span class="chat-dot" aria-hidden="true"></span>Oggi in chat</span>
 				{{if .Verified}}<button type="button" class="chat-link" data-chat-block>Blocca</button>{{end}}
 			</header>
 			<div class="chat-msgs-wrap">
@@ -73,7 +75,9 @@
 			<p class="chat-blocked-note" data-chat-blocked hidden>Hai bloccato questo collega: non ricevi i suoi messaggi.</p>
 			<form class="chat-form" data-chat-form>
 				<textarea name="testo" rows="2" maxlength="2000" required placeholder="Scrivi un messaggio… (Invio per inviare, Maiuscolo+Invio per andare a capo)" aria-label="Messaggio"></textarea>
+				<div class="chat-emoji" id="chat-emoji" data-chat-emoji-panel role="group" aria-label="Emoji" hidden></div>
 				<div class="chat-form-row">
+					<button type="button" class="chat-emoji-btn" data-chat-emoji aria-label="Inserisci un'emoji" aria-expanded="false" aria-controls="chat-emoji"><span class="material-icons" aria-hidden="true">sentiment_satisfied_alt</span></button>
 					<small class="chat-count" data-chat-count>0/2000</small>
 					<small class="chat-err" data-chat-err role="alert" hidden></small>
 					<button type="submit" class="primary"><span class="material-icons" aria-hidden="true">send</span>Invia</button>

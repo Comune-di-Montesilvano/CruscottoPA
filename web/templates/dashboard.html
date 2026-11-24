@@ -43,7 +43,7 @@
 				</div>{{end}}
 				<button type="button" class="notify-off" data-notify-off hidden>
 					<span class="notify-off-icon"><span class="material-icons" aria-hidden="true">notifications_off</span></span>
-					<span class="notify-off-text"><strong>Notifiche disattivate</strong><small>Non riceverai gli avvisi urgenti</small></span>
+					<span class="notify-off-text"><strong>Notifiche disattivate</strong><small>Non riceverai gli avvisi urgenti{{if and .Chat .Ticket.Enabled}}, i messaggi della chat e le risposte ai ticket{{else if .Chat}} e i messaggi della chat{{else if .Ticket.Enabled}} e le risposte ai ticket{{end}}</small></span>
 					<span class="notify-off-cta">Attiva</span>
 				</button>
 			</div>

@@ -116,3 +116,24 @@ func TestMockDirectoryHeroAttributes(t *testing.T) {
 		t.Fatalf("mock senza attributi della testata: %+v", p.Attrs)
 	}
 }
+
+func TestMembersPlanOU(t *testing.T) {
+	rules := []audience.Rule{
+		{Kind: audience.KindOU, Value: "ou=settore 2,dc=example,dc=it"},
+		{Kind: audience.KindExclude, Value: "mrossi"},
+		{Kind: audience.KindExcludeOU, Value: "ou=esterni,ou=settore 2,dc=example,dc=it"},
+	}
+	plan, ok := membersPlan(rules)
+	if !ok || plan.filter != "" || len(plan.bases) != 1 || plan.bases[0] != "ou=settore 2,dc=example,dc=it" {
+		t.Fatalf("piano: %+v %v", plan, ok)
+	}
+	if !strings.Contains(plan.baseFilter, "(!(sAMAccountName=mrossi))") || len(plan.excludeOUs) != 1 {
+		t.Fatalf("filtro delle OU: %+v", plan)
+	}
+	if !plan.keep("CN=A,OU=Uffici,OU=Settore 2,DC=example,DC=it") || plan.keep("CN=B,OU=Esterni,OU=Settore 2,DC=example,DC=it") {
+		t.Fatal("esclusione per OU")
+	}
+	if _, ok := membersPlan([]audience.Rule{{Kind: audience.KindExcludeOU, Value: "ou=x,dc=it"}}); ok {
+		t.Fatal("solo esclusioni: nessun membro")
+	}
+}

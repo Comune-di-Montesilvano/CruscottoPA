@@ -8,7 +8,7 @@ import (
 
 func TestCleanupChatRetention(t *testing.T) {
 	s, db := newChatServer(t, nil)
-	old, _, _ := db.ChatConversationID("mrossi", "abianchi", true, fixedNow)
+	old, _, _ := db.ChatConversationID("mrossi", "abianchi", true, fixedNow.AddDate(0, 0, -31))
 	db.AddChatMessage(database.ChatMessage{ConversationID: old, Sender: "mrossi", Body: "vecchio", CreatedAt: fixedNow.AddDate(0, 0, -31)})
 	recent, _, _ := db.ChatConversationID("mrossi", "lverdi", true, fixedNow)
 	db.AddChatMessage(database.ChatMessage{ConversationID: recent, Sender: "mrossi", Body: "recente", CreatedAt: fixedNow.AddDate(0, 0, -29)})
@@ -24,7 +24,7 @@ func TestCleanupChatRetention(t *testing.T) {
 // Anche a chat spenta i messaggi non restano oltre i 30 giorni.
 func TestCleanupChatWhenDisabled(t *testing.T) {
 	s, db := newChatServer(t, func(o *Options) { o.Config.ChatEnabled = false })
-	c, _, _ := db.ChatConversationID("mrossi", "abianchi", true, fixedNow)
+	c, _, _ := db.ChatConversationID("mrossi", "abianchi", true, fixedNow.AddDate(0, 0, -31))
 	db.AddChatMessage(database.ChatMessage{ConversationID: c, Sender: "mrossi", Body: "vecchio", CreatedAt: fixedNow.AddDate(0, 0, -31)})
 	s.cleanupChat()
 	if us, _ := db.ChatUsers(); len(us) != 0 {
@@ -36,7 +36,7 @@ func TestCleanupChatUnknownUser(t *testing.T) {
 	s, db := newChatServer(t, nil)
 	c, _, _ := db.ChatConversationID("mrossi", "uscito", true, fixedNow)
 	db.AddChatMessage(database.ChatMessage{ConversationID: c, Sender: "mrossi", Body: "ciao", CreatedAt: fixedNow})
-	db.SetChatBlock("abianchi", "uscito", true)
+	db.SetChatBlock("abianchi", "uscito", true, fixedNow)
 	s.cleanupChat()
 	if us, _ := db.ChatUsers(); len(us) != 0 {
 		t.Fatalf("utente uscito da AD rimasto: %v", us)

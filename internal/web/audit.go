@@ -22,6 +22,7 @@ type auditAction struct{ Section, Action string }
 var auditRoutes = map[string]auditAction{
 	"POST /admin/ente": {"Ente", "modificato"},
 	"POST /admin/chat": {"Chat", "modificato"},
+	"POST /admin/chat/stato": {"Chat", "modificato"},
 
 	"POST /admin/avvisi":                 {"Avvisi", "creato"},
 	"POST /admin/avvisi/{id}":            {"Avvisi", "modificato"},

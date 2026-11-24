@@ -88,7 +88,7 @@ func ruleBlock(kind string) string {
 	switch {
 	case kind == "":
 		return ""
-	case kind == audience.KindExclude:
+	case kind == audience.KindExclude || kind == audience.KindExcludeOU:
 		return "exclude"
 	case audience.IsRequirement(kind):
 		return "require"
@@ -109,6 +109,11 @@ func ruleText(r database.AudienceRule, attrs []database.AudienceAttribute) strin
 			return "Gruppo AD " + r.Label
 		}
 		return "Gruppo AD " + r.Value
+	case audience.KindOU, audience.KindExcludeOU:
+		if r.Label != "" {
+			return "OU " + r.Label
+		}
+		return "OU " + r.Value
 	case audience.KindUser:
 		return "Utente " + r.Value
 	default:
@@ -124,11 +129,19 @@ func ruleSummary(e *groupEdit) template.HTML {
 	}
 	strong := func(s string) string { return "<strong>" + html.EscapeString(s) + "</strong>" }
 	var b strings.Builder
-	b.WriteString("Entra chi ha ")
+	b.WriteString("Entra ")
+	prevOU := true // «chi ha» davanti alla prima regola che non è un'OU
 	for i, r := range e.Include {
 		if i > 0 {
 			b.WriteString(" oppure ")
 		}
+		switch {
+		case r.Kind == audience.KindOU:
+			b.WriteString("chi è nell'")
+		case prevOU:
+			b.WriteString("chi ha ")
+		}
+		prevOU = r.Kind == audience.KindOU
 		b.WriteString(strong(r.Text))
 	}
 	var has, hasNot []string
@@ -155,6 +168,9 @@ func ruleSummary(e *groupEdit) template.HTML {
 		names := make([]string, len(e.Exclude))
 		for i, r := range e.Exclude {
 			names[i] = strong(r.Value)
+			if r.Kind == audience.KindExcludeOU {
+				names[i] = "chi è nell'" + strong(r.Text)
+			}
 		}
 		if len(names) == 1 {
 			b.WriteString("; escluso ")
@@ -477,7 +493,7 @@ func (s *Server) handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 		if !ruleUserRe.MatchString(rule.Value) {
 			errs.add("rule", "Username non valido.")
 		}
-	case audience.KindADGroup:
+	case audience.KindADGroup, audience.KindOU, audience.KindExcludeOU:
 	default:
 		errs.add("rule", "Tipo di regola non valido.")
 	}
@@ -642,6 +658,10 @@ func (s *Server) handleDraftPreview(w http.ResponseWriter, r *http.Request) {
 		if _, err := audience.NormalizeDN(draft.Value); err != nil {
 			v.Err = "Scegli il gruppo dai suggerimenti (serve il DN completo)."
 		}
+	case draft.Kind == audience.KindOU || draft.Kind == audience.KindExcludeOU:
+		if _, err := audience.NormalizeDN(draft.Value); err != nil {
+			v.Err = "Scegli l'OU dai suggerimenti (serve il DN completo)."
+		}
 	}
 	if v.Err == "" && (draft.Kind == audience.KindAttr || audience.IsRequirement(draft.Kind)) {
 		attrs, err := s.db.ListAudienceAttributes()
@@ -781,6 +801,23 @@ func (s *Server) suggestGroups(q string) suggestionsView {
 	return v
 }
 
+// suggestOUs: unità organizzative; il testo mostra il percorso (DN) perché
+// OU con lo stesso nome possono stare in rami diversi.
+func (s *Server) suggestOUs(q string) suggestionsView {
+	if s.directory == nil {
+		return suggestionsView{Err: adUnavailable}
+	}
+	os, err := s.directory.SearchOUs(q)
+	if err != nil {
+		return suggestionsView{Err: adUnavailable}
+	}
+	v := suggestionsView{}
+	for _, o := range os {
+		v.Items = append(v.Items, suggestion{Value: o.DN, Label: o.Name, Text: o.DN})
+	}
+	return v
+}
+
 func (s *Server) suggestUsers(q string) suggestionsView {
 	if s.directory == nil {
 		return suggestionsView{Err: adUnavailable}
@@ -821,6 +858,8 @@ func (s *Server) handleSuggest(w http.ResponseWriter, r *http.Request) {
 		v = s.suggestValues(r.FormValue("attr"), q)
 	case audience.KindADGroup:
 		v = s.suggestGroups(q)
+	case audience.KindOU, audience.KindExcludeOU:
+		v = s.suggestOUs(q)
 	default:
 		v = s.suggestUsers(q)
 	}

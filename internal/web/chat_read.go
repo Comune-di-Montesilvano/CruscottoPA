@@ -42,23 +42,31 @@ func (s *Server) handleChatConversations(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
+	s.chatTouch(v.Username)
 	cs, err := s.db.ListChatConversations(v.Username, chatListSize)
 	if err != nil {
 		slog.Error("chat: conversazioni", "err", err)
 		chatFail(w, "errore")
 		return
 	}
+	others := make([]string, len(cs))
+	for i, c := range cs {
+		others[i] = c.Other
+	}
+	today := s.chatTodayFor(v.Username, others)
 	out := make([]map[string]any, 0, len(cs))
 	for _, c := range cs {
 		out = append(out, map[string]any{"id": c.ID, "con": c.Other, "nome": s.chatName(c.Other),
-			"ultimo": chatTime(c.LastAt), "nuovi": c.Unread})
+			"ultimo": chatTime(c.LastAt), "nuovi": c.Unread, "oggi": today[c.Other]})
 	}
 	chatReply(w, map[string]any{"conversazioni": out})
 }
 
 // chatThread: messaggi visibili a v prima di before (0 = più recenti).
 func (s *Server) chatThread(v chatViewer, convID int64, other string, before int64) (map[string]any, error) {
+	s.chatTouch(v.Username)
 	out := map[string]any{"id": convID, "con": other, "nome": s.chatName(other), "accesso": true,
+		"oggi": s.chatTodayFor(v.Username, []string{other})[other],
 		"messaggi": []map[string]any{}, "altri": false}
 	blocked, err := s.db.ChatBlocked(v.Username, other)
 	if err != nil {
@@ -125,8 +133,8 @@ func (s *Server) handleChatWith(w http.ResponseWriter, r *http.Request) {
 		s.chatDenied(w, r)
 		return
 	}
-	other := strings.ToLower(strings.TrimSpace(r.PathValue("utente")))
-	if other == "" || other == v.Username {
+	other, ok := chatUsername(r.PathValue("utente"))
+	if !ok || other == v.Username {
 		chatFail(w, "destinatario")
 		return
 	}
@@ -144,6 +152,7 @@ func (s *Server) handleChatWith(w http.ResponseWriter, r *http.Request) {
 	}
 	if !v.Verified {
 		chatReply(w, map[string]any{"id": 0, "con": other, "nome": s.chatName(other), "accesso": false,
+			"oggi": s.chatTodayFor(v.Username, []string{other})[other],
 			"messaggi": []map[string]any{}, "altri": false, "bloccato": false})
 		return
 	}
@@ -185,12 +194,12 @@ func (s *Server) handleChatBlock(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	other := strings.ToLower(strings.TrimSpace(r.FormValue("utente")))
-	if other == "" || other == v.Username {
+	other, ok := chatUsername(r.FormValue("utente"))
+	if !ok || other == v.Username {
 		chatFail(w, "destinatario")
 		return
 	}
-	if err := s.db.SetChatBlock(v.Username, other, r.FormValue("blocca") == "1"); err != nil {
+	if err := s.db.SetChatBlock(v.Username, other, r.FormValue("blocca") == "1", s.now()); err != nil {
 		slog.Error("chat: blocco", "err", err)
 		chatFail(w, "errore")
 		return
@@ -231,6 +240,14 @@ func (s *Server) handleChatPeople(w http.ResponseWriter, r *http.Request) {
 				name = u
 			}
 			out = append(out, map[string]any{"utente": u, "nome": name})
+		}
+		users := make([]string, len(out))
+		for i, p := range out {
+			users[i] = p["utente"].(string)
+		}
+		today := s.chatTodayFor(v.Username, users)
+		for _, p := range out {
+			p["oggi"] = today[p["utente"].(string)]
 		}
 	}
 	chatReply(w, map[string]any{"persone": out})
