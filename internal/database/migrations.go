@@ -26,6 +26,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV15Layout,
 	migrateV16OpensByDay,
 	migrateV17AlertArchive,
+	migrateV18AdminLog,
 }
 
 func (db *DB) migrate() error {
@@ -459,5 +460,26 @@ CREATE INDEX idx_user_app_opens_day ON user_app_opens(day);
 // toccare la scadenza né eliminarli). NULL = non archiviato.
 func migrateV17AlertArchive(tx *sql.Tx) error {
 	_, err := tx.Exec(`ALTER TABLE alerts ADD COLUMN archived_at TEXT`)
+	return err
+}
+
+// migrateV18AdminLog: registro delle modifiche fatte dall'admin (chi, cosa,
+// quando). Il titolo è una copia: la riga resta leggibile anche dopo
+// l'eliminazione dell'oggetto.
+func migrateV18AdminLog(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE admin_log (
+	id        INTEGER PRIMARY KEY AUTOINCREMENT,
+	at        TEXT NOT NULL,
+	username  TEXT NOT NULL,
+	section   TEXT NOT NULL,
+	action    TEXT NOT NULL,
+	object_id TEXT NOT NULL DEFAULT '',
+	title     TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX idx_admin_log_at ON admin_log(at);
+CREATE INDEX idx_admin_log_user ON admin_log(username);
+CREATE INDEX idx_admin_log_section ON admin_log(section);
+`)
 	return err
 }
