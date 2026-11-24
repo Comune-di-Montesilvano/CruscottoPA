@@ -34,6 +34,7 @@ type fakeDirectory struct {
 	people   map[string]identity.Person
 	profiles map[string]audience.Profile
 	groups   []identity.ADGroup
+	ous      []identity.ADGroup
 	values   map[string][]string
 	members  []identity.Person
 	err      error
@@ -55,6 +56,7 @@ func (f fakeDirectory) Profile(u string, _ []string) (audience.Profile, error) {
 }
 
 func (f fakeDirectory) SearchGroups(string) ([]identity.ADGroup, error) { return f.groups, f.err }
+func (f fakeDirectory) SearchOUs(string) ([]identity.ADGroup, error)    { return f.ous, f.err }
 func (f fakeDirectory) SearchUsers(string) ([]identity.Person, error)   { return f.members, f.err }
 func (f fakeDirectory) AttributeValues(a string) ([]string, error)      { return f.values[a], f.err }
 

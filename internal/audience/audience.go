@@ -17,11 +17,14 @@ const (
 	KindExclude = "exclude" // utente escluso
 	KindPresent = "present" // requisito: attributo compilato
 	KindAbsent  = "absent"  // requisito: attributo vuoto
+	// Unità organizzativa (DN), sotto-OU comprese: per entrare o per escludere.
+	KindOU        = "ou"
+	KindExcludeOU = "exclude_ou"
 )
 
 func ValidKind(k string) bool {
 	switch k {
-	case KindAttr, KindADGroup, KindUser, KindExclude, KindPresent, KindAbsent:
+	case KindAttr, KindADGroup, KindUser, KindExclude, KindPresent, KindAbsent, KindOU, KindExcludeOU:
 		return true
 	}
 	return false
@@ -36,6 +39,7 @@ type Profile struct {
 	Username string              // minuscolo
 	Attrs    map[string][]string // nome attributo minuscolo → valori
 	Groups   []string            // DN dei gruppi AD, annidati compresi
+	DN       string              // DN dell'utente (per le regole sulle OU)
 }
 
 type Rule struct{ Kind, Attr, Value string }
@@ -53,6 +57,12 @@ func Member(p Profile, rules []Rule) bool {
 			if norm(r.Value) == user {
 				return false
 			}
+		case KindExcludeOU:
+			if InOU(p.DN, r.Value) {
+				return false
+			}
+		case KindOU:
+			in = in || InOU(p.DN, r.Value)
 		case KindPresent, KindAbsent:
 			if hasValue(p.Attrs[norm(r.Attr)]) != (r.Kind == KindPresent) {
 				return false
@@ -90,6 +100,16 @@ func sameDN(a, b string) bool {
 		return norm(a) == norm(b)
 	}
 	return da.EqualFold(db)
+}
+
+// InOU: il DN dell'utente sta nell'OU ou o in una sua sotto-OU.
+func InOU(userDN, ou string) bool {
+	u, errU := ldap.ParseDN(userDN)
+	o, errO := ldap.ParseDN(ou)
+	if errU != nil || errO != nil || len(o.RDNs) == 0 {
+		return false
+	}
+	return o.AncestorOfFold(u)
 }
 
 // NormalizeDN: forma canonica minuscola di un DN, per salvarlo e confrontarlo.

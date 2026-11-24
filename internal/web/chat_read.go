@@ -125,8 +125,8 @@ func (s *Server) handleChatWith(w http.ResponseWriter, r *http.Request) {
 		s.chatDenied(w, r)
 		return
 	}
-	other := strings.ToLower(strings.TrimSpace(r.PathValue("utente")))
-	if other == "" || other == v.Username {
+	other, ok := chatUsername(r.PathValue("utente"))
+	if !ok || other == v.Username {
 		chatFail(w, "destinatario")
 		return
 	}
@@ -185,12 +185,12 @@ func (s *Server) handleChatBlock(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	other := strings.ToLower(strings.TrimSpace(r.FormValue("utente")))
-	if other == "" || other == v.Username {
+	other, ok := chatUsername(r.FormValue("utente"))
+	if !ok || other == v.Username {
 		chatFail(w, "destinatario")
 		return
 	}
-	if err := s.db.SetChatBlock(v.Username, other, r.FormValue("blocca") == "1"); err != nil {
+	if err := s.db.SetChatBlock(v.Username, other, r.FormValue("blocca") == "1", s.now()); err != nil {
 		slog.Error("chat: blocco", "err", err)
 		chatFail(w, "errore")
 		return

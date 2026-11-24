@@ -36,6 +36,8 @@ type Directory interface {
 	// Profile: attributi richiesti (chiavi minuscole) e gruppi, annidati compresi.
 	Profile(username string, attrs []string) (audience.Profile, error)
 	SearchGroups(q string) ([]ADGroup, error)
+	// SearchOUs: unità organizzative per nome (Name = nome dell'OU).
+	SearchOUs(q string) ([]ADGroup, error)
 	SearchUsers(q string) ([]Person, error)
 	AttributeValues(attr string) ([]string, error)
 	// Members: utenti che soddisfano le regole (totale e primi 30), con i
@@ -90,7 +92,49 @@ func searchFilter(q string, attrs ...string) string {
 // membersFilter traduce le regole in un filtro sugli utenti attivi; false se
 // non c'è nessuna regola positiva (gruppo senza membri). I requisiti vanno in
 // AND con le esclusioni.
+// membersQuery: come cercare i membri. AD non filtra per OU (niente :dn:):
+// ogni OU da includere è una ricerca a parte con quella base, le OU escluse si
+// tolgono dai risultati.
+type membersQuery struct {
+	filter     string   // ricerca su tutta la base ("" = nessuna)
+	bases      []string // OU da includere
+	baseFilter string   // filtro delle ricerche nelle OU (attivi, esclusioni, requisiti)
+	excludeOUs []string
+}
+
+func (q membersQuery) keep(dn string) bool {
+	for _, ou := range q.excludeOUs {
+		if audience.InOU(dn, ou) {
+			return false
+		}
+	}
+	return true
+}
+
+func membersPlan(rules []audience.Rule) (membersQuery, bool) {
+	var q membersQuery
+	for _, r := range rules {
+		switch r.Kind {
+		case audience.KindOU:
+			q.bases = append(q.bases, strings.TrimSpace(r.Value))
+		case audience.KindExcludeOU:
+			q.excludeOUs = append(q.excludeOUs, strings.TrimSpace(r.Value))
+		}
+	}
+	filter, not, ok := membersFilterParts(rules)
+	if ok {
+		q.filter = filter
+	}
+	q.baseFilter = "(&" + activeUsersFilter + not + ")"
+	return q, ok || len(q.bases) > 0
+}
+
 func membersFilter(rules []audience.Rule) (string, bool) {
+	f, _, ok := membersFilterParts(rules)
+	return f, ok
+}
+
+func membersFilterParts(rules []audience.Rule) (string, string, bool) {
 	var or, not strings.Builder
 	for _, r := range rules {
 		v := ldap.EscapeFilter(strings.TrimSpace(r.Value))
@@ -116,9 +160,9 @@ func membersFilter(rules []audience.Rule) (string, bool) {
 		}
 	}
 	if or.Len() == 0 {
-		return "", false
+		return "", not.String(), false
 	}
-	return "(&" + activeUsersFilter + "(|" + or.String() + ")" + not.String() + ")", true
+	return "(&" + activeUsersFilter + "(|" + or.String() + ")" + not.String() + ")", not.String(), true
 }
 
 var personAttrs = []string{"sAMAccountName", "displayName", "givenName"}
@@ -162,7 +206,11 @@ func (d *LDAPDirectory) conn() (*ldap.Conn, error) {
 }
 
 func (d *LDAPDirectory) search(conn *ldap.Conn, filter string, attrs []string, limit int) ([]*ldap.Entry, error) {
-	req := ldap.NewSearchRequest(d.cfg.BaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, limit, 10, false, filter, attrs, nil)
+	return d.searchIn(conn, d.cfg.BaseDN, filter, attrs, limit)
+}
+
+func (d *LDAPDirectory) searchIn(conn *ldap.Conn, base, filter string, attrs []string, limit int) ([]*ldap.Entry, error) {
+	req := ldap.NewSearchRequest(base, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, limit, 10, false, filter, attrs, nil)
 	var res *ldap.SearchResult
 	var err error
 	if limit == 0 {
@@ -223,7 +271,7 @@ func (d *LDAPDirectory) Profile(username string, attrs []string) (audience.Profi
 		return audience.Profile{}, ErrUnknownUser
 	}
 	e := entries[0]
-	p := audience.Profile{Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")), Attrs: map[string][]string{}, Groups: []string{}}
+	p := audience.Profile{Username: strings.ToLower(e.GetAttributeValue("sAMAccountName")), Attrs: map[string][]string{}, Groups: []string{}, DN: e.DN}
 	for _, a := range want[1:] {
 		for _, v := range e.GetAttributeValues(a) {
 			if v = strings.TrimSpace(v); v != "" {
@@ -315,7 +363,7 @@ func (d *LDAPDirectory) loadValues(attr string) ([]string, error) {
 }
 
 func (d *LDAPDirectory) Members(rules []audience.Rule, attrs []string) (int, []Person, error) {
-	filter, ok := membersFilter(rules)
+	plan, ok := membersPlan(rules)
 	if !ok {
 		return 0, []Person{}, nil
 	}
@@ -330,9 +378,30 @@ func (d *LDAPDirectory) Members(rules []audience.Rule, attrs []string) (int, []P
 			want = append(want, a)
 		}
 	}
-	entries, err := d.search(conn, filter, want, 0)
-	if err != nil {
-		return 0, nil, err
+	var found []*ldap.Entry
+	if plan.filter != "" {
+		es, err := d.search(conn, plan.filter, want, 0)
+		if err != nil {
+			return 0, nil, err
+		}
+		found = append(found, es...)
+	}
+	for _, base := range plan.bases {
+		es, err := d.searchIn(conn, base, plan.baseFilter, want, 0)
+		if ldap.IsErrorWithCode(errors.Unwrap(err), ldap.LDAPResultNoSuchObject) {
+			continue // OU cancellata o spostata: nessun membro da lì
+		} else if err != nil {
+			return 0, nil, err
+		}
+		found = append(found, es...)
+	}
+	seen := map[string]bool{}
+	entries := found[:0]
+	for _, e := range found {
+		if k := strings.ToLower(e.DN); !seen[k] && plan.keep(e.DN) {
+			seen[k] = true
+			entries = append(entries, e)
+		}
 	}
 	people := make([]Person, 0, len(entries))
 	for _, e := range entries {
@@ -408,7 +477,8 @@ func (MockDirectory) Profile(username string, attrs []string) (audience.Profile,
 	if !usernameRe.MatchString(username) {
 		return audience.Profile{}, ErrUnknownUser
 	}
-	p := audience.Profile{Username: strings.ToLower(username), Attrs: map[string][]string{}, Groups: []string{mockGroups[1].DN}}
+	p := audience.Profile{Username: strings.ToLower(username), Attrs: map[string][]string{}, Groups: []string{mockGroups[1].DN},
+		DN: "CN=" + ldap.EscapeDN(username) + ",OU=Settore 2,DC=mock"}
 	mock := map[string]string{
 		"physicaldeliveryofficename": "INFORMATIZZAZIONE",
 		"description":                "CED",
@@ -422,6 +492,42 @@ func (MockDirectory) Profile(username string, attrs []string) (audience.Profile,
 		}
 	}
 	return p, nil
+}
+
+var mockOUs = []ADGroup{
+	{DN: "OU=Settore 2,DC=mock", Name: "Settore 2"},
+	{DN: "OU=Esterni,OU=Settore 2,DC=mock", Name: "Esterni"},
+}
+
+func (MockDirectory) SearchOUs(q string) ([]ADGroup, error) {
+	out := []ADGroup{}
+	for _, o := range mockOUs {
+		if q != "" && strings.Contains(strings.ToLower(o.Name), strings.ToLower(q)) {
+			out = append(out, o)
+		}
+	}
+	return out, nil
+}
+
+func (d *LDAPDirectory) SearchOUs(q string) ([]ADGroup, error) {
+	if strings.TrimSpace(q) == "" {
+		return []ADGroup{}, nil
+	}
+	conn, err := d.conn()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	entries, err := d.search(conn, "(&(objectClass=organizationalUnit)"+searchFilter(q, "ou")+")", []string{"ou"}, searchLimit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ADGroup, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, ADGroup{DN: e.DN, Name: e.GetAttributeValue("ou")})
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].DN) < strings.ToLower(out[j].DN) })
+	return out, nil
 }
 
 func (MockDirectory) SearchGroups(q string) ([]ADGroup, error) {
@@ -456,7 +562,7 @@ func (MockDirectory) AttributeValues(attr string) ([]string, error) {
 }
 
 func (MockDirectory) Members(rules []audience.Rule, attrs []string) (int, []Person, error) {
-	if _, ok := membersFilter(rules); !ok {
+	if plan, ok := membersPlan(rules); !ok || !plan.keep("CN=mock,OU=Settore 2,DC=mock") {
 		return 0, []Person{}, nil
 	}
 	p := Person{Username: "mock", Name: "Utente Mock", Attrs: map[string]string{}}

@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"net/http"
 	"net/url"
 	"strings"
@@ -139,5 +140,36 @@ func TestClipQueryKeepsUTF8(t *testing.T) {
 	q := clipQuery("a" + strings.Repeat("è", 40)) // 81 byte: il taglio a 64 cade a metà di una "è"
 	if !utf8.ValidString(q) || len(q) > 64 {
 		t.Fatalf("clipQuery: %d byte, UTF-8 valido=%v", len(q), utf8.ValidString(q))
+	}
+}
+
+func TestAudienceRuleOU(t *testing.T) {
+	dir := testDirectory
+	dir.ous = []identity.ADGroup{{DN: "OU=Settore 2,DC=example,DC=it", Name: "Settore 2"}}
+	s, db := newTestServerWith(t, nil, func(o *Options) { o.Directory = dir })
+	c := login(t, s)
+	g, _ := db.CreateAudienceGroup("Settore 2")
+	gid := itoa(g)
+	if body := do(t, s, "GET", "/admin/ad/suggerimenti?kind=ou&value=sett", nil, c, hx).Body.String(); !strings.Contains(body, "OU=Settore 2,DC=example,DC=it") {
+		t.Fatalf("suggerimenti OU:\n%s", body)
+	}
+	rec := do(t, s, "POST", "/admin/gruppi/"+gid+"/regole", url.Values{"kind": {"ou"}, "value": {"OU=Settore 2, DC=example,DC=it"}, "label": {"Settore 2"}}, c, hx)
+	if rec.Code != 200 || invalid(rec) {
+		t.Fatalf("regola OU: %d\n%s", rec.Code, rec.Body)
+	}
+	rec = do(t, s, "POST", "/admin/gruppi/"+gid+"/regole", url.Values{"kind": {"exclude_ou"}, "value": {"OU=Esterni,OU=Settore 2,DC=example,DC=it"}, "label": {"Esterni"}}, c, hx)
+	if body := rec.Body.String(); invalid(rec) || !strings.Contains(body, "Entra chi è nell'<strong>OU Settore 2</strong>") || !strings.Contains(body, "escluso chi è nell'<strong>OU Esterni</strong>") {
+		t.Fatalf("regole OU nella pagina:\n%s", body)
+	}
+	rules, _ := db.ListAudienceRules(g)
+	saved := map[string]string{}
+	for _, r := range rules {
+		saved[r.Kind] = r.Value
+	}
+	if len(rules) != 2 || saved["ou"] != "ou=settore 2,dc=example,dc=it" || saved["exclude_ou"] != "ou=esterni,ou=settore 2,dc=example,dc=it" {
+		t.Fatalf("regole salvate: %+v", rules)
+	}
+	if rec := do(t, s, "POST", "/admin/gruppi/"+gid+"/regole", url.Values{"kind": {"ou"}, "value": {"Settore 2"}}, c, hx); !invalid(rec) {
+		t.Fatal("OU senza DN accettata")
 	}
 }

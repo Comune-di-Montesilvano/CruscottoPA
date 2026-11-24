@@ -57,7 +57,7 @@ func TestChatSendVerified(t *testing.T) {
 // Review Focus 2: il bloccato non se ne accorge, il destinatario non vede nulla.
 func TestChatSendBlocked(t *testing.T) {
 	s, db := newChatServer(t, nil)
-	db.SetChatBlock("abianchi", "mrossi", true)
+	db.SetChatBlock("abianchi", "mrossi", true, fixedNow)
 	c, _ := s.hub.Subscribe("abianchi")
 	defer s.hub.Unsubscribe(c)
 	if m := chatSend(t, s, "mrossi", "abianchi", "ciao", true); m["ok"] != true {

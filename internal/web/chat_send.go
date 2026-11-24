@@ -43,6 +43,11 @@ func (s *Server) chatName(username string) string {
 // verified, IP e PC. A un collega che ha bloccato il mittente il messaggio
 // non arriva, ma la risposta è identica (il bloccato non lo sa).
 func (s *Server) handleChatSend(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, chatMaxBody)
+	if err := r.ParseForm(); err != nil {
+		chatFail(w, "lungo")
+		return
+	}
 	v, ok := s.chatViewer(w, r)
 	if !ok {
 		s.chatDenied(w, r)
@@ -66,8 +71,8 @@ func (s *Server) handleChatSend(w http.ResponseWriter, r *http.Request) {
 		chatFail(w, "lungo")
 		return
 	}
-	to := strings.ToLower(strings.TrimSpace(r.FormValue("a")))
-	if to == "" || to == v.Username {
+	to, valid := chatUsername(r.FormValue("a"))
+	if !valid || to == v.Username {
 		chatFail(w, "destinatario")
 		return
 	}
@@ -80,6 +85,12 @@ func (s *Server) handleChatSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := s.now()
+	// Prima il limite per minuto e ora: un invio rifiutato non crea la
+	// conversazione né consuma la quota giornaliera.
+	if !s.chatLimits.allowMessage(v.Username, now) {
+		chatFail(w, "limite")
+		return
+	}
 	convID, _, err := s.db.ChatConversationID(v.Username, to, false, now)
 	if errors.Is(err, database.ErrNotFound) {
 		if !s.chatLimits.allowNewConversation(v.Username, s.dayOf(now)) {
@@ -91,10 +102,6 @@ func (s *Server) handleChatSend(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("chat: conversazione", "err", err)
 		chatFail(w, "errore")
-		return
-	}
-	if !s.chatLimits.allowMessage(v.Username, now) {
-		chatFail(w, "limite")
 		return
 	}
 	blocked, err := s.db.ChatBlocked(to, v.Username)
@@ -139,9 +146,13 @@ func (s *Server) notifyChat(to, from string, convID int64, fromName string, veri
 		return
 	}
 	payload, _ := json.Marshal(map[string]string{"title": title, "body": "", "url": url, "tag": fmt.Sprintf("chat-%d", convID)})
+	if !s.chatPushSlot() {
+		slog.Warn("chat: troppe push in corso, notifica solo in tempo reale")
+		return
+	}
 	s.chatPush.Add(1)
 	go func() {
-		defer s.chatPush.Done()
+		defer func() { <-s.chatPushSem; s.chatPush.Done() }()
 		for _, sub := range subs {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			gone, err := s.pusher.Send(ctx, sub, payload, false)
@@ -154,4 +165,21 @@ func (s *Server) notifyChat(to, from string, convID int64, fromName string, veri
 			}
 		}
 	}()
+}
+
+// chatPushMax: invii push della chat in corso insieme (come il dispatcher).
+const chatPushMax = 8
+
+// chatMaxBody: corpo di POST /chat/messaggi (2000 rune = al più 8 KB).
+const chatMaxBody = 16 << 10
+
+// chatPushSlot prende un posto di invio senza aspettare; chi lo ottiene lo
+// libera a fine invio.
+func (s *Server) chatPushSlot() bool {
+	select {
+	case s.chatPushSem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
 }

@@ -86,3 +86,23 @@ func TestMemberDNAndMultiValued(t *testing.T) {
 		t.Error("attributo a più valori: deve bastare uno dei valori")
 	}
 }
+
+func TestMemberOU(t *testing.T) {
+	p := Profile{Username: "mrossi", DN: "CN=Mario Rossi,OU=Tributi,OU=Settore 2,DC=example,DC=it"}
+	ou := Rule{Kind: KindOU, Value: "ou=settore 2,dc=example,dc=it"}
+	if !Member(p, []Rule{ou}) {
+		t.Fatal("utente in una sotto-OU non incluso")
+	}
+	if Member(p, []Rule{{Kind: KindOU, Value: "OU=Settore 1,DC=example,DC=it"}}) {
+		t.Fatal("OU diversa inclusa")
+	}
+	if Member(p, []Rule{ou, {Kind: KindExcludeOU, Value: "OU=Tributi,OU=Settore 2,DC=example,DC=it"}}) {
+		t.Fatal("OU esclusa non rispettata")
+	}
+	if Member(Profile{Username: "x"}, []Rule{ou}) {
+		t.Fatal("profilo senza DN incluso")
+	}
+	if !ValidKind(KindOU) || !ValidKind(KindExcludeOU) || IsRequirement(KindExcludeOU) {
+		t.Fatal("tipi OU")
+	}
+}

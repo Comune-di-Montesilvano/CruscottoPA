@@ -66,6 +66,7 @@ type Server struct {
 	chatCookies     *identity.ChatCodec // accesso verificato alla chat
 	chatLimits      *chatLimits         // limiti di invio per mittente
 	chatPush        sync.WaitGroup      // push della chat in corso
+	chatPushSem     chan struct{}       // posti di invio push della chat (chatPushMax)
 	profiles        *profileCache
 	membersCache    *membersCache
 	limiter         *auth.RateLimiter
@@ -152,6 +153,7 @@ func New(o Options) (*Server, error) {
 	s.chatCookies = identity.NewChatCodec(o.Config.SessionSecret)
 	s.chatCookies.SetClock(o.Now)
 	s.chatLimits = newChatLimits()
+	s.chatPushSem = make(chan struct{}, chatPushMax)
 	s.profiles = newProfileCache(o.Now)
 	s.ticketCache = newTicketCache(o.Now)
 	s.ticketDownloads = make(chan struct{}, 4)
@@ -192,6 +194,13 @@ func (s *Server) StartNotifications(ctx context.Context) {
 // finisca il ciclo in corso: dopo si può chiudere il database.
 func (s *Server) Close() {
 	s.hub.Close()
+	pushed := make(chan struct{})
+	go func() { s.chatPush.Wait(); close(pushed) }()
+	select {
+	case <-pushed:
+	case <-time.After(5 * time.Second):
+		slog.Warn("chat: push ancora in corso allo spegnimento")
+	}
 	if s.notifyDone == nil {
 		return
 	}

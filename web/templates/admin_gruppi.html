@@ -91,6 +91,7 @@
 			{{$kind := ""}}{{if eq .FormBlock "include"}}{{$kind = .Form.Kind}}{{end}}{{if not $kind}}{{if .Attributes}}{{$kind = "attr"}}{{else}}{{$kind = "adgroup"}}{{end}}{{end}}
 			<label>Tipo<select name="kind" data-rule-kind>
 				<option value="attr"{{if eq $kind "attr"}} selected{{end}}>Attributo</option><option value="adgroup"{{if eq $kind "adgroup"}} selected{{end}}>Gruppo AD</option>
+				<option value="ou"{{if eq $kind "ou"}} selected{{end}}>Unità organizzativa (OU)</option>
 				<option value="user"{{if eq $kind "user"}} selected{{end}}>Utente</option>
 			</select></label>
 			{{$attr := .Form.Attr}}<label data-for-kind="attr"{{if ne $kind "attr"}} hidden{{end}}>Attributo<select name="attr">{{range .Attributes}}<option value="{{.Name}}"{{if eq .Name $attr}} selected{{end}}>{{.Label}}</option>{{else}}<option value="" disabled selected>Nessun attributo configurato</option>{{end}}</select>
@@ -130,10 +131,15 @@
 			{{range .Exclude}}{{template "rule_chip" .}}{{else}}<li class="muted">Nessuno.</li>{{end}}
 		</ul>
 		<form class="form rule-form" hx-post="/admin/gruppi/{{$g}}/regole" hx-target="#section" hx-swap="outerHTML">
-			<input type="hidden" name="kind" value="exclude">
-			<label>Utente<input name="value" value="{{if eq .FormBlock "exclude"}}{{.Form.Value}}{{end}}" autocomplete="off" required placeholder="username"
+			{{$xk := "exclude"}}{{if eq .FormBlock "exclude"}}{{$xk = .Form.Kind}}{{end}}
+			<label>Tipo<select name="kind">
+				<option value="exclude"{{if eq $xk "exclude"}} selected{{end}}>Utente</option>
+				<option value="exclude_ou"{{if eq $xk "exclude_ou"}} selected{{end}}>Unità organizzativa (OU)</option>
+			</select></label>
+			<label>Chi<input name="value" value="{{if eq .FormBlock "exclude"}}{{.Form.Value}}{{end}}" autocomplete="off" required placeholder="username o nome dell'OU"
 				hx-get="/admin/ad/suggerimenti" hx-trigger="input changed delay:300ms" hx-include="closest form" hx-target="next .suggestions" hx-swap="innerHTML"></label>
 			<div class="suggestions"></div>
+			<input type="hidden" name="label" value="{{if eq .FormBlock "exclude"}}{{.Form.Label}}{{end}}">
 			{{template "draft_box" $g}}
 			<button class="primary" type="submit">Escludi</button>
 		</form>
