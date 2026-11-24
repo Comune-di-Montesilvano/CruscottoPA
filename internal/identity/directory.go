@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
@@ -179,9 +180,23 @@ func personFromEntry(e *ldap.Entry) Person {
 
 func personOffice(department, office string) string {
 	if d := strings.TrimSpace(department); d != "" {
-		return d
+		return NiceOffice(d)
 	}
-	return strings.TrimSpace(office)
+	return NiceOffice(office)
+}
+
+// NiceOffice: un ufficio scritto tutto in maiuscolo in AD diventa
+// «Informatizzazione» (prima lettera maiuscola, il resto minuscolo); gli
+// altri, e le sigle fino a 4 lettere, restano come sono.
+func NiceOffice(s string) string {
+	s = strings.TrimSpace(s)
+	// Le sigle brevi (CED, URP) restano in maiuscolo.
+	if len([]rune(s)) <= 4 || s != strings.ToUpper(s) || s == strings.ToLower(s) {
+		return s
+	}
+	r := []rune(strings.ToLower(s))
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
 }
 
 func sortPeople(p []Person) {

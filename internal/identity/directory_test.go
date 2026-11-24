@@ -137,3 +137,18 @@ func TestMembersPlanOU(t *testing.T) {
 		t.Fatal("solo esclusioni: nessun membro")
 	}
 }
+
+func TestNiceOffice(t *testing.T) {
+	for in, want := range map[string]string{
+		"INFORMATIZZAZIONE": "Informatizzazione",
+		" UFFICIO TRIBUTI ": "Ufficio tributi",
+		"Ragioneria":        "Ragioneria",
+		"CED":               "CED",
+		"":                  "",
+		"123":               "123",
+	} {
+		if got := NiceOffice(in); got != want {
+			t.Errorf("NiceOffice(%q) = %q, atteso %q", in, got, want)
+		}
+	}
+}
