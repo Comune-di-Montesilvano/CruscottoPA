@@ -191,13 +191,13 @@ Expected: PASS (anche i test esistenti sulla versione dello schema).
 - Produces:
   - `type chatViewer struct { Username, Name string; Verified bool }`
   - `func (s *Server) chatViewer(w http.ResponseWriter, r *http.Request) (chatViewer, bool)` — false se chat spenta, anonimo o `chatAllowed` falso (con AD giù: `true` solo se verificato, così la lettura resta); `Verified` = cookie chat valido **e** `Username` uguale; se `Issued` è più vecchio di `ChatRenewAfter` riscrive il cookie (scadenza rinnovata)
-  - `POST /chat/accesso` (`username`, `password`) → `{"ok":true}` | `{"ok":false,"errore":"credenziali"|"altro_utente"|"bloccato"|"ad"|"anonimo"}`; chiavi rate limit `"chat:"+username`
+  - `POST /chat/accesso` (solo `password`; username = `viewerName(r)`, ogni campo `username` nel form è ignorato) → `{"ok":true}` | `{"ok":false,"errore":"credenziali"|"bloccato"|"ad"|"anonimo"}`; chiavi rate limit `"chat:"+username`
   - `POST /chat/esci` → cancella il cookie, `{"ok":true}`
   - Cookie: `Path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` = `secureRequest(r)`, `MaxAge` = `ChatTTL`
 
 - [ ] **Step 1: Test** (cookie utente da `s.cookies.Encode(identity.User{Username:"mrossi", Name:"Mario Rossi"})`)
-- `TestChatLoginOK`: `POST /chat/accesso` come `mrossi`/`mrossi` → `ok`, cookie `cruscotto_chat` impostato.
-- `TestChatLoginOtherUser`: NTLM `mrossi`, login `abianchi` → `altro_utente`, nessun cookie.
+- `TestChatLoginOK`: NTLM `mrossi`, `POST /chat/accesso` con `password=x` → `ok`, cookie `cruscotto_chat` con `Username == "mrossi"`; un `fakeAuth` che registra lo username ricevuto conferma `"mrossi"`.
+- `TestChatLoginIgnoresUsernameField`: NTLM `mrossi`, form con `username=abianchi&password=x` → `Verify` chiamato con `"mrossi"`, cookie per `mrossi`.
 - `TestChatLoginWrongPassword`: `fakeAuth{ok:false}` → `credenziali`; dopo 5 → `bloccato`.
 - `TestChatCookieOtherNTLMUser` (Review Focus 1): cookie chat di `mrossi` con cookie utente `abianchi` → `chatViewer.Verified == false`.
 - `TestChatCookieRenewed`: `Issued` di 2 giorni fa → risposta con nuovo `Set-Cookie`; di 1 ora fa → nessuno.
@@ -301,7 +301,7 @@ Expected: PASS (anche i test esistenti sulla versione dello schema).
   - `GET /chat` (pagina; `?c=<id>` o `?a=<username>` apre quella conversazione); non ammesso → pagina con «La chat non è disponibile» (200).
   - Markup che `chat.js` aggancia: `dialog.chat` con `[data-chat-list]`, `[data-chat-thread]`, `[data-chat-form]`, `[data-chat-login]`, `[data-chat-notice]`; apertura da qualunque elemento `[data-chat-open]` (valore = username o vuoto).
   - Avviso fisso, testo esatto: «Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza.»
-  - Riquadro login, testo: «Per leggere i messaggi accedi con le credenziali di Windows (una volta sola su questo PC).»
+  - Riquadro login, testo: «Per leggere i messaggi accedi con la password di Windows (una volta sola su questo PC).», sotto «Accedi come <nome>» e un solo campo password (`autocomplete="current-password"`).
   - Etichetta messaggi non verificati: «⚠ non verificato», `title`: «Scritto prima dell'accesso alla chat: non possiamo garantire che l'abbia scritto davvero lui o lei».
   - `notifiche.js`: listener `chat` come `ticket` (dispatch `Event("chat")` su `body`, notifica con `tag: "chat-"+id` se la scheda non è visibile, inoltro via `BroadcastChannel` con `kind: "chat"`).
   - `dashboard.js`: per ogni persona con `chat: true` una seconda voce subito sotto, icona `chat`, testo «Scrivi a <nome>», `href="/chat?a=<uid>"`, `data-chat-open="<uid>"` (se il dialog è in pagina `chat.js` intercetta il clic e apre il pannello).

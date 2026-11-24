@@ -50,7 +50,7 @@ Due livelli, sopra il cookie esistente `cruscotto_utente` (identità NTLM dichia
 - **Verificato**: ha fatto il login LDAP della chat in quel browser. Cookie separato `cruscotto_chat` (firmato e cifrato con chiavi derivate da `SESSION_SECRET`, prefissi diversi da utente e admin), contenuto `{Username, VerifiedAt, Expires}`.
   - Durata **180 giorni, che si rinnova a ogni uso** (riscritto al massimo una volta al giorno).
   - Valido solo se `Username` coincide con quello di `cruscotto_utente`: se sul PC entra un altro utente NTLM, il cookie chat viene ignorato e il login richiesto di nuovo.
-  - Login: nuova funzione in `internal/auth` (bind LDAP come `Authenticate`, ma **senza** i controlli `LDAP_REQUIRED_GROUP`/`LDAP_ADMIN_GROUP`, che riguardano l'accesso all'admin), stesso `RateLimiter` dell'admin con chiavi separate (`chat:<username>`). Lo username del login deve corrispondere allo username NTLM del cookie; altrimenti errore «Accedi con il tuo account» (niente login incrociati). In mock: qualsiasi password accettata.
+  - Login: nuova funzione in `internal/auth` (bind LDAP come `Authenticate`, ma **senza** i controlli `LDAP_REQUIRED_GROUP`/`LDAP_ADMIN_GROUP`, che riguardano l'accesso all'admin), stesso `RateLimiter` dell'admin con chiavi separate (`chat:<username>`). Si chiede **solo la password**: lo username è quello NTLM del cookie (mostrato nel riquadro: «Accedi come Mario Rossi»), mai scritto dall'utente, quindi niente login incrociati. Il bind con quella password è ciò che verifica l'identità dichiarata. In mock: qualsiasi password non vuota accettata.
   - Errori in pagina, **sempre 200** (il proxy sostituisce i 4xx).
   - Logout chat: cancella il cookie (link nel pannello chat).
 - **Anonimi**: niente chat, nessun elemento visibile.
@@ -70,7 +70,7 @@ Il livello è **per messaggio**: `chat_messages.verified` = 1 se al momento dell
 - **Widget «Messaggi»** (`widget_chat`) nella colonna destra, sotto «Assistenza»: badge non letti, ultime conversazioni (nome e «hai X messaggi nuovi», **mai il testo** finché non si è verificati), bottone «Nuovo messaggio» con scelta del collega per nome e cognome in AD via `Directory.SearchUsers` (solo chi può usare la chat; funziona anche senza `RUBRICA_URL`). Il destinatario si valida sempre con `Directory.Lookup` sul `sAMAccountName`.
 - **Pannello chat**: `dialog.chat` laterale (stile `dialog.ticket`), con elenco delle conversazioni a sinistra e il thread a destra; su mobile una vista alla volta. Pagina `/chat` come fallback e destinazione delle notifiche.
 
-Senza login chat il pannello mostra: campo «Scrivi a …» funzionante, nessun messaggio precedente, e un riquadro «Per leggere i messaggi accedi con le credenziali di Windows (una volta sola su questo PC)».
+Senza login chat il pannello mostra: campo «Scrivi a …» funzionante, nessun messaggio precedente, e un riquadro «Per leggere i messaggi accedi con la password di Windows (una volta sola su questo PC)».
 
 ### Avviso fisso
 In cima al pannello, sempre: «Chat informale tra colleghi. Non usarla per comunicazioni ufficiali né per dati personali di cittadini. I messaggi si cancellano dopo 30 giorni. Per i casi di abuso restano registrati PC e indirizzo di rete di chi scrive: apri un ticket all'assistenza.»
