@@ -94,3 +94,37 @@ func TestNotifyOffMentionsChat(t *testing.T) {
 		t.Fatal("badge delle notifiche senza la chat")
 	}
 }
+
+// Omonimi: sotto il nome l'ufficio da AD (department).
+func TestChatDetailForHomonyms(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	chatSend(t, s, "mrossi", "abianchi", "ciao", false)
+	m, _ := chatGet(t, s, "/chat/conversazioni", "abianchi", true)
+	if c := m["conversazioni"].([]any)[0].(map[string]any); c["dettaglio"] != "Ragioneria" {
+		t.Fatalf("conversazioni: %v", c)
+	}
+	if m, _ := chatGet(t, s, "/chat/con/mrossi", "abianchi", true); m["dettaglio"] != "Ragioneria" {
+		t.Fatalf("testata: %v", m)
+	}
+	if m, _ := chatGet(t, s, "/chat/persone?q=an", "mrossi", false); len(m["persone"].([]any)) == 0 ||
+		m["persone"].([]any)[0].(map[string]any)["dettaglio"] != "Ragioneria" {
+		t.Fatalf("persone: %v", m)
+	}
+}
+
+// Widget: «Messaggi» apre il pannello; ufficio, contatore compatto e pallino.
+func TestChatWidgetTouches(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	chatSend(t, s, "mrossi", "abianchi", "ciao", false)
+	body := do(t, s, "GET", "/partials/chat", nil, nil, chatAs(t, s, "abianchi", true)).Body.String()
+	for _, want := range []string{
+		`<button type="button" class="cw-title" data-chat-open="">Messaggi</button>`,
+		`<span class="cw-sub">Ragioneria`,
+		`class="cw-count" aria-label="1 messaggio nuovo">1</span>`,
+		`class="chat-avatar is-today"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("widget senza %q:\n%s", want, body)
+		}
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
@@ -23,6 +24,7 @@ type Person struct {
 	Username  string // sAMAccountName, minuscolo
 	Name      string // displayName, "" se assente
 	GivenName string // givenName, "" se assente
+	Office    string // department, altrimenti physicalDeliveryOfficeName (omonimi nella chat)
 	// Attrs: valori degli attributi richiesti (es. nella tabella dell'anteprima).
 	Attrs map[string]string
 }
@@ -165,14 +167,36 @@ func membersFilterParts(rules []audience.Rule) (string, string, bool) {
 	return "(&" + activeUsersFilter + "(|" + or.String() + ")" + not.String() + ")", not.String(), true
 }
 
-var personAttrs = []string{"sAMAccountName", "displayName", "givenName"}
+var personAttrs = []string{"sAMAccountName", "displayName", "givenName", "department", "physicalDeliveryOfficeName"}
 
 func personFromEntry(e *ldap.Entry) Person {
 	return Person{
 		Username:  strings.ToLower(e.GetAttributeValue("sAMAccountName")),
 		Name:      strings.TrimSpace(e.GetAttributeValue("displayName")),
 		GivenName: strings.TrimSpace(e.GetAttributeValue("givenName")),
+		Office:    personOffice(e.GetAttributeValue("department"), e.GetAttributeValue("physicalDeliveryOfficeName")),
 	}
+}
+
+func personOffice(department, office string) string {
+	if d := strings.TrimSpace(department); d != "" {
+		return NiceOffice(d)
+	}
+	return NiceOffice(office)
+}
+
+// NiceOffice: un ufficio scritto tutto in maiuscolo in AD diventa
+// «Informatizzazione» (prima lettera maiuscola, il resto minuscolo); gli
+// altri, e le sigle fino a 4 lettere, restano come sono.
+func NiceOffice(s string) string {
+	s = strings.TrimSpace(s)
+	// Le sigle brevi (CED, URP) restano in maiuscolo.
+	if len([]rune(s)) <= 4 || s != strings.ToUpper(s) || s == strings.ToLower(s) {
+		return s
+	}
+	r := []rune(strings.ToLower(s))
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
 }
 
 func sortPeople(p []Person) {
@@ -545,6 +569,7 @@ func (MockDirectory) SearchUsers(q string) ([]Person, error) {
 	lq := strings.ToLower(strings.TrimSpace(q))
 	for _, p := range mockPeople {
 		if lq != "" && (strings.Contains(strings.ToLower(p.Name), lq) || strings.HasPrefix(p.Username, lq)) {
+			p.Office = "INFORMATIZZAZIONE"
 			out = append(out, p)
 		}
 	}

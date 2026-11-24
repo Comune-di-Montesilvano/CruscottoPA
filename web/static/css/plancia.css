@@ -631,9 +631,16 @@ dialog.ticket-close p { margin: 0 0 .4rem; color: var(--p-text-2); line-height: 
 .cw-new:hover, .cw-item:hover, .cw-locked:hover { background: var(--p-hover-bg); }
 .cw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; }
 .cw-item, .cw-locked { width: 100%; display: flex; align-items: center; gap: .6rem; border: 0; background: none; border-radius: 10px; padding: .4rem .45rem; font: inherit; color: var(--p-text); text-align: left; cursor: pointer; }
-.cw-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-title { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.cw-title:hover { color: var(--p-blue-2); text-decoration: underline; text-underline-offset: 3px; }
+.cw-text { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+.cw-name, .cw-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-sub { font-size: .76rem; color: var(--p-text-3); }
 .cw-item.is-new .cw-name { font-weight: 700; }
-.cw-new-count { color: var(--p-red-text); font-size: .78rem; font-weight: 600; }
+.cw-count { flex: none; background: var(--p-red-solid); color: var(--p-on-fill); border-radius: 999px; min-width: 1.3rem; padding: 0 .4rem; font-size: .72rem; font-weight: 700; line-height: 1.3rem; text-align: center; }
+.chat-with-text { display: grid; min-width: 0; line-height: 1.25; }
+.chat-with-sub { font-size: .76rem; color: var(--p-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-with-sub:empty { display: none; }
 .cw-locked { background: var(--p-surface-2); color: var(--p-text-2); font-size: .88rem; line-height: 1.4; }
 .cw-locked .material-icons { color: var(--p-text-3); }
 .cw-empty { margin: 0; color: var(--p-text-3); font-size: .85rem; }

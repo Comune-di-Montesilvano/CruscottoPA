@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
 )
 
@@ -34,6 +35,20 @@ func (s *Server) chatName(username string) string {
 	if p, ok, _ := s.profileFor(username); ok {
 		if v := p.Attrs["displayname"]; len(v) > 0 && strings.TrimSpace(v[0]) != "" {
 			return strings.TrimSpace(v[0])
+		}
+	}
+	return username
+}
+
+// chatDetail: riga sotto il nome nella chat, per distinguere gli omonimi:
+// ufficio da AD (department, poi physicalDeliveryOfficeName), altrimenti lo
+// username.
+func (s *Server) chatDetail(username string) string {
+	if p, ok, _ := s.profileFor(username); ok {
+		for _, a := range []string{"department", "physicaldeliveryofficename"} {
+			if v := p.Attrs[a]; len(v) > 0 && strings.TrimSpace(v[0]) != "" {
+				return identity.NiceOffice(v[0])
+			}
 		}
 	}
 	return username

@@ -14,10 +14,12 @@ import (
 const chatWidgetRecent = 5
 
 type chatRecent struct {
-	ID    int64
-	Con   string
-	Nome  string
-	Nuovi int
+	ID        int64
+	Con       string
+	Nome      string
+	Dettaglio string // ufficio o username (omonimi)
+	Nuovi     int
+	Oggi      bool // «Oggi in chat»
 }
 
 type chatView struct {
@@ -52,8 +54,14 @@ func (s *Server) chatViewFor(w http.ResponseWriter, r *http.Request) *chatView {
 		if err != nil {
 			slog.Warn("chat: conversazioni", "err", err)
 		}
+		others := make([]string, len(cs))
+		for i, c := range cs {
+			others[i] = c.Other
+		}
+		today := s.chatTodayFor(v.Username, others)
 		for _, c := range cs {
-			cv.Recent = append(cv.Recent, chatRecent{ID: c.ID, Con: c.Other, Nome: s.chatName(c.Other), Nuovi: c.Unread})
+			cv.Recent = append(cv.Recent, chatRecent{ID: c.ID, Con: c.Other, Nome: s.chatName(c.Other),
+				Dettaglio: s.chatDetail(c.Other), Nuovi: c.Unread, Oggi: today[c.Other]})
 		}
 	}
 	return cv
