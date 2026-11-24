@@ -29,6 +29,7 @@ func (s *Server) funcs() template.FuncMap {
 		"ente":          s.ente,
 		"errori":        s.errs.Enabled,
 		"rubrica":       func() bool { return s.rubrica != nil },
+		"chatOn":        s.chatEnabled,
 		"repoURL":       func() string { return repoURL },
 		"levelLabel":    levelLabel,
 		"webSearchName": webSearchName,

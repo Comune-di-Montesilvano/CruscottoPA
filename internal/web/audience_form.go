@@ -13,6 +13,7 @@ type visibilityField struct {
 	Mode     string
 	Selected map[int64]bool
 	Groups   []database.AudienceGroup
+	Chat     bool // fieldset della chat: regola applicata davvero, niente «Mostra tutto»
 }
 
 func (s *Server) visibilityField(ca database.ContentAudience) (visibilityField, error) {

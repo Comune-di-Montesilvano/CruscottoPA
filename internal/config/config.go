@@ -106,6 +106,8 @@ type Config struct {
 	StatsEnabled bool
 	// StatsRetentionMonths: conservazione dei giorni di accesso e dei dati dei ticket.
 	StatsRetentionMonths int
+	// ChatEnabled: chat informale tra colleghi (serve il riconoscimento NTLM).
+	ChatEnabled bool
 }
 
 // Load legge le variabili d'ambiente, applica i default e valida i valori.
@@ -171,6 +173,9 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	if cfg.StatsRetentionMonths, err = getEnvInt("STATS_RETENTION_MONTHS", 13); err != nil {
+		return Config{}, err
+	}
+	if cfg.ChatEnabled, err = getEnvBool("CHAT_ENABLED", false); err != nil {
 		return Config{}, err
 	}
 	if err := validRubricaURL(cfg.RubricaURL); err != nil {

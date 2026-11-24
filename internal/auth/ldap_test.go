@@ -83,3 +83,16 @@ func TestIsAdminUserIgnoresDomain(t *testing.T) {
 		t.Fatal("confronto per prefisso non ammesso")
 	}
 }
+
+// Verify (accesso alla chat) controlla solo la password: i gruppi riguardano l'admin.
+func TestVerifyMockIgnoresGroups(t *testing.T) {
+	a := NewLDAP(config.LDAP{Host: "mock", RequiredGroup: "CN=Admin,DC=test", AdminGroup: "CN=Admin,DC=test", AdminUsers: []string{"altro"}})
+	if ok, err := a.Verify("mrossi", "x"); !ok || err != nil {
+		t.Fatalf("mock: %v %v", ok, err)
+	}
+	for _, c := range [][2]string{{"mrossi", ""}, {"a b", "x"}, {"", "x"}} {
+		if ok, _ := a.Verify(c[0], c[1]); ok {
+			t.Errorf("Verify(%q, %q) accettato", c[0], c[1])
+		}
+	}
+}

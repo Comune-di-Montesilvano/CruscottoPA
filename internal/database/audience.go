@@ -324,6 +324,7 @@ const (
 	ContentApp   ContentKind = "app"
 	ContentGuide ContentKind = "guide"
 	ContentAlert ContentKind = "alert"
+	ContentChat  ContentKind = "chat" // content_id = ChatAudienceID
 )
 
 // ContentAudience: visibilità di un contenuto. Mode "" = pubblico.
@@ -475,8 +476,10 @@ SELECT a.title FROM content_audience c JOIN apps a ON c.kind = 'app' AND a.id = 
 UNION ALL
 SELECT g.title FROM content_audience c JOIN guides g ON c.kind = 'guide' AND g.id = c.content_id WHERE c.group_id = ?
 UNION ALL
-SELECT al.title FROM content_audience c JOIN alerts al ON c.kind = 'alert' AND al.id = c.content_id WHERE c.group_id = ?`,
-		groupID, groupID, groupID)
+SELECT al.title FROM content_audience c JOIN alerts al ON c.kind = 'alert' AND al.id = c.content_id WHERE c.group_id = ?
+UNION ALL
+SELECT 'Chat' FROM content_audience c WHERE c.kind = 'chat' AND c.group_id = ?`,
+		groupID, groupID, groupID, groupID)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV16OpensByDay,
 	migrateV17AlertArchive,
 	migrateV18AdminLog,
+	migrateV19Chat,
 }
 
 func (db *DB) migrate() error {
@@ -480,6 +481,49 @@ CREATE TABLE admin_log (
 CREATE INDEX idx_admin_log_at ON admin_log(at);
 CREATE INDEX idx_admin_log_user ON admin_log(username);
 CREATE INDEX idx_admin_log_section ON admin_log(section);
+`)
+	return err
+}
+
+// migrateV19Chat: chat informale tra colleghi (messaggi diretti 1:1). I
+// messaggi si cancellano dopo 30 giorni; ip e pc servono solo in caso di
+// abuso e non escono mai dalle risposte HTTP.
+func migrateV19Chat(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE chat_conversations (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	user_a     TEXT NOT NULL,
+	user_b     TEXT NOT NULL,
+	created_at TEXT NOT NULL,
+	last_at    TEXT NOT NULL,
+	UNIQUE (user_a, user_b),
+	CHECK (user_a < user_b)
+);
+CREATE TABLE chat_messages (
+	id              INTEGER PRIMARY KEY AUTOINCREMENT,
+	conversation_id INTEGER NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+	sender          TEXT NOT NULL,
+	body            TEXT NOT NULL,
+	verified        INTEGER NOT NULL DEFAULT 0,
+	hidden          INTEGER NOT NULL DEFAULT 0,
+	ip              TEXT NOT NULL DEFAULT '',
+	pc              TEXT NOT NULL DEFAULT '',
+	created_at      TEXT NOT NULL
+);
+CREATE INDEX idx_chat_messages_conv ON chat_messages(conversation_id, id);
+CREATE INDEX idx_chat_messages_created ON chat_messages(created_at);
+CREATE TABLE chat_unread (
+	username        TEXT NOT NULL,
+	conversation_id INTEGER NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+	count           INTEGER NOT NULL,
+	PRIMARY KEY (username, conversation_id)
+);
+CREATE TABLE chat_blocks (
+	blocker    TEXT NOT NULL,
+	blocked    TEXT NOT NULL,
+	created_at TEXT NOT NULL,
+	PRIMARY KEY (blocker, blocked)
+);
 `)
 	return err
 }

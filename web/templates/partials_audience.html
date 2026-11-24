@@ -7,7 +7,7 @@
 	<div class="offices-grid">
 		{{$sel := .Selected}}{{range .Groups}}<label class="inline"><input type="checkbox" name="gruppi" value="{{.ID}}"{{if index $sel .ID}} checked{{end}}>{{.Name}}</label>{{else}}<p class="muted">Nessun gruppo: creali in <a href="/admin/gruppi">Gruppi</a>.</p>{{end}}
 	</div>
-	<p class="hint">Filtro di visualizzazione, non una protezione: chi conosce l'indirizzo può comunque aprire l'applicativo e chiunque può scegliere «Mostra tutto». Con «Pubblico» i gruppi sono ignorati.</p>
+	{{if .Chat}}<p class="hint">Con «Pubblico» la chat è aperta a tutti gli utenti di Active Directory. La regola vale anche per chi riceve: non si può scrivere a chi è fuori.</p>{{else}}<p class="hint">Filtro di visualizzazione, non una protezione: chi conosce l'indirizzo può comunque aprire l'applicativo e chiunque può scegliere «Mostra tutto». Con «Pubblico» i gruppi sono ignorati.</p>{{end}}
 </fieldset>
 {{end}}
 

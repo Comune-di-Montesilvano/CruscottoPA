@@ -180,6 +180,7 @@ func (s *Server) StartPresenceCleanup(ctx context.Context) {
 			}
 			s.cleanupStats()
 			s.cleanupAdminLog()
+			s.cleanupChat()
 			select {
 			case <-ctx.Done():
 				return
