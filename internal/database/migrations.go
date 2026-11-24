@@ -28,6 +28,7 @@ var migrations = []func(*sql.Tx) error{
 	migrateV17AlertArchive,
 	migrateV18AdminLog,
 	migrateV19Chat,
+	migrateV20ChatToday,
 }
 
 func (db *DB) migrate() error {
@@ -524,6 +525,28 @@ CREATE TABLE chat_blocks (
 	created_at TEXT NOT NULL,
 	PRIMARY KEY (blocker, blocked)
 );
+`)
+	return err
+}
+
+// migrateV20ChatToday: «Oggi in chat». Solo il giorno (mai l'ora) di chi ha
+// usato la chat; ognuno può nascondere il proprio stato; interruttore generale.
+func migrateV20ChatToday(tx *sql.Tx) error {
+	_, err := tx.Exec(`
+CREATE TABLE chat_today (
+	username TEXT NOT NULL,
+	day      TEXT NOT NULL, -- YYYY-MM-DD di Roma
+	PRIMARY KEY (username, day)
+);
+CREATE TABLE chat_settings (
+	username    TEXT PRIMARY KEY,
+	hide_status INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE chat_options (
+	id             INTEGER PRIMARY KEY CHECK (id = 1),
+	status_enabled INTEGER NOT NULL DEFAULT 1
+);
+INSERT INTO chat_options (id) VALUES (1);
 `)
 	return err
 }

@@ -67,6 +67,7 @@ type Server struct {
 	chatLimits      *chatLimits         // limiti di invio per mittente
 	chatPush        sync.WaitGroup      // push della chat in corso
 	chatPushSem     chan struct{}       // posti di invio push della chat (chatPushMax)
+	chatSeen        sync.Map            // utente → giorno già segnato in «Oggi in chat»
 	profiles        *profileCache
 	membersCache    *membersCache
 	limiter         *auth.RateLimiter
@@ -293,6 +294,7 @@ func (s *Server) routes() {
 	if s.chatEnabled() {
 		s.mux.HandleFunc("GET /admin/chat", s.requireAdmin(s.handleAdminChatPage))
 		s.mux.HandleFunc("POST /admin/chat", s.requireAdmin(s.handleAdminChatSave))
+		s.mux.HandleFunc("POST /admin/chat/stato", s.requireAdmin(s.handleAdminChatStatus))
 		s.chatRoutes()
 	}
 	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleUploadFile(uploadIcons))

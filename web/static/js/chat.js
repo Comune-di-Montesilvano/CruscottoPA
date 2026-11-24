@@ -169,10 +169,10 @@
 			const b = el("button", "chat-conv" + (c.nuovi ? " is-new" : "") + (current && current.con === c.con ? " is-current" : ""));
 			b.type = "button";
 			b.addEventListener("click", () => openWith(c.con));
-			const av = el("span", "chat-avatar", initials(c.nome));
-			av.setAttribute("aria-hidden", "true");
+			const av = avatar(c.nome, c.oggi);
 			const txt = el("span", "chat-conv-text");
 			txt.append(el("span", "chat-conv-name", c.nome), el("span", "chat-conv-when", when(c.ultimo)));
+			if (c.oggi) txt.append(el("span", "visually-hidden", "Oggi in chat"));
 			b.append(av, txt);
 			if (c.nuovi) b.append(el("span", "chat-conv-badge", String(c.nuovi)));
 			li.append(b);
@@ -180,11 +180,24 @@
 		});
 	}
 
+	// Avatar con il pallino verde di «Oggi in chat».
+	function avatar(nome, oggi) {
+		const av = el("span", "chat-avatar" + (oggi ? " is-today" : ""), initials(nome));
+		av.setAttribute("aria-hidden", "true");
+		if (oggi) av.title = "Oggi in chat";
+		return av;
+	}
+	function showToday(d) {
+		const t = $("[data-chat-today]");
+		if (t) t.hidden = !d.oggi;
+	}
+
 	function renderThread(d, prepend) {
 		if (!prepend) {
 			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato, lastId: lastId(d) };
 			$("[data-chat-with]").textContent = d.nome;
 			$("[data-chat-avatar]").textContent = initials(d.nome);
+			showToday(d);
 			msgs.replaceChildren();
 			oldest = 0;
 			if (blockBtn) blockBtn.textContent = current.bloccato ? "Sblocca" : "Blocca";
@@ -232,6 +245,7 @@
 		const con = current.con;
 		const d = await api("GET", "/chat/con/" + encodeURIComponent(con));
 		if (!d.ok || !current || current.con !== con) return;
+		showToday(d);
 		if (lastId(d) !== current.lastId || !!d.bloccato !== current.bloccato) renderThread(d, false);
 		markRead();
 	}
@@ -276,9 +290,8 @@
 					const li = el("li");
 					const b = el("button", "chat-conv");
 					b.type = "button";
-					const av = el("span", "chat-avatar", initials(p.nome));
-					av.setAttribute("aria-hidden", "true");
-					b.append(av, el("span", "chat-conv-name", p.nome));
+					b.append(avatar(p.nome, p.oggi), el("span", "chat-conv-name", p.nome));
+					if (p.oggi) b.append(el("span", "visually-hidden", "Oggi in chat"));
 					b.addEventListener("click", () => {
 						search.value = "";
 						results.hidden = true;
@@ -457,6 +470,15 @@
 		try { sessionStorage.setItem(OPEN_KEY, current ? current.con : ""); } catch (_) {}
 		location.reload();
 	});
+	// «Mostra quando sono in chat»: chi lo nasconde non vede quello degli altri.
+	const visibility = $("[data-chat-visibility]");
+	if (visibility) visibility.addEventListener("change", async () => {
+		const d = await api("POST", "/chat/visibilita", "nascondi=" + (visibility.checked ? "0" : "1"));
+		if (!d.ok) { visibility.checked = !visibility.checked; return; }
+		loadList();
+		reloadCurrent();
+	});
+
 	const logout = $("[data-chat-logout]");
 	if (logout) logout.addEventListener("click", async () => {
 		await api("POST", "/chat/esci");

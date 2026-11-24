@@ -638,6 +638,12 @@ dialog.ticket-close p { margin: 0 0 .4rem; color: var(--p-text-2); line-height: 
 .cw-locked .material-icons { color: var(--p-text-3); }
 .cw-empty { margin: 0; color: var(--p-text-3); font-size: .85rem; }
 .chat-avatar { flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--p-blue-soft); color: var(--p-blue-2); font-size: .78rem; font-weight: 700; }
+.chat-avatar.is-today { position: relative; }
+.chat-avatar.is-today::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: .6rem; height: .6rem; border-radius: 50%; background: var(--p-green); border: 2px solid var(--p-surface); }
+.chat-today { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: var(--p-green-text); }
+.chat-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--p-green); }
+.chat-today[hidden] { display: none; }
+.chat-visibility { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--p-text-3); margin-bottom: .4rem; cursor: pointer; }
 
 dialog.chat { border: 0; padding: 0; background: var(--p-surface); color: var(--p-text); border-radius: 16px; width: min(880px, 96vw); height: min(640px, 92vh); box-shadow: 0 30px 80px color-mix(in srgb, var(--p-shadow-deep) 35%, transparent); overflow: hidden; }
 dialog.chat::backdrop { background: var(--p-backdrop); }
