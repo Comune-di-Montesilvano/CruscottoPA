@@ -352,6 +352,13 @@ func (db *DB) SetChatStatusEnabled(on bool) error {
 	return err
 }
 
+// ChatPushUser: user ha almeno un browser iscritto alle notifiche push.
+func (db *DB) ChatPushUser(user string) (bool, error) {
+	var n int
+	err := db.QueryRow(`SELECT COUNT(*) FROM push_subscriptions WHERE lower(username) = ?`, chatUser(user)).Scan(&n)
+	return n > 0, err
+}
+
 // CleanupChatToday: restano solo le righe del giorno today.
 func (db *DB) CleanupChatToday(today string) error {
 	_, err := db.Exec(`DELETE FROM chat_today WHERE day < ?`, today)

@@ -200,6 +200,7 @@
 			if (sub) sub.textContent = d.dettaglio || "";
 			$("[data-chat-avatar]").textContent = initials(d.nome);
 			showToday(d);
+			showNotifyState(d);
 			msgs.replaceChildren();
 			oldest = 0;
 			if (blockBtn) blockBtn.textContent = current.bloccato ? "Sblocca" : "Blocca";
@@ -248,6 +249,7 @@
 		const d = await api("GET", "/chat/con/" + encodeURIComponent(con));
 		if (!d.ok || !current || current.con !== con) return;
 		showToday(d);
+		showNotifyState(d);
 		if (lastId(d) !== current.lastId || !!d.bloccato !== current.bloccato) renderThread(d, false);
 		markRead();
 	}
@@ -475,6 +477,39 @@
 		try { sessionStorage.setItem(OPEN_KEY, current ? current.con : ""); } catch (_) {}
 		location.reload();
 	});
+	// Invito ad attivare le notifiche (il clic lo gestisce notifiche.js).
+	const notifyAsk = $("[data-chat-notify-ask]");
+	function refreshNotifyAsk() {
+		if (notifyAsk) notifyAsk.hidden = !("Notification" in window) || Notification.permission === "granted";
+	}
+	refreshNotifyAsk();
+	document.addEventListener("notifiche-cambiate", refreshNotifyAsk);
+
+	// Stato delle notifiche del collega nella testata.
+	function showNotifyState(d) {
+		const n = $("[data-chat-notify-state]");
+		if (!n) return;
+		n.hidden = !d.notifiche;
+		n.className = "chat-notify-state" + (d.notifiche === "no" ? " is-off" : "");
+		n.textContent = d.notifiche === "si" ? "Riceve le notifiche" : d.notifiche === "no" ? "Notifiche spente: leggerà quando apre il Cruscotto" : "";
+	}
+
+	// Popup dei messaggi non letti: una volta al giorno all'apertura della
+	// plancia; la prima volta spiega anche cos'è la chat.
+	const toast = document.querySelector("[data-chat-toast]");
+	const TOAST_KEY = "cruscotto-chat-popup", INTRO_KEY = "cruscotto-chat-intro";
+	if (toast) {
+		const today = new Date().toISOString().slice(0, 10);
+		let seen = null, intro = null;
+		try { seen = localStorage.getItem(TOAST_KEY); intro = localStorage.getItem(INTRO_KEY); } catch (_) { /* si mostra comunque */ }
+		if (seen !== today && !(dialog && dialog.open)) {
+			toast.querySelector("[data-chat-toast-intro]").hidden = !!intro;
+			setTimeout(() => { toast.hidden = false; }, 1200);
+			try { localStorage.setItem(TOAST_KEY, today); localStorage.setItem(INTRO_KEY, "1"); } catch (_) { /* nulla */ }
+		}
+		toast.addEventListener("click", (e) => { if (e.target.closest("[data-chat-toast-close]")) toast.hidden = true; });
+	}
+
 	// «Mostra quando sono in chat»: chi lo nasconde non vede quello degli altri.
 	const visibility = $("[data-chat-visibility]");
 	if (visibility) visibility.addEventListener("change", async () => {
