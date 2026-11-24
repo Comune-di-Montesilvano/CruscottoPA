@@ -14,7 +14,6 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
-	"net/mail"
 	"path"
 	"strings"
 	"time"
@@ -174,7 +173,7 @@ func (c *HTTPClient) Create(ctx context.Context, t NewTicket) (Created, error) {
 		"Article": map[string]any{
 			"Subject": t.Subject, "Body": body, "ContentType": "text/plain; charset=utf8",
 			"ArticleType": "webrequest", "SenderType": "customer", "HistoryType": "WebRequestCustomer",
-			"From": (&mail.Address{Name: t.Name, Address: t.Email}).String(),
+			"From": fromHeader(t.Name, t.Email),
 		},
 	}
 	if len(t.Attachments) > 0 {
