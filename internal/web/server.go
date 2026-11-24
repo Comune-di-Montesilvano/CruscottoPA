@@ -106,6 +106,10 @@ func New(o Options) (*Server, error) {
 	if o.Config.Location == nil {
 		o.Config.Location = time.UTC
 	}
+	// Riga del registro lasciata da un ripristino (il DB è stato sostituito).
+	if err := o.DB.ImportPendingAdminLog(pendingAuditPath(o.Config.DBPath)); err != nil {
+		slog.Error("registro admin: riga del ripristino", "err", err)
+	}
 	s := &Server{
 		db:           o.DB,
 		cfg:          o.Config,

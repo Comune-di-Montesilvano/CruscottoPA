@@ -12,6 +12,7 @@ import (
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/auth"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/backup"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
 
 const restoreConfirm = "RIPRISTINA"
@@ -113,6 +114,16 @@ func (s *Server) startRestore(w http.ResponseWriter, r *http.Request, archive st
 		return
 	}
 	slog.Warn("ripristino avviato", "user", auth.SafeLog(s.currentAdmin(r)), "archivio", filepath.Base(archive))
+	// Lo swap sostituisce il DB col registro: la riga si reinserisce all'avvio.
+	obj := filepath.Base(archive)
+	if removeArchive {
+		obj = "archivio caricato"
+	}
+	if err := database.WritePendingAdminLog(pendingAuditPath(s.cfg.DBPath), database.AdminLogEntry{
+		At: s.now(), Username: s.currentAdmin(r), Section: "Backup", Action: "backup ripristinato", ObjectID: obj,
+	}); err != nil {
+		slog.Error("registro admin: riga del ripristino", "err", err)
+	}
 	s.render(w, http.StatusOK, "backup_restarting", nil)
 	go func() {
 		time.Sleep(s.restoreDelay)
