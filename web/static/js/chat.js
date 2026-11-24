@@ -182,7 +182,7 @@
 
 	function renderThread(d, prepend) {
 		if (!prepend) {
-			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato };
+			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato, lastId: lastId(d) };
 			$("[data-chat-with]").textContent = d.nome;
 			$("[data-chat-avatar]").textContent = initials(d.nome);
 			msgs.replaceChildren();
@@ -224,11 +224,27 @@
 		markRead();
 	}
 
+	// Ridisegna solo se è arrivato qualcosa: chi sta leggendo i messaggi
+	// precedenti non viene riportato in fondo.
+	const lastId = (d) => (d.messaggi.length ? d.messaggi[d.messaggi.length - 1].id : 0);
 	async function reloadCurrent() {
 		if (!current || !verified) return;
-		const d = await api("GET", "/chat/con/" + encodeURIComponent(current.con));
-		if (d.ok) { renderThread(d, false); markRead(); }
+		const con = current.con;
+		const d = await api("GET", "/chat/con/" + encodeURIComponent(con));
+		if (!d.ok || !current || current.con !== con) return;
+		if (lastId(d) !== current.lastId || !!d.bloccato !== current.bloccato) renderThread(d, false);
+		markRead();
 	}
+
+	// Riserva dell'evento SSE (flusso caduto, scheda aperta prima di un
+	// aggiornamento che tiene la connessione condivisa): controllo periodico a
+	// pannello aperto e scheda visibile.
+	const POLL_MS = 20000;
+	setInterval(() => {
+		if (!verified || document.visibilityState !== "visible" || (dialog && !dialog.open)) return;
+		loadList();
+		reloadCurrent();
+	}, POLL_MS);
 
 	function openPanel(who) {
 		if (dialog && !dialog.open) dialog.showModal();
@@ -276,6 +292,44 @@
 		}, 250);
 	});
 
+	// Avviso fisso: chiudibile, si ripresenta dopo NOTICE_DAYS giorni.
+	const NOTICE_KEY = "cruscotto-chat-avviso", NOTICE_DAYS = 7;
+	const notice = $("[data-chat-notice]");
+	try {
+		const t = Number(localStorage.getItem(NOTICE_KEY));
+		if (t && Date.now() - t < NOTICE_DAYS * 864e5) notice.hidden = true;
+	} catch (_) {}
+	$("[data-chat-notice-close]").addEventListener("click", () => {
+		notice.hidden = true;
+		try { localStorage.setItem(NOTICE_KEY, String(Date.now())); } catch (_) {}
+		area.focus();
+	});
+
+	// Emoji: griglia fissa, inserite nel punto del cursore.
+	const EMOJI = ["😀", "😂", "😊", "🙂", "😉", "😍", "😎", "🤔", "😅", "😮", "😢", "😴", "😡", "🙄", "🤗", "🥳",
+		"👍", "👎", "👏", "🙏", "💪", "👌", "✌️", "🤝", "👋", "❤️", "🎉", "🔥", "⭐", "✅", "❌", "⚠️",
+		"☕", "🍕", "🎂", "📎", "📅", "📞", "💻", "📄"];
+	const emojiBtn = $("[data-chat-emoji]");
+	const emojiPanel = $("[data-chat-emoji-panel]");
+	function emojiOpen(on) {
+		emojiPanel.hidden = !on;
+		emojiBtn.setAttribute("aria-expanded", String(on));
+	}
+	EMOJI.forEach((e) => {
+		const b = el("button", "chat-emoji-item", e);
+		b.type = "button";
+		b.addEventListener("click", () => {
+			const s = area.selectionStart ?? area.value.length, en = area.selectionEnd ?? s;
+			area.setRangeText(e, s, en, "end");
+			area.focus();
+			updateCount();
+		});
+		emojiPanel.append(b);
+	});
+	emojiBtn.addEventListener("click", () => emojiOpen(emojiPanel.hidden));
+	panel.addEventListener("keydown", (e) => { if (e.key === "Escape" && !emojiPanel.hidden) { e.stopPropagation(); e.preventDefault(); emojiOpen(false); emojiBtn.focus(); } });
+	document.addEventListener("click", (e) => { if (!emojiPanel.hidden && !e.target.closest("[data-chat-emoji-panel], [data-chat-emoji]")) emojiOpen(false); });
+
 	// Invio.
 	function updateCount() {
 		const n = [...area.value].length;
@@ -305,6 +359,7 @@
 			return;
 		}
 		area.value = "";
+		emojiOpen(false);
 		updateCount();
 		if (verified) {
 			reloadCurrent();

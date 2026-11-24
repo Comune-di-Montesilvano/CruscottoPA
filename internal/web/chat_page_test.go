@@ -129,3 +129,27 @@ func TestAdminChatStats(t *testing.T) {
 		}
 	}
 }
+
+func TestChatEmojiPicker(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	body := do(t, s, "GET", "/chat?a=abianchi", nil, nil, chatAs(t, s, "mrossi", true)).Body.String()
+	if !strings.Contains(body, "data-chat-emoji") || !strings.Contains(body, "data-chat-emoji-panel") {
+		t.Fatal("selettore emoji assente")
+	}
+	if !strings.Contains(body, `class="chat-logout" data-chat-logout`) || strings.Contains(body, "Esci dalla chat") {
+		t.Fatal("logout non spostato in fondo all'elenco")
+	}
+	if !strings.Contains(body, "data-chat-notice-close") {
+		t.Fatal("avviso non chiudibile")
+	}
+	b, _ := os.ReadFile("../../web/static/js/chat.js")
+	if src := string(b); !strings.Contains(src, "NOTICE_DAYS = 7") || !strings.Contains(src, "localStorage") {
+		t.Fatal("avviso chiuso senza ritorno dopo 7 giorni")
+	}
+	if src := string(b); !strings.Contains(src, "POLL_MS") || !strings.Contains(src, "lastId(d) !== current.lastId") {
+		t.Fatal("chat.js senza controllo periodico dei messaggi nuovi")
+	}
+	if src := string(b); !strings.Contains(src, "setRangeText") || !strings.Contains(src, "EMOJI") {
+		t.Fatal("chat.js non inserisce le emoji nel testo")
+	}
+}
