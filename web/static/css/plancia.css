@@ -711,6 +711,13 @@ dialog.chat[open] { display: flex; }
 .chat-empty .material-icons { font-size: 2.4rem; color: var(--p-text-4); }
 .chat-empty p { margin: 0; max-width: 34ch; }
 .search-option.search-chat { padding-left: 2.2rem; }
+.chat-form { position: relative; }
+.chat-emoji-btn { border: 0; background: none; color: var(--p-text-3); cursor: pointer; padding: .2rem; border-radius: 50%; display: inline-grid; place-items: center; }
+.chat-emoji-btn:hover, .chat-emoji-btn[aria-expanded="true"] { background: var(--p-hover-bg); color: var(--p-blue-2); }
+.chat-emoji { position: absolute; left: 1rem; bottom: calc(100% - .4rem); z-index: 2; display: grid; grid-template-columns: repeat(8, 2.1rem); gap: .1rem; padding: .4rem; background: var(--p-surface); border: 1px solid var(--p-line); border-radius: 12px; box-shadow: var(--p-shadow); }
+.chat-emoji[hidden] { display: none; }
+.chat-emoji-item { border: 0; background: none; font-size: 1.25rem; line-height: 1; width: 2.1rem; height: 2.1rem; border-radius: 8px; cursor: pointer; }
+.chat-emoji-item:hover, .chat-emoji-item:focus-visible { background: var(--p-hover-bg); }
 .search-option.search-chat .search-title { color: var(--p-blue-2); font-size: .9rem; }
 @media (max-width: 640px) {
 	dialog.chat { width: 100vw; height: 100dvh; max-width: none; max-height: none; border-radius: 0; }

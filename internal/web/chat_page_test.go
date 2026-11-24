@@ -129,3 +129,15 @@ func TestAdminChatStats(t *testing.T) {
 		}
 	}
 }
+
+func TestChatEmojiPicker(t *testing.T) {
+	s, _ := newChatServer(t, nil)
+	body := do(t, s, "GET", "/chat?a=abianchi", nil, nil, chatAs(t, s, "mrossi", true)).Body.String()
+	if !strings.Contains(body, "data-chat-emoji") || !strings.Contains(body, "data-chat-emoji-panel") {
+		t.Fatal("selettore emoji assente")
+	}
+	b, _ := os.ReadFile("../../web/static/js/chat.js")
+	if src := string(b); !strings.Contains(src, "setRangeText") || !strings.Contains(src, "EMOJI") {
+		t.Fatal("chat.js non inserisce le emoji nel testo")
+	}
+}

@@ -73,7 +73,9 @@
 			<p class="chat-blocked-note" data-chat-blocked hidden>Hai bloccato questo collega: non ricevi i suoi messaggi.</p>
 			<form class="chat-form" data-chat-form>
 				<textarea name="testo" rows="2" maxlength="2000" required placeholder="Scrivi un messaggio… (Invio per inviare, Maiuscolo+Invio per andare a capo)" aria-label="Messaggio"></textarea>
+				<div class="chat-emoji" id="chat-emoji" data-chat-emoji-panel role="group" aria-label="Emoji" hidden></div>
 				<div class="chat-form-row">
+					<button type="button" class="chat-emoji-btn" data-chat-emoji aria-label="Inserisci un'emoji" aria-expanded="false" aria-controls="chat-emoji"><span class="material-icons" aria-hidden="true">sentiment_satisfied_alt</span></button>
 					<small class="chat-count" data-chat-count>0/2000</small>
 					<small class="chat-err" data-chat-err role="alert" hidden></small>
 					<button type="submit" class="primary"><span class="material-icons" aria-hidden="true">send</span>Invia</button>

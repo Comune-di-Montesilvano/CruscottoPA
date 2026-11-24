@@ -276,6 +276,31 @@
 		}, 250);
 	});
 
+	// Emoji: griglia fissa, inserite nel punto del cursore.
+	const EMOJI = ["😀", "😂", "😊", "🙂", "😉", "😍", "😎", "🤔", "😅", "😮", "😢", "😴", "😡", "🙄", "🤗", "🥳",
+		"👍", "👎", "👏", "🙏", "💪", "👌", "✌️", "🤝", "👋", "❤️", "🎉", "🔥", "⭐", "✅", "❌", "⚠️",
+		"☕", "🍕", "🎂", "📎", "📅", "📞", "💻", "📄"];
+	const emojiBtn = $("[data-chat-emoji]");
+	const emojiPanel = $("[data-chat-emoji-panel]");
+	function emojiOpen(on) {
+		emojiPanel.hidden = !on;
+		emojiBtn.setAttribute("aria-expanded", String(on));
+	}
+	EMOJI.forEach((e) => {
+		const b = el("button", "chat-emoji-item", e);
+		b.type = "button";
+		b.addEventListener("click", () => {
+			const s = area.selectionStart ?? area.value.length, en = area.selectionEnd ?? s;
+			area.setRangeText(e, s, en, "end");
+			area.focus();
+			updateCount();
+		});
+		emojiPanel.append(b);
+	});
+	emojiBtn.addEventListener("click", () => emojiOpen(emojiPanel.hidden));
+	panel.addEventListener("keydown", (e) => { if (e.key === "Escape" && !emojiPanel.hidden) { e.stopPropagation(); e.preventDefault(); emojiOpen(false); emojiBtn.focus(); } });
+	document.addEventListener("click", (e) => { if (!emojiPanel.hidden && !e.target.closest("[data-chat-emoji-panel], [data-chat-emoji]")) emojiOpen(false); });
+
 	// Invio.
 	function updateCount() {
 		const n = [...area.value].length;
@@ -305,6 +330,7 @@
 			return;
 		}
 		area.value = "";
+		emojiOpen(false);
 		updateCount();
 		if (verified) {
 			reloadCurrent();
