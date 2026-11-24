@@ -1,0 +1,18 @@
+{{define "admin_chat.html"}}{{template "admin_top" .}}
+<h1>Chat</h1>
+{{template "chat_admin_section" .Body}}
+{{template "admin_bottom" .}}{{end}}
+
+{{define "chat_admin_section"}}
+<div id="section">
+	{{with .Errors.general}}<p class="flash error" role="alert">{{.}}</p>{{end}}
+	{{if .Saved}}<p class="flash" role="status">Salvato.</p>{{end}}
+	<p class="hint">Chat informale tra colleghi: messaggi diretti, cancellati dopo 30 giorni. Qui scegli chi può usarla. Chi è fuori non può scrivere né ricevere messaggi e non compare tra i colleghi da contattare. L'amministrazione non vede le conversazioni.</p>
+	<form class="card form" hx-post="/admin/chat" hx-target="#section" hx-swap="outerHTML">
+		<h2>Chi può usare la chat</h2>
+		{{template "visibility_fieldset" .Visibility}}
+		{{with .Errors.visibilita}}<p class="field-error">{{.}}</p>{{end}}
+		<div class="actions"><button class="primary" type="submit">Salva</button></div>
+	</form>
+</div>
+{{end}}

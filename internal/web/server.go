@@ -63,6 +63,7 @@ type Server struct {
 	auth            auth.Authenticator
 	directory       identity.Directory
 	cookies         *identity.CookieCodec
+	chatCookies     *identity.ChatCodec // accesso verificato alla chat
 	profiles        *profileCache
 	membersCache    *membersCache
 	limiter         *auth.RateLimiter
@@ -146,6 +147,7 @@ func New(o Options) (*Server, error) {
 	s.tmpl = tmpl
 	s.store = newSessionStore(o.Config.SessionSecret)
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
+	s.chatCookies = identity.NewChatCodec(o.Config.SessionSecret)
 	s.profiles = newProfileCache(o.Now)
 	s.ticketCache = newTicketCache(o.Now)
 	s.ticketDownloads = make(chan struct{}, 4)
@@ -275,6 +277,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /admin/ad/gruppi", s.requireAdmin(s.handleSuggestGroups))
 	s.mux.HandleFunc("GET /admin/ad/utenti", s.requireAdmin(s.handleSuggestUsers))
 	s.mux.HandleFunc("POST /admin/ente", s.requireAdmin(s.handleBrandingSave))
+	if s.chatEnabled() {
+		s.mux.HandleFunc("GET /admin/chat", s.requireAdmin(s.handleAdminChatPage))
+		s.mux.HandleFunc("POST /admin/chat", s.requireAdmin(s.handleAdminChatSave))
+		s.chatRoutes()
+	}
 	s.mux.HandleFunc("GET /uploads/icons/{file}", s.handleUploadFile(uploadIcons))
 	s.mux.HandleFunc("GET /uploads/branding/{file}", s.handleUploadFile(uploadBranding))
 	s.mux.HandleFunc("GET /uploads/guide/{file}", s.handleGuideImage)
