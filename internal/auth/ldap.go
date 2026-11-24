@@ -19,8 +19,10 @@ import (
 )
 
 // Authenticator verifica username/password e dice se l'utente è admin.
+// Verify controlla solo la password (accesso alla chat): nessun gruppo.
 type Authenticator interface {
 	Authenticate(username, password string) (ok, admin bool, err error)
+	Verify(username, password string) (ok bool, err error)
 }
 
 // LDAP implementa Authenticator su Active Directory / OpenLDAP.
@@ -44,6 +46,30 @@ func IsAdminUser(list []string, username string) bool {
 		}
 	}
 	return false
+}
+
+// Verify: bind con le credenziali dell'utente, senza controlli di gruppo
+// (LDAP_REQUIRED_GROUP e LDAP_ADMIN_GROUP riguardano solo l'admin).
+func (l *LDAP) Verify(username, password string) (bool, error) {
+	username = strings.TrimSpace(username)
+	if !usernameRe.MatchString(username) || password == "" {
+		return false, nil
+	}
+	if l.cfg.Host == "mock" {
+		return true, nil
+	}
+	conn, err := Dial(l.cfg)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close()
+	if err := conn.Bind(fmt.Sprintf(l.cfg.UserDNTemplate, username), password); err != nil {
+		if ldap.IsErrorWithCode(err, ldap.LDAPResultInvalidCredentials) {
+			return false, nil
+		}
+		return false, fmt.Errorf("ldap bind: %w", err)
+	}
+	return true, nil
 }
 
 func (l *LDAP) Authenticate(username, password string) (bool, bool, error) {

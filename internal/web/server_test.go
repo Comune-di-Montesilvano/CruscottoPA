@@ -28,6 +28,8 @@ type fakeAuth struct {
 
 func (f fakeAuth) Authenticate(_, _ string) (bool, bool, error) { return f.ok, f.admin, f.err }
 
+func (f fakeAuth) Verify(_, _ string) (bool, error) { return f.ok, f.err }
+
 type fakeDirectory struct {
 	people   map[string]identity.Person
 	profiles map[string]audience.Profile
