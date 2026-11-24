@@ -72,6 +72,10 @@ func TestRubricaDataAttr(t *testing.T) {
 	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, `data-rubrica="1"`) {
 		t.Fatal("manca data-rubrica con RUBRICA_URL")
 	}
+	if body := do(t, s, "GET", "/", nil, nil, nil).Body.String(); !strings.Contains(body, `placeholder="Cerca in plancia, in rubrica o sul web…"`) ||
+		!strings.Contains(body, `aria-label="Cerca in plancia, in rubrica o sul web"`) {
+		t.Fatal("il placeholder non cita la rubrica")
+	}
 	off, _ := newTestServer(t, nil)
 	if body := do(t, off, "GET", "/", nil, nil, nil).Body.String(); strings.Contains(body, "data-rubrica") {
 		t.Fatal("data-rubrica senza RUBRICA_URL")

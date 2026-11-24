@@ -53,7 +53,7 @@
 	<div class="search-wrap">
 		<label class="search">
 			<span class="material-icons" aria-hidden="true">search</span>
-			<input type="search" id="search" placeholder="Cerca in plancia o sul web…" autocomplete="off" aria-label="Cerca in plancia o sul web"
+			<input type="search" id="search" placeholder="Cerca in plancia{{if rubrica}}, in rubrica{{end}} o sul web…" autocomplete="off" aria-label="Cerca in plancia{{if rubrica}}, in rubrica{{end}} o sul web"
 				role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false"{{if rubrica}} data-rubrica="1"{{end}}{{with ente}} data-web="{{.WebSearch}}" data-web-name="{{webSearchName .WebSearch}}"{{with .SiteSearch}} data-site-search="{{.}}"{{end}}{{end}}>
 			<kbd>/</kbd>
 		</label>
