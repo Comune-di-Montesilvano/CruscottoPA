@@ -14,6 +14,7 @@ type chatAdminSection struct {
 	Errors     formErrors
 	Saved      bool
 	Stats      *chatAdminStats // solo nella pagina (il salvataggio rende la sezione)
+	StatusOn   bool            // «Oggi in chat» attivo
 }
 
 // chatAdminStats: numeri aggregati, mai nomi né orari.
@@ -25,7 +26,27 @@ type chatAdminStats struct {
 func (s *Server) chatAdminData(ca database.ContentAudience, errs formErrors) (chatAdminSection, error) {
 	f, err := s.visibilityField(ca)
 	f.Chat = true
-	return chatAdminSection{Visibility: f, Errors: errs}, err
+	if err != nil {
+		return chatAdminSection{}, err
+	}
+	on, err := s.db.ChatStatusEnabled()
+	return chatAdminSection{Visibility: f, Errors: errs, StatusOn: on}, err
+}
+
+// renderChatAdminSection: sezione dopo il salvataggio dell'interruttore.
+func (s *Server) renderChatAdminSection(w http.ResponseWriter, r *http.Request) {
+	ca, err := s.db.GetContentAudience(database.ContentChat, database.ChatAudienceID)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	sec, err := s.chatAdminData(ca, nil)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	sec.Saved = true
+	s.render(w, http.StatusOK, "chat_admin_section", sec)
 }
 
 func (s *Server) handleAdminChatPage(w http.ResponseWriter, r *http.Request) {

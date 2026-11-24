@@ -27,6 +27,8 @@ type chatView struct {
 	Recent         []chatRecent // solo per chi ha fatto l'accesso
 	Open           string       // collega da aprire (/chat?a=)
 	OpenConv       int64        // conversazione da aprire (/chat?c=)
+	StatusOn       bool         // «Oggi in chat» attivo (interruttore generale)
+	ShowMine       bool         // chi guarda mostra il proprio stato
 }
 
 // chatViewFor: nil se la chat non è disponibile per chi guarda.
@@ -36,6 +38,10 @@ func (s *Server) chatViewFor(w http.ResponseWriter, r *http.Request) *chatView {
 		return nil
 	}
 	cv := &chatView{Username: v.Username, Name: s.chatName(v.Username), Verified: v.Verified}
+	if on, _ := s.db.ChatStatusEnabled(); on {
+		hidden, _ := s.db.ChatHideStatus(v.Username)
+		cv.StatusOn, cv.ShowMine = true, !hidden
+	}
 	n, err := s.db.ChatUnreadTotal(v.Username)
 	if err != nil {
 		slog.Warn("chat: non letti", "err", err)

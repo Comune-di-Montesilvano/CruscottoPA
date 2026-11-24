@@ -117,6 +117,7 @@ func (s *Server) handleChatSend(w http.ResponseWriter, r *http.Request) {
 		chatFail(w, "errore")
 		return
 	}
+	s.chatTouch(v.Username)
 	// Bloccato: niente al destinatario, ma le altre schede del mittente si
 	// aggiornano come sempre (altrimenti se ne accorgerebbe).
 	s.notifyChat(to, v.Username, convID, s.chatName(v.Username), v.Verified, !blocked)

@@ -19,6 +19,9 @@ func (s *Server) cleanupChat() {
 		slog.Warn("pulizia chat", "err", err)
 		return
 	}
+	if err := s.db.CleanupChatToday(s.dayOf(s.now())); err != nil {
+		slog.Warn("pulizia chat", "err", err)
+	}
 	if s.directory == nil {
 		return
 	}

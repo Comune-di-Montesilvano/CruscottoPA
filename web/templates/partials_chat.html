@@ -42,6 +42,7 @@
 			<ul class="chat-results" id="chat-results" data-chat-results hidden></ul>
 			{{if .Verified}}
 			<ul class="chat-list" data-chat-list aria-label="Conversazioni"></ul>
+			{{if .StatusOn}}<label class="chat-visibility" title="Chi lo nasconde non vede quello degli altri"><input type="checkbox" data-chat-visibility{{if .ShowMine}} checked{{end}}> Mostra quando sono in chat</label>{{end}}
 			<button type="button" class="chat-logout" data-chat-logout title="Su questo PC servirà di nuovo la password per leggere i messaggi">Logout</button>
 			{{else}}
 			<div class="chat-login">
@@ -63,6 +64,7 @@
 				<button type="button" class="chat-back" data-chat-back aria-label="Torna alle conversazioni"><span class="material-icons" aria-hidden="true">arrow_back</span></button>
 				<span class="chat-avatar" data-chat-avatar aria-hidden="true"></span>
 				<h3 id="chat-with" data-chat-with></h3>
+				<span class="chat-today" data-chat-today hidden><span class="chat-dot" aria-hidden="true"></span>Oggi in chat</span>
 				{{if .Verified}}<button type="button" class="chat-link" data-chat-block>Blocca</button>{{end}}
 			</header>
 			<div class="chat-msgs-wrap">

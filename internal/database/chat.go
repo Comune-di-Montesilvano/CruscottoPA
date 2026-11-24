@@ -280,9 +280,82 @@ func (db *DB) DeleteChatUser(user string) error {
 		if _, err := tx.Exec(`DELETE FROM chat_unread WHERE username = ?`, u); err != nil {
 			return err
 		}
+		if _, err := tx.Exec(`DELETE FROM chat_today WHERE username = ?`, u); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM chat_settings WHERE username = ?`, u); err != nil {
+			return err
+		}
 		_, err := tx.Exec(`DELETE FROM chat_blocks WHERE blocker = ? OR blocked = ?`, u, u)
 		return err
 	})
+}
+
+// TouchChatToday: user ha usato la chat nel giorno day (YYYY-MM-DD di Roma).
+func (db *DB) TouchChatToday(user, day string) error {
+	_, err := db.Exec(`INSERT INTO chat_today (username, day) VALUES (?, ?) ON CONFLICT DO NOTHING`, chatUser(user), day)
+	return err
+}
+
+// ChatToday: tra users, chi ha usato la chat nel giorno day e non nasconde lo stato.
+func (db *DB) ChatToday(users []string, day string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if len(users) == 0 {
+		return out, nil
+	}
+	args := []any{day}
+	ph := make([]string, len(users))
+	for i, u := range users {
+		ph[i] = "?"
+		args = append(args, chatUser(u))
+	}
+	rows, err := db.Query(`SELECT t.username FROM chat_today t LEFT JOIN chat_settings s ON s.username = t.username
+WHERE t.day = ? AND COALESCE(s.hide_status, 0) = 0 AND t.username IN (`+strings.Join(ph, ",")+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		out[u] = true
+	}
+	return out, rows.Err()
+}
+
+func (db *DB) SetChatHideStatus(user string, hide bool) error {
+	_, err := db.Exec(`INSERT INTO chat_settings (username, hide_status) VALUES (?, ?)
+ON CONFLICT (username) DO UPDATE SET hide_status = excluded.hide_status`, chatUser(user), hide)
+	return err
+}
+
+func (db *DB) ChatHideStatus(user string) (bool, error) {
+	var h bool
+	err := db.QueryRow(`SELECT hide_status FROM chat_settings WHERE username = ?`, chatUser(user)).Scan(&h)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return h, err
+}
+
+// ChatStatusEnabled: interruttore generale di «Oggi in chat» (Admin → Chat).
+func (db *DB) ChatStatusEnabled() (bool, error) {
+	var on bool
+	err := db.QueryRow(`SELECT status_enabled FROM chat_options WHERE id = 1`).Scan(&on)
+	return on, err
+}
+
+func (db *DB) SetChatStatusEnabled(on bool) error {
+	_, err := db.Exec(`UPDATE chat_options SET status_enabled = ? WHERE id = 1`, on)
+	return err
+}
+
+// CleanupChatToday: restano solo le righe del giorno today.
+func (db *DB) CleanupChatToday(today string) error {
+	_, err := db.Exec(`DELETE FROM chat_today WHERE day < ?`, today)
+	return err
 }
 
 func (db *DB) stringList(q string, args ...any) ([]string, error) {

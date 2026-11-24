@@ -25,5 +25,11 @@
 		{{with .Errors.visibilita}}<p class="field-error">{{.}}</p>{{end}}
 		<div class="actions"><button class="primary" type="submit">Salva</button></div>
 	</form>
+	<form class="card form" hx-post="/admin/chat/stato" hx-target="#section" hx-swap="outerHTML">
+		<h2>«Oggi in chat»</h2>
+		<label class="check"><input type="checkbox" name="attivo" value="1"{{if .StatusOn}} checked{{end}}> Mostra un pallino verde accanto ai colleghi che hanno usato la chat oggi</label>
+		<p class="hint">Solo il giorno, mai l'ora. Conta aprire la chat o una conversazione e scrivere, non avere la plancia aperta. Ognuno può nascondere il proprio stato dal pannello della chat: chi lo nasconde non vede quello degli altri.</p>
+		<div class="actions"><button class="primary" type="submit">Salva</button></div>
+	</form>
 </div>
 {{end}}

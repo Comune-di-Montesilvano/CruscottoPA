@@ -269,3 +269,46 @@ func TestCleanupChatEmptyConversations(t *testing.T) {
 		t.Fatalf("conversazione appena creata cancellata: %v", err)
 	}
 }
+
+func TestChatToday(t *testing.T) {
+	db := newTestDB(t)
+	day := "2026-11-24"
+	if err := db.TouchChatToday("MRossi", day); err != nil {
+		t.Fatal(err)
+	}
+	db.TouchChatToday("mrossi", day) // ripetuto: nessun errore
+	db.TouchChatToday("abianchi", "2026-11-23")
+	got, err := db.ChatToday([]string{"mrossi", "abianchi", "lverdi"}, day)
+	if err != nil || !got["mrossi"] || got["abianchi"] || got["lverdi"] {
+		t.Fatalf("oggi in chat: %v %v", got, err)
+	}
+	if err := db.SetChatHideStatus("mrossi", true); err != nil {
+		t.Fatal(err)
+	}
+	if h, _ := db.ChatHideStatus("mrossi"); !h {
+		t.Fatal("stato nascosto non salvato")
+	}
+	if got, _ := db.ChatToday([]string{"mrossi"}, day); got["mrossi"] {
+		t.Fatal("stato nascosto visibile")
+	}
+	if on, _ := db.ChatStatusEnabled(); !on {
+		t.Fatal("stato spento di default")
+	}
+	db.SetChatStatusEnabled(false)
+	if on, _ := db.ChatStatusEnabled(); on {
+		t.Fatal("interruttore non salvato")
+	}
+	if err := db.CleanupChatToday(day); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	db.QueryRow(`SELECT COUNT(*) FROM chat_today`).Scan(&n)
+	if n != 1 {
+		t.Fatalf("righe dopo la pulizia: %d", n)
+	}
+	db.DeleteChatUser("mrossi")
+	db.QueryRow(`SELECT COUNT(*) FROM chat_today`).Scan(&n)
+	if h, _ := db.ChatHideStatus("mrossi"); n != 0 || h {
+		t.Fatal("utente uscito da AD: stato rimasto")
+	}
+}
