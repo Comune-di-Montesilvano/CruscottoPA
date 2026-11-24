@@ -56,7 +56,7 @@ func (s *Server) handleChatConversations(w http.ResponseWriter, r *http.Request)
 	today := s.chatTodayFor(v.Username, others)
 	out := make([]map[string]any, 0, len(cs))
 	for _, c := range cs {
-		out = append(out, map[string]any{"id": c.ID, "con": c.Other, "nome": s.chatName(c.Other),
+		out = append(out, map[string]any{"id": c.ID, "con": c.Other, "nome": s.chatName(c.Other), "dettaglio": s.chatDetail(c.Other),
 			"ultimo": chatTime(c.LastAt), "nuovi": c.Unread, "oggi": today[c.Other]})
 	}
 	chatReply(w, map[string]any{"conversazioni": out})
@@ -65,7 +65,7 @@ func (s *Server) handleChatConversations(w http.ResponseWriter, r *http.Request)
 // chatThread: messaggi visibili a v prima di before (0 = più recenti).
 func (s *Server) chatThread(v chatViewer, convID int64, other string, before int64) (map[string]any, error) {
 	s.chatTouch(v.Username)
-	out := map[string]any{"id": convID, "con": other, "nome": s.chatName(other), "accesso": true,
+	out := map[string]any{"id": convID, "con": other, "nome": s.chatName(other), "dettaglio": s.chatDetail(other), "accesso": true,
 		"oggi": s.chatTodayFor(v.Username, []string{other})[other],
 		"messaggi": []map[string]any{}, "altri": false}
 	blocked, err := s.db.ChatBlocked(v.Username, other)
@@ -151,7 +151,7 @@ func (s *Server) handleChatWith(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !v.Verified {
-		chatReply(w, map[string]any{"id": 0, "con": other, "nome": s.chatName(other), "accesso": false,
+		chatReply(w, map[string]any{"id": 0, "con": other, "nome": s.chatName(other), "dettaglio": s.chatDetail(other), "accesso": false,
 			"oggi": s.chatTodayFor(v.Username, []string{other})[other],
 			"messaggi": []map[string]any{}, "altri": false, "bloccato": false})
 		return
@@ -239,7 +239,11 @@ func (s *Server) handleChatPeople(w http.ResponseWriter, r *http.Request) {
 			if name == "" {
 				name = u
 			}
-			out = append(out, map[string]any{"utente": u, "nome": name})
+			detail := p.Office
+			if detail == "" {
+				detail = u
+			}
+			out = append(out, map[string]any{"utente": u, "nome": name, "dettaglio": detail})
 		}
 		users := make([]string, len(out))
 		for i, p := range out {

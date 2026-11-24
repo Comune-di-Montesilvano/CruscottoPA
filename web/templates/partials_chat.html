@@ -2,16 +2,16 @@
 <section class="widget chat-widget" id="widget-chat" aria-labelledby="chat-widget-title" hx-get="/partials/chat" hx-trigger="every 300s, chat from:body, chat-local from:body" hx-swap="outerHTML">
 	<div class="cw-head">
 		<span class="material-icons" aria-hidden="true">forum</span>
-		<h2 class="widget-title" id="chat-widget-title">Messaggi</h2>
+		<h2 class="widget-title" id="chat-widget-title"><button type="button" class="cw-title" data-chat-open="">Messaggi</button></h2>
 		{{if .Unread}}<span class="cw-badge" aria-label="{{.Unread}} {{plural .Unread "messaggio nuovo" "messaggi nuovi"}}">{{.Unread}}</span>{{end}}
 		<button type="button" class="cw-new" data-chat-open=""><span class="material-icons" aria-hidden="true">edit</span>Nuovo</button>
 	</div>
 	{{if .Verified}}
 		{{with .Recent}}<ul class="cw-list">{{range .}}
 			<li><button type="button" class="cw-item{{if .Nuovi}} is-new{{end}}" data-chat-open="{{.Con}}">
-				<span class="chat-avatar" aria-hidden="true">{{monogram .Nome}}</span>
-				<span class="cw-name">{{.Nome}}</span>
-				{{if .Nuovi}}<span class="cw-new-count">{{.Nuovi}} {{plural .Nuovi "nuovo" "nuovi"}}</span>{{end}}
+				<span class="chat-avatar{{if .Oggi}} is-today{{end}}" aria-hidden="true"{{if .Oggi}} title="Oggi in chat"{{end}}>{{monogram .Nome}}</span>
+				<span class="cw-text"><span class="cw-name">{{.Nome}}</span><span class="cw-sub">{{.Dettaglio}}{{if .Oggi}}<span class="visually-hidden">, oggi in chat</span>{{end}}</span></span>
+				{{if .Nuovi}}<span class="cw-count" aria-label="{{.Nuovi}} {{plural .Nuovi "messaggio nuovo" "messaggi nuovi"}}">{{.Nuovi}}</span>{{end}}
 			</button></li>{{end}}
 		</ul>{{else}}<p class="cw-empty">Nessun messaggio negli ultimi 30 giorni. Scrivi a un collega con «Nuovo».</p>{{end}}
 	{{else}}
@@ -63,7 +63,7 @@
 			<header class="chat-thread-head">
 				<button type="button" class="chat-back" data-chat-back aria-label="Torna alle conversazioni"><span class="material-icons" aria-hidden="true">arrow_back</span></button>
 				<span class="chat-avatar" data-chat-avatar aria-hidden="true"></span>
-				<h3 id="chat-with" data-chat-with></h3>
+				<span class="chat-with-text"><h3 id="chat-with" data-chat-with></h3><small class="chat-with-sub" data-chat-with-sub></small></span>
 				<span class="chat-today" data-chat-today hidden><span class="chat-dot" aria-hidden="true"></span>Oggi in chat</span>
 				{{if .Verified}}<button type="button" class="chat-link" data-chat-block>Blocca</button>{{end}}
 			</header>

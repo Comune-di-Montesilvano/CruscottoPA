@@ -14,14 +14,14 @@ import (
 // chatDirectory: tre colleghi noti ad AD.
 func chatDirectory() fakeDirectory {
 	people := map[string]identity.Person{
-		"mrossi":   {Username: "mrossi", Name: "Mario Rossi"},
-		"abianchi": {Username: "abianchi", Name: "Anna Bianchi"},
-		"lverdi":   {Username: "lverdi", Name: "Luca Verdi"},
+		"mrossi":   {Username: "mrossi", Name: "Mario Rossi", Office: "Ragioneria"},
+		"abianchi": {Username: "abianchi", Name: "Anna Bianchi", Office: "Ragioneria"},
+		"lverdi":   {Username: "lverdi", Name: "Luca Verdi", Office: "Ragioneria"},
 	}
 	profiles := map[string]audience.Profile{}
 	members := []identity.Person{}
 	for u, p := range people {
-		profiles[u] = audience.Profile{Username: u, Attrs: map[string][]string{"displayname": {p.Name}}}
+		profiles[u] = audience.Profile{Username: u, Attrs: map[string][]string{"displayname": {p.Name}, "department": {p.Office}}}
 		members = append(members, p)
 	}
 	return fakeDirectory{people: people, profiles: profiles, members: members}

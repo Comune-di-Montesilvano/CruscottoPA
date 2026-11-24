@@ -81,10 +81,10 @@ func (s *Server) profileFor(username string) (p audience.Profile, ok, down bool)
 		names[i] = a.Name
 	}
 	// Nome, mail e telefono servono al modulo ticket anche se non sono
-	// attributi dei gruppi. Senza ripetizioni (AD non distingue le maiuscole).
+	// attributi dei gruppi; l'ufficio distingue gli omonimi nella chat. Senza ripetizioni (AD non distingue le maiuscole).
 	seen := map[string]bool{}
 	uniq := names[:0]
-	for _, n := range append(names, "displayName", "mail", "telephoneNumber") {
+	for _, n := range append(names, "displayName", "mail", "telephoneNumber", "department", "physicalDeliveryOfficeName") {
 		if k := strings.ToLower(n); !seen[k] {
 			seen[k] = true
 			uniq = append(uniq, n)

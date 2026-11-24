@@ -171,7 +171,7 @@
 			b.addEventListener("click", () => openWith(c.con));
 			const av = avatar(c.nome, c.oggi);
 			const txt = el("span", "chat-conv-text");
-			txt.append(el("span", "chat-conv-name", c.nome), el("span", "chat-conv-when", when(c.ultimo)));
+			txt.append(el("span", "chat-conv-name", c.nome), el("span", "chat-conv-when", [c.dettaglio, when(c.ultimo)].filter(Boolean).join(" · ")));
 			if (c.oggi) txt.append(el("span", "visually-hidden", "Oggi in chat"));
 			b.append(av, txt);
 			if (c.nuovi) b.append(el("span", "chat-conv-badge", String(c.nuovi)));
@@ -196,6 +196,8 @@
 		if (!prepend) {
 			current = { id: d.id, con: d.con, nome: d.nome, bloccato: !!d.bloccato, lastId: lastId(d) };
 			$("[data-chat-with]").textContent = d.nome;
+			const sub = $("[data-chat-with-sub]");
+			if (sub) sub.textContent = d.dettaglio || "";
 			$("[data-chat-avatar]").textContent = initials(d.nome);
 			showToday(d);
 			msgs.replaceChildren();
@@ -290,7 +292,10 @@
 					const li = el("li");
 					const b = el("button", "chat-conv");
 					b.type = "button";
-					b.append(avatar(p.nome, p.oggi), el("span", "chat-conv-name", p.nome));
+					const txt = el("span", "chat-conv-text");
+					txt.append(el("span", "chat-conv-name", p.nome));
+					if (p.dettaglio) txt.append(el("span", "chat-conv-when", p.dettaglio));
+					b.append(avatar(p.nome, p.oggi), txt);
 					if (p.oggi) b.append(el("span", "visually-hidden", "Oggi in chat"));
 					b.addEventListener("click", () => {
 						search.value = "";

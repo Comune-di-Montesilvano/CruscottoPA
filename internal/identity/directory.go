@@ -23,6 +23,7 @@ type Person struct {
 	Username  string // sAMAccountName, minuscolo
 	Name      string // displayName, "" se assente
 	GivenName string // givenName, "" se assente
+	Office    string // department, altrimenti physicalDeliveryOfficeName (omonimi nella chat)
 	// Attrs: valori degli attributi richiesti (es. nella tabella dell'anteprima).
 	Attrs map[string]string
 }
@@ -165,14 +166,22 @@ func membersFilterParts(rules []audience.Rule) (string, string, bool) {
 	return "(&" + activeUsersFilter + "(|" + or.String() + ")" + not.String() + ")", not.String(), true
 }
 
-var personAttrs = []string{"sAMAccountName", "displayName", "givenName"}
+var personAttrs = []string{"sAMAccountName", "displayName", "givenName", "department", "physicalDeliveryOfficeName"}
 
 func personFromEntry(e *ldap.Entry) Person {
 	return Person{
 		Username:  strings.ToLower(e.GetAttributeValue("sAMAccountName")),
 		Name:      strings.TrimSpace(e.GetAttributeValue("displayName")),
 		GivenName: strings.TrimSpace(e.GetAttributeValue("givenName")),
+		Office:    personOffice(e.GetAttributeValue("department"), e.GetAttributeValue("physicalDeliveryOfficeName")),
 	}
+}
+
+func personOffice(department, office string) string {
+	if d := strings.TrimSpace(department); d != "" {
+		return d
+	}
+	return strings.TrimSpace(office)
 }
 
 func sortPeople(p []Person) {
@@ -545,6 +554,7 @@ func (MockDirectory) SearchUsers(q string) ([]Person, error) {
 	lq := strings.ToLower(strings.TrimSpace(q))
 	for _, p := range mockPeople {
 		if lq != "" && (strings.Contains(strings.ToLower(p.Name), lq) || strings.HasPrefix(p.Username, lq)) {
+			p.Office = "INFORMATIZZAZIONE"
 			out = append(out, p)
 		}
 	}
