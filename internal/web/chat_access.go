@@ -21,6 +21,13 @@ func (s *Server) chatRoutes() {
 	s.mux.HandleFunc("POST /chat/accesso", s.handleChatLogin)
 	s.mux.HandleFunc("POST /chat/esci", s.handleChatLogout)
 	s.mux.HandleFunc("POST /chat/messaggi", s.handleChatSend)
+	s.mux.HandleFunc("GET /chat/conversazioni", s.handleChatConversations)
+	s.mux.HandleFunc("GET /chat/conversazioni/{id}", s.handleChatThread)
+	s.mux.HandleFunc("POST /chat/conversazioni/{id}/letto", s.handleChatRead)
+	s.mux.HandleFunc("GET /chat/con/{utente}", s.handleChatWith)
+	s.mux.HandleFunc("POST /chat/blocchi", s.handleChatBlock)
+	s.mux.HandleFunc("GET /chat/persone", s.handleChatPeople)
+	s.mux.HandleFunc("GET /chat/stato", s.handleChatState)
 }
 
 // chatAllowed: username può scrivere e ricevere messaggi. Serve un profilo AD
