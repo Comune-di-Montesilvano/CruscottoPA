@@ -27,6 +27,7 @@ import (
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/identity"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/notify"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/otrs"
+	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/rubrica"
 )
 
 // repoURL: repository del progetto, linkato dal footer della plancia.
@@ -50,6 +51,8 @@ type Options struct {
 	PCLookup func(ctx context.Context, host string) ([]string, error)
 	// Tickets: invio dei ticket a OTRS (nil = modulo spento).
 	Tickets otrs.Client
+	// Rubrica: ricerca dei contatti per la tendina (nil = spenta).
+	Rubrica *rubrica.Client
 	// Errors: invio degli errori a GlitchTip (nil = spento).
 	Errors *errtrack.Tracker
 }
@@ -79,7 +82,9 @@ type Server struct {
 	hub             *notify.Hub   // plance collegate a /eventi
 	pusher          notify.Pusher // nil = Web Push spento
 	vapidPublic     string
-	notifyDone      chan struct{}                                            // chiuso quando il dispatcher è terminato
+	notifyDone      chan struct{}   // chiuso quando il dispatcher è terminato
+	rubrica         *rubrica.Client // nil = gruppo «Persone» spento
+	rubricaWarn     rubricaWarn
 	tickets         otrs.Client                                              // nil = modulo ticket spento
 	ticketSending   sync.Map                                                 // username → invio a OTRS in corso
 	ticketCache     *ticketCache                                             // letture da OTRS
@@ -125,6 +130,7 @@ func New(o Options) (*Server, error) {
 		now:          o.Now,
 		fetchGuide:   o.GuideFetch,
 		tickets:      o.Tickets,
+		rubrica:      o.Rubrica,
 		errs:         o.Errors,
 		mux:          http.NewServeMux(),
 	}
@@ -218,6 +224,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("GET /partials/alerts", s.handleAlertsPartial)
 	s.mux.HandleFunc("GET /partials/calendario", s.handleCalendarPartial)
+	s.mux.HandleFunc("GET /rubrica/cerca", s.handleRubricaSearch)
 	s.mux.HandleFunc("GET /partials/preferiti", s.handleFavoritesPartial)
 	s.mux.HandleFunc("POST /preferiti", s.handleSaveFavorites)
 	s.mux.HandleFunc("POST /ordine/categorie", s.handleSaveCategoryOrder)

@@ -13,7 +13,7 @@ var allVars = []string{
 	"LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_REQUIRED_GROUP", "LDAP_ADMIN_GROUP", "ADMIN_USERS",
 	"BACKUP_INTERVAL_HOURS", "NTLM_DOMAIN", "VAPID_SUBJECT", "GUIDE_REFRESH_HOURS",
 	"PC_DNS_SUFFIX", "PC_DNS_SERVER", "OTRS_URL", "OTRS_ROUTE_CREATE", "OTRS_ROUTE_UPDATE", "OTRS_ROUTE_SEARCH", "OTRS_ROUTE_GET", "OTRS_USER", "OTRS_PASSWORD", "OTRS_QUEUE", "OTRS_FALLBACK_EMAIL",
-	"STATS_ENABLED", "STATS_RETENTION_MONTHS",
+	"STATS_ENABLED", "STATS_RETENTION_MONTHS", "RUBRICA_URL",
 }
 
 func TestLoadOTRSDisabledByDefault(t *testing.T) {
@@ -316,5 +316,28 @@ func TestLoadSentry(t *testing.T) {
 	}
 	if cfg.SentryDSN != "https://chiave@glitchtip.example.it/3" || cfg.SentryEnvironment != "sviluppo" {
 		t.Fatalf("lette: %q %q", cfg.SentryDSN, cfg.SentryEnvironment)
+	}
+}
+
+func TestLoadRubricaURL(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("LDAP_HOST", "mock")
+	cfg, err := Load()
+	if err != nil || cfg.RubricaURL != "" {
+		t.Fatalf("vuota: %q %v", cfg.RubricaURL, err)
+	}
+	t.Setenv("RUBRICA_URL", " https://rubrica.example.it/ ")
+	if cfg, err = Load(); err != nil || cfg.RubricaURL != "https://rubrica.example.it" {
+		t.Fatalf("con / finale: %q %v", cfg.RubricaURL, err)
+	}
+	t.Setenv("RUBRICA_URL", "http://rubrica:8080/base")
+	if cfg, err = Load(); err != nil || cfg.RubricaURL != "http://rubrica:8080/base" {
+		t.Fatalf("http con percorso: %q %v", cfg.RubricaURL, err)
+	}
+	for _, bad := range []string{"ftp://rubrica.example.it", "rubrica.example.it", "https://", "https://rubrica.example.it/?q=1"} {
+		t.Setenv("RUBRICA_URL", bad)
+		if _, err := Load(); err == nil {
+			t.Errorf("%q accettata", bad)
+		}
 	}
 }

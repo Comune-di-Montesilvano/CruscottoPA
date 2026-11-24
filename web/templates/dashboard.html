@@ -54,7 +54,7 @@
 		<label class="search">
 			<span class="material-icons" aria-hidden="true">search</span>
 			<input type="search" id="search" placeholder="Cerca in plancia o sul web…" autocomplete="off" aria-label="Cerca in plancia o sul web"
-				role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false"{{with ente}} data-web="{{.WebSearch}}" data-web-name="{{webSearchName .WebSearch}}"{{with .SiteSearch}} data-site-search="{{.}}"{{end}}{{end}}>
+				role="combobox" aria-autocomplete="list" aria-controls="search-results" aria-expanded="false"{{if rubrica}} data-rubrica="1"{{end}}{{with ente}} data-web="{{.WebSearch}}" data-web-name="{{webSearchName .WebSearch}}"{{with .SiteSearch}} data-site-search="{{.}}"{{end}}{{end}}>
 			<kbd>/</kbd>
 		</label>
 		<div class="search-results" id="search-results" role="listbox" aria-label="Risultati" hidden></div>

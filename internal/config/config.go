@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -94,6 +95,9 @@ type Config struct {
 	VAPIDSubject string
 	// OTRS: modulo ticket (vuoto = spento).
 	OTRS OTRS
+	// RubricaURL: indirizzo della Rubrica per il gruppo «Persone» della ricerca
+	// (vuota = spento), senza "/" finale.
+	RubricaURL string
 	// SentryDSN: progetto su GlitchTip per gli errori (vuota = spento).
 	SentryDSN string
 	// SentryEnvironment: ambiente degli eventi (default "production").
@@ -123,6 +127,7 @@ func Load() (Config, error) {
 		},
 		NTLMDomain:        strings.TrimSpace(os.Getenv("NTLM_DOMAIN")),
 		SentryDSN:         strings.TrimSpace(os.Getenv("SENTRY_DSN")),
+		RubricaURL:        strings.TrimRight(strings.TrimSpace(os.Getenv("RUBRICA_URL")), "/"),
 		SentryEnvironment: getEnv("SENTRY_ENVIRONMENT", "production"),
 		VAPIDSubject:      strings.TrimSpace(os.Getenv("VAPID_SUBJECT")),
 		PCDNSSuffix:       strings.Trim(strings.TrimSpace(os.Getenv("PC_DNS_SUFFIX")), "."),
@@ -166,6 +171,9 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	if cfg.StatsRetentionMonths, err = getEnvInt("STATS_RETENTION_MONTHS", 13); err != nil {
+		return Config{}, err
+	}
+	if err := validRubricaURL(cfg.RubricaURL); err != nil {
 		return Config{}, err
 	}
 	if cfg.StatsRetentionMonths < 1 {
@@ -257,4 +265,16 @@ func (c Config) Warnings() []string {
 		w = append(w, "VAPID_SUBJECT deve iniziare con mailto: o https:")
 	}
 	return w
+}
+
+// validRubricaURL: vuota oppure http(s)://host[/percorso], senza query né frammento.
+func validRubricaURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+		return errors.New("RUBRICA_URL deve essere http(s)://host[/percorso], senza parametri")
+	}
+	return nil
 }

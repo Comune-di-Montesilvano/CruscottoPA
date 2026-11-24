@@ -62,6 +62,38 @@
 	let options = [];
 	let active = -1;
 
+	// Persone dalla Rubrica (input con data-rubrica): chieste al server dopo una
+	// pausa nella digitazione; la risposta vale solo se il testo è ancora quello.
+	let people = { q: "", list: [] };
+	let peopleTimer = 0;
+	let peopleCtrl = null;
+	let navigated = false; // frecce o mouse dopo l'ultima digitazione
+	function schedulePeople() {
+		if (!input || !input.dataset.rubrica) return;
+		clearTimeout(peopleTimer);
+		if (peopleCtrl) { peopleCtrl.abort(); peopleCtrl = null; }
+		const typed = input.value.trim();
+		if (typed.length < 2) return;
+		peopleTimer = setTimeout(() => {
+			const ctrl = new AbortController();
+			peopleCtrl = ctrl;
+			fetch("/rubrica/cerca?q=" + encodeURIComponent(typed), { signal: ctrl.signal, headers: { Accept: "application/json" } })
+				.then((r) => r.json())
+				.then((d) => {
+					if (peopleCtrl === ctrl) peopleCtrl = null;
+					if (!d || !d.ok || input.value.trim() !== typed) return;
+					people = { q: typed, list: Array.isArray(d.persone) ? d.persone : [] };
+					if (!list.hidden) render(true);
+				})
+				.catch(() => { /* annullata o Rubrica giù: nessun gruppo */ });
+		}, 250);
+	}
+	// "int." solo per interni brevi; un numero completo resta com'è.
+	function phoneLabel(n) {
+		if (!n) return "";
+		return /^\d{1,5}(, \d{1,5})*$/.test(n) ? `int. ${n}` : n;
+	}
+
 	// 0 inizio del titolo, 1 inizio di una parola del titolo, 2 dentro il
 	// titolo, 3 nel resto (categoria, descrizione, app coperte); -1 nessuno.
 	function score(it, q) {
@@ -109,9 +141,11 @@
 			input.removeAttribute("aria-activedescendant");
 		}
 	}
-	function render() {
+	// keep: nuova resa per l'arrivo delle persone, la voce attiva resta quella.
+	function render(keep) {
 		const q = norm(input.value.trim());
 		if (!q || !list) { closeResults(); return; }
+		const prevHref = keep === true && navigated && active >= 0 && options[active] ? options[active].href : "";
 		list.replaceChildren();
 		options = [];
 		GROUPS.forEach(([kind, label, icon]) => {
@@ -142,11 +176,42 @@
 				txt.append(el("span", "search-title", it.t));
 				if (it.s) txt.append(el("span", "search-sub", it.k === "support" ? `Assistenza per ${it.s}` : it.s));
 				a.append(ic, txt);
-				a.addEventListener("mousemove", () => setActive(options.indexOf(a), false));
+				a.addEventListener("mousemove", () => { navigated = true; setActive(options.indexOf(a), false); });
 				options.push(a);
 				group.append(a);
 			});
 		});
+		// Persone dalla Rubrica, dopo i risultati della plancia.
+		if (people.list.length && people.q === input.value.trim()) {
+			const group = el("div", "search-group-box");
+			group.setAttribute("role", "group");
+			const head = el("div", "search-group", "Persone");
+			head.id = "search-group-persone";
+			group.setAttribute("aria-labelledby", head.id);
+			group.append(head);
+			people.list.forEach((p) => {
+				const href = safeHref(p.url);
+				if (!href || !p.nome) return;
+				const a = el("a", "search-option");
+				a.id = `search-opt-${options.length}`;
+				a.href = href;
+				a.target = "_blank";
+				a.rel = "noopener";
+				a.setAttribute("role", "option");
+				a.tabIndex = -1;
+				const ic = el("span", "material-icons", "person");
+				ic.setAttribute("aria-hidden", "true");
+				const txt = el("span", "search-text");
+				txt.append(el("span", "search-title", p.nome));
+				const sub = [p.reparto, phoneLabel(p.interno), p.mail].filter(Boolean).join(" · ");
+				if (sub) txt.append(el("span", "search-sub", sub));
+				a.append(ic, txt);
+				a.addEventListener("mousemove", () => { navigated = true; setActive(options.indexOf(a), false); });
+				options.push(a);
+				group.append(a);
+			});
+			if (group.children.length > 1) list.append(group);
+		}
 		// In fondo: ricerca sul web e sul sito dell'ente (nuova scheda). Il testo
 		// esce dalla plancia solo se l'utente sceglie una di queste voci.
 		const typed = input.value.trim();
@@ -176,7 +241,7 @@
 				const txt = el("span", "search-text");
 				txt.append(el("span", "search-title", label));
 				a.append(ic, txt);
-				a.addEventListener("mousemove", () => setActive(options.indexOf(a), false));
+				a.addEventListener("mousemove", () => { navigated = true; setActive(options.indexOf(a), false); });
 				options.push(a);
 				group.append(a);
 			});
@@ -185,15 +250,16 @@
 		if (!options.length) list.append(el("div", "search-empty", `Nessun risultato per «${typed}»`));
 		list.hidden = false;
 		input.setAttribute("aria-expanded", "true");
-		setActive(options.length ? 0 : -1, true);
+		const kept = prevHref ? options.findIndex((o) => o.href === prevHref) : -1;
+		setActive(kept >= 0 ? kept : (options.length ? 0 : -1), kept < 0);
 	}
 	if (input && list) {
-		input.addEventListener("input", render);
+		input.addEventListener("input", () => { navigated = false; render(); schedulePeople(); });
 		input.addEventListener("focus", () => { if (input.value.trim()) render(); });
 		input.addEventListener("keydown", (e) => {
 			if (list.hidden) return;
-			if (e.key === "ArrowDown" && options.length) { e.preventDefault(); setActive((active + 1) % options.length, true); }
-			else if (e.key === "ArrowUp" && options.length) { e.preventDefault(); setActive((active - 1 + options.length) % options.length, true); }
+			if (e.key === "ArrowDown" && options.length) { e.preventDefault(); navigated = true; setActive((active + 1) % options.length, true); }
+			else if (e.key === "ArrowUp" && options.length) { e.preventDefault(); navigated = true; setActive((active - 1 + options.length) % options.length, true); }
 			else if (e.key === "Enter" && active >= 0) { e.preventDefault(); options[active].click(); }
 		});
 		document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) closeResults(); });
