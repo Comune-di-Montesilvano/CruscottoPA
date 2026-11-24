@@ -220,13 +220,13 @@ func (db *DB) ChatUnreadTotal(user string) (int, error) {
 }
 
 // SetChatBlock: blocker non riceve più i messaggi di blocked (on=false sblocca).
-func (db *DB) SetChatBlock(blocker, blocked string, on bool) error {
+func (db *DB) SetChatBlock(blocker, blocked string, on bool, now time.Time) error {
 	if !on {
 		_, err := db.Exec(`DELETE FROM chat_blocks WHERE blocker = ? AND blocked = ?`, chatUser(blocker), chatUser(blocked))
 		return err
 	}
 	_, err := db.Exec(`INSERT INTO chat_blocks (blocker, blocked, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
-		chatUser(blocker), chatUser(blocked), formatTime(time.Now()))
+		chatUser(blocker), chatUser(blocked), formatTime(now))
 	return err
 }
 
@@ -244,14 +244,13 @@ func (db *DB) ChatBlockedList(blocker string) ([]string, error) {
 // vuote; i non letti si ricalcolano sui messaggi rimasti.
 func (db *DB) CleanupChat(before time.Time) error {
 	return db.inTx(func(tx *sql.Tx) error {
-		res, err := tx.Exec(`DELETE FROM chat_messages WHERE created_at < ?`, formatTime(before))
-		if err != nil {
+		if _, err := tx.Exec(`DELETE FROM chat_messages WHERE created_at < ?`, formatTime(before)); err != nil {
 			return err
 		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return nil
-		}
-		if _, err := tx.Exec(`DELETE FROM chat_conversations WHERE NOT EXISTS (SELECT 1 FROM chat_messages m WHERE m.conversation_id = chat_conversations.id)`); err != nil {
+		// Senza messaggi: scaduti, oppure mai scritti (creazione fallita a metà).
+		// Le conversazioni recenti restano: un invio potrebbe essere in corso.
+		if _, err := tx.Exec(`DELETE FROM chat_conversations WHERE created_at < ?
+AND NOT EXISTS (SELECT 1 FROM chat_messages m WHERE m.conversation_id = chat_conversations.id)`, formatTime(before)); err != nil {
 			return err
 		}
 		// Non letti: al massimo i messaggi visibili rimasti dell'altro partecipante.
@@ -259,7 +258,7 @@ func (db *DB) CleanupChat(before time.Time) error {
 WHERE m.conversation_id = chat_unread.conversation_id AND m.sender <> chat_unread.username AND m.hidden = 0))`); err != nil {
 			return err
 		}
-		_, err = tx.Exec(`DELETE FROM chat_unread WHERE count <= 0`)
+		_, err := tx.Exec(`DELETE FROM chat_unread WHERE count <= 0`)
 		return err
 	})
 }

@@ -36,7 +36,7 @@ func TestChatSendSenderADDown(t *testing.T) {
 // Il bloccato non se ne accorge: le sue altre schede ricevono l'evento come sempre.
 func TestChatSendBlockedSenderStillRefreshed(t *testing.T) {
 	s, db := newChatServer(t, nil)
-	db.SetChatBlock("abianchi", "mrossi", true)
+	db.SetChatBlock("abianchi", "mrossi", true, fixedNow)
 	c, _ := s.hub.Subscribe("mrossi")
 	defer s.hub.Unsubscribe(c)
 	if m := chatSend(t, s, "mrossi", "abianchi", "ciao", true); m["ok"] != true {

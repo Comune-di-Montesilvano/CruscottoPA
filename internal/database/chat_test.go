@@ -133,10 +133,10 @@ func TestChatMessageFields(t *testing.T) {
 
 func TestChatBlocks(t *testing.T) {
 	db := newTestDB(t)
-	if err := db.SetChatBlock("abianchi", "MRossi", true); err != nil {
+	if err := db.SetChatBlock("abianchi", "MRossi", true, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	db.SetChatBlock("abianchi", "mrossi", true) // ripetuto: nessun errore
+	db.SetChatBlock("abianchi", "mrossi", true, time.Now()) // ripetuto: nessun errore
 	if b, _ := db.ChatBlocked("abianchi", "mrossi"); !b {
 		t.Fatal("blocco assente")
 	}
@@ -146,7 +146,7 @@ func TestChatBlocks(t *testing.T) {
 	if l, _ := db.ChatBlockedList("abianchi"); !slices.Equal(l, []string{"mrossi"}) {
 		t.Fatalf("elenco: %v", l)
 	}
-	db.SetChatBlock("abianchi", "mrossi", false)
+	db.SetChatBlock("abianchi", "mrossi", false, time.Now())
 	if b, _ := db.ChatBlocked("abianchi", "mrossi"); b {
 		t.Fatal("sblocco non riuscito")
 	}
@@ -155,9 +155,10 @@ func TestChatBlocks(t *testing.T) {
 func TestCleanupChat(t *testing.T) {
 	db := newTestDB(t)
 	now := chatT0
-	old := chatConv(t, db, "mrossi", "abianchi")
+	// Conversazioni create col primo messaggio, 31 giorni fa.
+	old, _, _ := db.ChatConversationID("mrossi", "abianchi", true, now.AddDate(0, 0, -31))
 	chatMsg(t, db, old, "mrossi", "vecchio", false, now.AddDate(0, 0, -31))
-	live := chatConv(t, db, "mrossi", "lverdi")
+	live, _, _ := db.ChatConversationID("mrossi", "lverdi", true, now.AddDate(0, 0, -31))
 	chatMsg(t, db, live, "mrossi", "vecchio", false, now.AddDate(0, 0, -31))
 	chatMsg(t, db, live, "mrossi", "recente", false, now.AddDate(0, 0, -1))
 	if err := db.CleanupChat(now.AddDate(0, 0, -30)); err != nil {
@@ -183,7 +184,7 @@ func TestDeleteChatUser(t *testing.T) {
 	c := chatConv(t, db, "mrossi", "abianchi")
 	chatMsg(t, db, c, "mrossi", "ciao", false, chatT0)
 	chatConv(t, db, "abianchi", "lverdi")
-	db.SetChatBlock("lverdi", "mrossi", true)
+	db.SetChatBlock("lverdi", "mrossi", true, time.Now())
 	if us, _ := db.ChatUsers(); !slices.Equal(us, []string{"abianchi", "lverdi", "mrossi"}) {
 		t.Fatalf("utenti: %v", us)
 	}
@@ -227,7 +228,7 @@ func TestChatStats(t *testing.T) {
 	add(c1, "abianchi", 2, false)
 	add(c2, "mrossi", 10, true)
 	add(c3, "lverdi", 31, true) // fuori dai 30 giorni
-	db.SetChatBlock("abianchi", "lverdi", true)
+	db.SetChatBlock("abianchi", "lverdi", true, time.Now())
 	st, err := db.ChatStats(now)
 	if err != nil {
 		t.Fatal(err)
@@ -235,5 +236,36 @@ func TestChatStats(t *testing.T) {
 	want := ChatStats{Messages7: 2, Messages30: 3, Senders7: 2, Senders30: 2, Conversations30: 2, Unverified30: 1, Blocks: 1}
 	if st != want {
 		t.Fatalf("statistiche: %+v, attese %+v", st, want)
+	}
+}
+
+func TestChatBlockUsesClock(t *testing.T) {
+	db := newTestDB(t)
+	t0 := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := db.SetChatBlock("abianchi", "mrossi", true, t0); err != nil {
+		t.Fatal(err)
+	}
+	var at string
+	db.QueryRow(`SELECT created_at FROM chat_blocks`).Scan(&at)
+	if at != formatTime(t0) {
+		t.Fatalf("created_at: %s", at)
+	}
+}
+
+// Conversazioni rimaste vuote (creazione senza messaggio) tolte dalla pulizia
+// dopo 30 giorni, anche se non scade nessun messaggio.
+func TestCleanupChatEmptyConversations(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC)
+	old, _, _ := db.ChatConversationID("mrossi", "abianchi", true, now.AddDate(0, 0, -31))
+	fresh, _, _ := db.ChatConversationID("mrossi", "lverdi", true, now)
+	if err := db.CleanupChat(now.AddDate(0, 0, -30)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ChatConversationOther(old, "mrossi"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("conversazione vuota di 31 giorni rimasta: %v", err)
+	}
+	if _, err := db.ChatConversationOther(fresh, "mrossi"); err != nil {
+		t.Fatalf("conversazione appena creata cancellata: %v", err)
 	}
 }
