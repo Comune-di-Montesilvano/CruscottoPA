@@ -199,8 +199,10 @@
 		if (!prepend) msgs.lastElementChild && msgs.lastElementChild.scrollIntoView({ block: "end" });
 	}
 
+	// Letto solo se l'utente lo vede: scheda in primo piano e pannello aperto.
 	async function markRead() {
 		if (!verified || !current || !current.id) return;
+		if (document.visibilityState !== "visible" || (dialog && !dialog.open)) return;
 		await api("POST", "/chat/conversazioni/" + current.id + "/letto");
 		loadList();
 		refreshWidget();
@@ -364,6 +366,8 @@
 		await api("POST", "/chat/esci");
 		location.reload();
 	});
+
+	document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") markRead(); });
 
 	// Nuovi messaggi (evento SSE inoltrato da notifiche.js).
 	document.body.addEventListener("chat", () => {

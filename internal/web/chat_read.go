@@ -215,15 +215,15 @@ func (s *Server) handleChatPeople(w http.ResponseWriter, r *http.Request) {
 			chatFail(w, "ad")
 			return
 		}
-		for _, p := range people {
-			if len(out) >= chatPeopleMax {
+		public := s.chatPublic()
+		// Con un pubblico ristretto ogni candidato è un profilo da AD: al più
+		// il doppio dei posti.
+		for i, p := range people {
+			if len(out) >= chatPeopleMax || i >= 2*chatPeopleMax {
 				break
 			}
 			u := strings.ToLower(p.Username)
-			if u == v.Username {
-				continue
-			}
-			if allowed, _ := s.chatAllowed(u); !allowed {
+			if u == v.Username || !s.chatAllowedFound(u, public) {
 				continue
 			}
 			name := p.Name

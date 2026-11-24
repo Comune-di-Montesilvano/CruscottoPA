@@ -48,6 +48,15 @@ func (s *Server) handleChatSend(w http.ResponseWriter, r *http.Request) {
 		s.chatDenied(w, r)
 		return
 	}
+	// chatViewer con AD giù lascia passare i verificati (per leggere): per
+	// scrivere il mittente deve risultare nel pubblico adesso.
+	if allowed, down := s.chatAllowed(v.Username); down {
+		chatFail(w, "ad")
+		return
+	} else if !allowed {
+		chatFail(w, "anonimo")
+		return
+	}
 	text := strings.TrimSpace(r.FormValue("testo"))
 	switch {
 	case text == "":
@@ -101,23 +110,26 @@ func (s *Server) handleChatSend(w http.ResponseWriter, r *http.Request) {
 		chatFail(w, "errore")
 		return
 	}
-	if !blocked {
-		s.notifyChat(to, v.Username, convID, s.chatName(v.Username), v.Verified)
-	}
+	// Bloccato: niente al destinatario, ma le altre schede del mittente si
+	// aggiornano come sempre (altrimenti se ne accorgerebbe).
+	s.notifyChat(to, v.Username, convID, s.chatName(v.Username), v.Verified, !blocked)
 	chatReply(w, map[string]any{"conversazione": convID, "id": id})
 }
 
 // notifyChat: evento SSE e push al destinatario, senza il testo (la
 // notifica si vede sullo schermo anche con qualcuno accanto). Gli altri
 // browser del mittente ricevono un evento senza titolo per aggiornarsi.
-func (s *Server) notifyChat(to, from string, convID int64, fromName string, verified bool) {
+func (s *Server) notifyChat(to, from string, convID int64, fromName string, verified, toRecipient bool) {
 	title := "Nuovo messaggio da " + fromName
 	if !verified {
 		title += " (non verificato)"
 	}
 	url := fmt.Sprintf("/chat?c=%d", convID)
-	s.hub.Broadcast(notify.Event{ID: convID, Kind: "chat", Title: title, URL: url}, func(u string) bool { return strings.EqualFold(u, to) })
 	s.hub.Broadcast(notify.Event{ID: convID, Kind: "chat", URL: url}, func(u string) bool { return strings.EqualFold(u, from) })
+	if !toRecipient {
+		return
+	}
+	s.hub.Broadcast(notify.Event{ID: convID, Kind: "chat", Title: title, URL: url}, func(u string) bool { return strings.EqualFold(u, to) })
 	if s.pusher == nil {
 		return
 	}

@@ -35,6 +35,23 @@ func (s *Server) chatRoutes() {
 // chatAllowed: username può scrivere e ricevere messaggi. Serve un profilo AD
 // e, se l'admin ha scelto dei gruppi, la regola di visibilità della chat.
 // down = AD non raggiungibile (allowed è false).
+// chatPublic: chat aperta a tutti (nessun gruppo). Chi arriva da AD o dalla
+// Rubrica esiste già: non serve leggerne il profilo.
+func (s *Server) chatPublic() bool {
+	ca, err := s.db.GetContentAudience(database.ContentChat, database.ChatAudienceID)
+	return err == nil && len(ca.Groups) == 0
+}
+
+// chatAllowedFound: come chatAllowed per un collega appena trovato in AD o
+// nella Rubrica.
+func (s *Server) chatAllowedFound(username string, public bool) bool {
+	if public {
+		return username != ""
+	}
+	ok, _ := s.chatAllowed(username)
+	return ok
+}
+
 func (s *Server) chatAllowed(username string) (allowed, down bool) {
 	if username == "" {
 		return false, false

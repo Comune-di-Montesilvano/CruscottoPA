@@ -45,6 +45,8 @@ func (s *Server) handleRubricaSearch(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			out.OK = true
+			// La Rubrica ha anche contatti fuori da AD: qui il profilo serve
+			// sempre (al più 8 risultati, profili in cache).
 			_, canChat := s.chatViewer(w, r)
 			for _, p := range people {
 				pp := person{Person: p}
