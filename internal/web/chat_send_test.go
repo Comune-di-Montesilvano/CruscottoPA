@@ -134,13 +134,13 @@ func TestChatSendLimits(t *testing.T) {
 		t.Fatalf("31°: %v", m)
 	}
 	l := newChatLimits()
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 50; i++ {
 		if !l.allowNewConversation("mrossi", "2026-10-06") {
 			t.Fatalf("conversazione %d rifiutata", i)
 		}
 	}
 	if l.allowNewConversation("mrossi", "2026-10-06") {
-		t.Fatal("21ª conversazione del giorno accettata")
+		t.Fatal("51ª conversazione del giorno accettata")
 	}
 	if !l.allowNewConversation("mrossi", "2026-10-07") {
 		t.Fatal("giorno nuovo rifiutato")

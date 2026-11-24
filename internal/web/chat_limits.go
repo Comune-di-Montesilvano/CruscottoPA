@@ -6,11 +6,11 @@ import (
 )
 
 // Limiti della chat per mittente, in memoria: 30 messaggi al minuto, 300
-// all'ora, 20 conversazioni nuove al giorno (frena lo spam a tappeto).
+// all'ora, 50 conversazioni nuove al giorno (frena lo spam a tappeto).
 const (
 	chatPerMinute     = 30
 	chatPerHour       = 300
-	chatNewPerDay     = 20
+	chatNewPerDay     = 50
 	chatLimitsMaxKeys = 5000
 )
 

@@ -102,7 +102,7 @@ Nessuna funzione «Segnala» (scelta del responsabile: chi ha un problema apre u
 
 ### Limiti
 - 30 messaggi/minuto e 300/ora per mittente (in memoria).
-- Nuove conversazioni: 20/giorno per mittente (frena lo spam a tappeto).
+- Nuove conversazioni: 50/giorno per mittente (frena lo spam a tappeto).
 - Lettura: `GET /chat/conversazioni`, `GET /chat/conversazioni/{id}?prima=<id>` (paginazione a 50), sempre 200.
 
 ## Dati (nuova migrazione in coda)
