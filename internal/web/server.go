@@ -304,6 +304,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /admin/calendario/{id}/elimina", s.requireAdmin(s.handleCalendarDelete))
 	s.mux.HandleFunc("GET /admin/assistenza", s.requireAdmin(s.handleSupportPage))
 	s.mux.HandleFunc("GET /admin/ticket", s.requireAdmin(s.handleAdminTickets))
+	s.mux.HandleFunc("GET /admin/registro", s.requireAdmin(s.handleAdminRegistro))
 	s.mux.HandleFunc("GET /admin/assistenza/{id}/modifica", s.requireAdmin(s.handleSupportEdit))
 	s.mux.HandleFunc("POST /admin/assistenza", s.requireAdmin(s.handleSupportSave))
 	s.mux.HandleFunc("POST /admin/assistenza/{id}", s.requireAdmin(s.handleSupportSave))

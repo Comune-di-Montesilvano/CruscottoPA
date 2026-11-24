@@ -1,0 +1,30 @@
+{{define "admin_registro.html"}}{{template "admin_top" .}}
+<h1>Registro</h1>
+{{with .Body}}
+<form method="get" action="/admin/registro" class="inline-form">
+	<label>Chi<select name="chi">
+		<option value="">Tutti</option>
+		{{$chi := .Chi}}{{range .Users}}<option value="{{.}}"{{if eq . $chi}} selected{{end}}>{{.}}</option>{{end}}
+	</select></label>
+	<label>Sezione<select name="sezione">
+		<option value="">Tutte</option>
+		{{$sez := .Sezione}}{{range .Sections}}<option value="{{.}}"{{if eq . $sez}} selected{{end}}>{{.}}</option>{{end}}
+	</select></label>
+	<button type="submit">Filtra</button>
+</form>
+<table class="list">
+	<thead><tr><th>Quando</th><th>Chi</th><th>Sezione</th><th>Azione</th><th>Oggetto</th></tr></thead>
+	<tbody>
+	{{range .Rows}}<tr>
+		<td>{{fmtDate .At}}</td>
+		<td>{{.Username}}</td>
+		<td>{{.Section}}</td>
+		<td>{{.Action}}</td>
+		<td>{{if .Title}}{{.Title}}{{else if .ObjectID}}{{.Section}} #{{.ObjectID}}{{end}}</td>
+	</tr>{{else}}<tr><td colspan="5" class="muted">Nessuna modifica registrata.</td></tr>{{end}}
+	</tbody>
+</table>
+{{if or .PrevURL .NextURL}}<p class="actions">{{with .PrevURL}}<a href="{{.}}">« Più recenti</a>{{end}} {{with .NextURL}}<a href="{{.}}">Più vecchie »</a>{{end}}</p>{{end}}
+<p class="hint">Chi ha modificato cosa nell'amministrazione, per 12 mesi. Nessuna versione precedente: solo l'azione e il titolo dell'oggetto in quel momento. Dopo un ripristino restano le righe del backup più quella del ripristino.</p>
+{{end}}
+{{template "admin_bottom" .}}{{end}}
