@@ -167,7 +167,9 @@ func (s *Server) handleSupportSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if id == 0 {
-		_, err = s.db.CreateSupportChannel(form)
+		var nid int64
+		nid, err = s.db.CreateSupportChannel(form)
+		auditObject(r, nid, "")
 	} else {
 		err = s.db.UpdateSupportChannel(form)
 	}

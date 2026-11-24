@@ -215,6 +215,7 @@ func (s *Server) handleGuideSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if id == 0 {
 		id, err = s.db.CreateGuideWithAudience(g, form.Visibility)
+		auditObject(r, id, "")
 	} else {
 		err = s.db.UpdateGuideWithAudience(g, form.Visibility)
 	}

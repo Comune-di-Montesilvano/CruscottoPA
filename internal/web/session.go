@@ -83,7 +83,7 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		vw := &validationWriter{ResponseWriter: w}
-		r, rec := withAuditRecord(r)
+		r, rec := s.withAuditRecord(r)
 		next(vw, r)
 		s.audit(r, rec, vw)
 	}

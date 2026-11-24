@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
 )
@@ -82,26 +84,141 @@ var auditSkip = map[string]bool{
 	"POST /admin/backup/{name}/ripristina": true,
 }
 
-// auditRecord: ID e titolo dell'oggetto, scritti dall'handler.
-type auditRecord struct{ ObjectID, Title string }
+// auditRecord: oggetto toccato. ObjectID e Title li scrive l'handler con
+// auditObject (creazioni, Ente, backup); before è il titolo letto prima
+// dell'handler, per le eliminazioni.
+type auditRecord struct {
+	set             bool
+	ObjectID, Title string
+	before          string
+}
 
 type auditKey struct{}
 
-// auditObject: l'handler indica l'oggetto toccato. Per le eliminazioni va
-// chiamata col titolo letto prima di cancellare. Senza record (route fuori da
-// requireAdmin) non fa nulla.
+// auditObject: l'handler indica l'oggetto toccato quando la route non lo dice
+// (creazioni: l'ID nuovo). Titolo vuoto = letto dal DB dopo l'handler. Senza
+// record (route fuori da requireAdmin) non fa nulla.
 func auditObject(r *http.Request, id any, title string) {
 	rec, _ := r.Context().Value(auditKey{}).(*auditRecord)
 	if rec == nil {
 		return
 	}
+	rec.set = true
 	rec.ObjectID = fmt.Sprint(id)
 	rec.Title = title
 }
 
-func withAuditRecord(r *http.Request) (*http.Request, *auditRecord) {
+// withAuditRecord prepara il record e legge il titolo dell'oggetto prima
+// dell'handler (dopo un'eliminazione non ci sarebbe più).
+func (s *Server) withAuditRecord(r *http.Request) (*http.Request, *auditRecord) {
 	rec := &auditRecord{}
+	if _, ok := auditRoutes[r.Pattern]; ok && r.Method == http.MethodPost {
+		rec.before = s.auditTitle(r, auditPathID(r))
+	}
 	return r.WithContext(context.WithValue(r.Context(), auditKey{}, rec)), rec
+}
+
+// auditPathID: l'oggetto indicato dal percorso (la regola prima del gruppo).
+func auditPathID(r *http.Request) string {
+	for _, k := range []string{"rid", "id", "name"} {
+		if v := r.PathValue(k); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// auditTitle legge il titolo dell'oggetto id per la route della richiesta;
+// "" se non esiste o non ha un titolo (backup).
+func (s *Server) auditTitle(r *http.Request, id string) string {
+	n, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return ""
+	}
+	p := r.Pattern
+	switch {
+	case strings.Contains(p, "/regole"):
+		gid, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			return ""
+		}
+		g, err := s.db.GetAudienceGroup(gid)
+		if err != nil {
+			return ""
+		}
+		rules, err := s.db.ListAudienceRules(gid)
+		if err != nil {
+			return ""
+		}
+		for _, ru := range rules {
+			if ru.ID == n {
+				return g.Name + ": " + auditRuleText(ru)
+			}
+		}
+	case strings.Contains(p, "/attributi"):
+		attrs, err := s.db.ListAudienceAttributes()
+		if err != nil {
+			return ""
+		}
+		for _, a := range attrs {
+			if a.ID == n {
+				return a.Name
+			}
+		}
+	default:
+		return s.auditSectionTitle(auditRoutes[p].Section, n)
+	}
+	return ""
+}
+
+func (s *Server) auditSectionTitle(section string, id int64) string {
+	var title string
+	var err error
+	switch section {
+	case "Avvisi":
+		var a database.Alert
+		a, err = s.db.GetAlert(id)
+		title = a.Title
+	case "Calendario":
+		var e database.CalendarEvent
+		e, err = s.db.GetCalendarEvent(id)
+		title = e.Title
+	case "Applicativi":
+		var a database.App
+		a, err = s.db.GetApp(id)
+		title = a.Title
+	case "Guide":
+		var g database.Guide
+		g, err = s.db.GetGuide(id)
+		title = g.Title
+	case "Assistenza":
+		var c database.SupportChannel
+		c, err = s.db.GetSupportChannel(id)
+		title = c.Title
+	case "Categorie":
+		var c database.Category
+		c, err = s.db.GetCategory(id)
+		title = c.Name
+	case "Gruppi":
+		var g database.AudienceGroup
+		g, err = s.db.GetAudienceGroup(id)
+		title = g.Name
+	}
+	if err != nil {
+		return ""
+	}
+	return title
+}
+
+// auditRuleText: la regola in breve, es. "department = TRIBUTI" o "user mrossi".
+func auditRuleText(r database.AudienceRule) string {
+	if r.Attr != "" && r.Value != "" {
+		return r.Attr + " = " + r.Value
+	}
+	if r.Attr != "" {
+		return r.Kind + " " + r.Attr
+	}
+	return r.Kind + " " + r.Value
 }
 
 // audit scrive la riga se la richiesta è un POST riuscito su una route registrata.
@@ -121,9 +238,19 @@ func (s *Server) audit(r *http.Request, rec *auditRecord, vw *validationWriter) 
 	if vw.invalid || status >= 400 {
 		return
 	}
+	id, title := auditPathID(r), ""
+	if rec.set {
+		id, title = rec.ObjectID, rec.Title
+	}
+	if title == "" {
+		title = s.auditTitle(r, id) // dopo l'handler: il titolo nuovo
+	}
+	if title == "" {
+		title = rec.before // eliminazioni
+	}
 	if err := s.db.AddAdminLog(database.AdminLogEntry{
 		At: s.now(), Username: s.currentAdmin(r), Section: act.Section, Action: act.Action,
-		ObjectID: rec.ObjectID, Title: rec.Title,
+		ObjectID: id, Title: title,
 	}); err != nil {
 		slog.Error("registro admin", "err", err)
 	}

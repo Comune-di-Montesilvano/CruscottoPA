@@ -173,7 +173,9 @@ func (s *Server) handleCalendarSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if id == 0 {
-		_, err = s.db.CreateCalendarEvent(ev)
+		var nid int64
+		nid, err = s.db.CreateCalendarEvent(ev)
+		auditObject(r, nid, "")
 	} else {
 		err = s.db.UpdateCalendarEvent(ev)
 	}

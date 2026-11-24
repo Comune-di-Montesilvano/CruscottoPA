@@ -50,6 +50,7 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		s.renderBackups(w, http.StatusUnprocessableEntity, formErrors{"general": "Backup non riuscito: " + err.Error()}, "")
 		return
 	}
+	auditObject(r, info.Name, "")
 	slog.Info("backup manuale creato", "user", auth.SafeLog(s.currentAdmin(r)), "file", info.Name)
 	s.renderBackups(w, http.StatusOK, nil, "Backup creato: "+info.Name)
 }

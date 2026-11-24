@@ -272,6 +272,7 @@ func (s *Server) handleAppSave(w http.ResponseWriter, r *http.Request) {
 		URL: form.URL, IconKind: form.IconKind, IconValue: form.IconValue, IconColor: form.IconColor, IconBg: form.IconBg, Enabled: form.Enabled}
 	if id == 0 {
 		id, err = s.db.CreateAppWithAudience(a, form.Visibility)
+		auditObject(r, id, "")
 	} else {
 		err = s.db.UpdateAppWithAudience(a, form.Visibility)
 	}
