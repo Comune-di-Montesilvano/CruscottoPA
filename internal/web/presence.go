@@ -179,6 +179,7 @@ func (s *Server) StartPresenceCleanup(ctx context.Context) {
 				slog.Warn("pulizia stato ticket", "err", err)
 			}
 			s.cleanupStats()
+			s.cleanupAdminLog()
 			select {
 			case <-ctx.Done():
 				return

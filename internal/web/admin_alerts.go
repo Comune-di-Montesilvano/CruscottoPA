@@ -211,6 +211,7 @@ func (s *Server) handleAlertSave(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.serverError(w, err)
 	default:
+		auditObject(r, id, "")
 		s.cleanMedia() // immagini tolte dal testo
 		s.renderAlerts(w, http.StatusOK, s.newAlertForm(), nil)
 	}

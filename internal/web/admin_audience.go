@@ -264,7 +264,8 @@ func (s *Server) handleAttributeAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	checkText(errs, "attr", label, 60, true)
 	if len(errs) == 0 {
-		_, err := s.db.CreateAudienceAttribute(name, label)
+		nid, err := s.db.CreateAudienceAttribute(name, label)
+		auditObject(r, nid, "")
 		switch {
 		case errors.Is(err, database.ErrDuplicate):
 			errs.add("attr", "Attributo già presente.")
@@ -345,7 +346,9 @@ func (s *Server) handleAudienceGroupCreate(w http.ResponseWriter, r *http.Reques
 	errs := formErrors{}
 	checkText(errs, "name", name, 60, true)
 	if len(errs) == 0 {
-		if _, err := s.db.CreateAudienceGroup(name); errors.Is(err, database.ErrDuplicate) {
+		nid, err := s.db.CreateAudienceGroup(name)
+		auditObject(r, nid, "")
+		if errors.Is(err, database.ErrDuplicate) {
 			errs.add("name", "Esiste già un gruppo con questo nome.")
 		} else if err != nil {
 			s.serverError(w, err)
@@ -485,7 +488,9 @@ func (s *Server) handleRuleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	checkText(errs, "rule", rule.Label, 256, false)
 	if len(errs) == 0 {
-		if _, err := s.db.AddAudienceRule(rule); errors.Is(err, database.ErrDuplicate) {
+		nid, err := s.db.AddAudienceRule(rule)
+		auditObject(r, nid, "")
+		if errors.Is(err, database.ErrDuplicate) {
 			errs.add("rule", "Regola già presente.")
 		} else if errors.Is(err, database.ErrInvalidDN) {
 			errs.add("rule", "DN non valido: sceglilo dai suggerimenti (es. CN=Gruppo,OU=…,DC=…).")

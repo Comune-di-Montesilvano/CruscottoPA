@@ -73,7 +73,9 @@ func (s *Server) handleCategorySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if id == 0 {
-		_, err = s.db.CreateCategory(form.Name)
+		var nid int64
+		nid, err = s.db.CreateCategory(form.Name)
+		auditObject(r, nid, "")
 	} else {
 		err = s.db.UpdateCategory(id, form.Name)
 	}

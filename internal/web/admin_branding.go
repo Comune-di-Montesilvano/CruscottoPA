@@ -101,6 +101,7 @@ func (s *Server) handleBrandingSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.branding.Store(&next)
+	auditObject(r, "", next.EnteName)
 	if current.LogoFile != "" && current.LogoFile != next.LogoFile {
 		s.removeUpload(uploadBranding, current.LogoFile)
 	}

@@ -82,7 +82,10 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 			return
 		}
-		next(&validationWriter{ResponseWriter: w}, r)
+		vw := &validationWriter{ResponseWriter: w}
+		r, rec := s.withAuditRecord(r)
+		next(vw, r)
+		s.audit(r, rec, vw)
 	}
 }
 
@@ -90,10 +93,19 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 // diventa 200 con X-Esito: non-valido. In produzione il reverse proxy
 // sostituisce ogni 4xx con la pagina di cortesia: l'admin vedrebbe un errore
 // generico invece dei campi da correggere (verificato il 2026-10-08).
-type validationWriter struct{ http.ResponseWriter }
+// status e invalid servono al registro (audit): 0 = nessun WriteHeader (200).
+type validationWriter struct {
+	http.ResponseWriter
+	status  int
+	invalid bool
+}
 
 func (v *validationWriter) WriteHeader(code int) {
+	if v.status == 0 {
+		v.status = code
+	}
 	if code == http.StatusUnprocessableEntity {
+		v.invalid = true
 		v.Header().Set("X-Esito", "non-valido")
 		code = http.StatusOK
 	}
