@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/audience"
 	"github.com/Comune-di-Montesilvano/CruscottoPA/internal/database"
@@ -108,5 +109,23 @@ func TestNotificheJSChatEvent(t *testing.T) {
 	}
 	if src := string(b); !strings.Contains(src, `addEventListener("chat"`) || !strings.Contains(src, `"chat-"`) {
 		t.Fatal("notifiche.js non gestisce l'evento chat")
+	}
+}
+
+func TestAdminChatStats(t *testing.T) {
+	s, db := newChatServer(t, nil)
+	// login() entra come mrossi: il messaggio è tra altri due colleghi.
+	c, _, _ := db.ChatConversationID("lverdi", "abianchi", true, fixedNow)
+	db.AddChatMessage(database.ChatMessage{ConversationID: c, Sender: "lverdi", Body: "segreto", CreatedAt: fixedNow.Add(-time.Hour)})
+	body := do(t, s, "GET", "/admin/chat", nil, login(t, s), nil).Body.String()
+	for _, want := range []string{"Ultimi 30 giorni", "negli ultimi 7 giorni", "colleghi che hanno scritto"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("manca %q", want)
+		}
+	}
+	for _, bad := range []string{"segreto", "lverdi", "abianchi", "Luca", "Anna"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("dato personale nella pagina: %q", bad)
+		}
 	}
 }

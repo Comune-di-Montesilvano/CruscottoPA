@@ -1,5 +1,16 @@
 {{define "admin_chat.html"}}{{template "admin_top" .}}
 <h1>Chat</h1>
+{{with .Body.Stats}}
+<h2>Ultimi 30 giorni</h2>
+<div class="stats">
+	<div class="stat"><b>{{.Messages30}}</b>messaggi ({{.Messages7}} negli ultimi 7 giorni)</div>
+	<div class="stat"><b>{{.Senders30}}</b>colleghi che hanno scritto ({{.Senders7}} negli ultimi 7 giorni)</div>
+	<div class="stat"><b>{{.Conversations30}}</b>conversazioni attive</div>
+	<div class="stat"><b>{{.UnverifiedPct}}%</b>messaggi scritti senza accesso</div>
+	<div class="stat"><b>{{.Blocks}}</b>blocchi tra colleghi</div>
+</div>
+<p class="hint">Solo numeri complessivi: nessun nome, nessun orario, nessun contenuto.</p>
+{{end}}
 {{template "chat_admin_section" .Body}}
 {{template "admin_bottom" .}}{{end}}
 

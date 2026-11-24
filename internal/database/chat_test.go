@@ -211,3 +211,29 @@ func TestGroupUsedByChat(t *testing.T) {
 		t.Fatalf("usi: %v", uses)
 	}
 }
+
+func TestChatStats(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC)
+	c1, _, _ := db.ChatConversationID("mrossi", "abianchi", true, now)
+	c2, _, _ := db.ChatConversationID("mrossi", "lverdi", true, now)
+	c3, _, _ := db.ChatConversationID("abianchi", "lverdi", true, now)
+	add := func(c int64, from string, daysAgo int, verified bool) {
+		if _, err := db.AddChatMessage(ChatMessage{ConversationID: c, Sender: from, Body: "x", Verified: verified, CreatedAt: now.AddDate(0, 0, -daysAgo)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add(c1, "mrossi", 1, true)
+	add(c1, "abianchi", 2, false)
+	add(c2, "mrossi", 10, true)
+	add(c3, "lverdi", 31, true) // fuori dai 30 giorni
+	db.SetChatBlock("abianchi", "lverdi", true)
+	st, err := db.ChatStats(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := ChatStats{Messages7: 2, Messages30: 3, Senders7: 2, Senders30: 2, Conversations30: 2, Unverified30: 1, Blocks: 1}
+	if st != want {
+		t.Fatalf("statistiche: %+v, attese %+v", st, want)
+	}
+}

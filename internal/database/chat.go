@@ -302,3 +302,27 @@ func (db *DB) stringList(q string, args ...any) ([]string, error) {
 	}
 	return out, rows.Err()
 }
+
+// ChatStats: numeri aggregati per l'admin, mai per persona.
+type ChatStats struct {
+	Messages7, Messages30 int // messaggi scritti (anche verso chi ha bloccato)
+	Senders7, Senders30   int // colleghi diversi che hanno scritto
+	Conversations30       int // conversazioni con almeno un messaggio
+	Unverified30          int // messaggi scritti senza accesso
+	Blocks                int // blocchi attivi
+}
+
+func (db *DB) ChatStats(now time.Time) (ChatStats, error) {
+	var st ChatStats
+	d7, d30 := formatTime(now.AddDate(0, 0, -7)), formatTime(now.AddDate(0, 0, -30))
+	err := db.QueryRow(`SELECT
+	(SELECT COUNT(*) FROM chat_messages WHERE created_at >= ?1),
+	(SELECT COUNT(*) FROM chat_messages WHERE created_at >= ?2),
+	(SELECT COUNT(DISTINCT sender) FROM chat_messages WHERE created_at >= ?1),
+	(SELECT COUNT(DISTINCT sender) FROM chat_messages WHERE created_at >= ?2),
+	(SELECT COUNT(DISTINCT conversation_id) FROM chat_messages WHERE created_at >= ?2),
+	(SELECT COUNT(*) FROM chat_messages WHERE created_at >= ?2 AND verified = 0),
+	(SELECT COUNT(*) FROM chat_blocks)`, d7, d30).Scan(&st.Messages7, &st.Messages30, &st.Senders7, &st.Senders30,
+		&st.Conversations30, &st.Unverified30, &st.Blocks)
+	return st, err
+}

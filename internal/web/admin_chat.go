@@ -13,6 +13,13 @@ type chatAdminSection struct {
 	Visibility visibilityField
 	Errors     formErrors
 	Saved      bool
+	Stats      *chatAdminStats // solo nella pagina (il salvataggio rende la sezione)
+}
+
+// chatAdminStats: numeri aggregati, mai nomi né orari.
+type chatAdminStats struct {
+	database.ChatStats
+	UnverifiedPct int // % dei messaggi degli ultimi 30 giorni scritti senza accesso
 }
 
 func (s *Server) chatAdminData(ca database.ContentAudience, errs formErrors) (chatAdminSection, error) {
@@ -31,6 +38,15 @@ func (s *Server) handleAdminChatPage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.serverError(w, err)
 		return
+	}
+	st, err := s.db.ChatStats(s.now())
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	sec.Stats = &chatAdminStats{ChatStats: st}
+	if st.Messages30 > 0 {
+		sec.Stats.UnverifiedPct = (st.Unverified30*100 + st.Messages30/2) / st.Messages30
 	}
 	s.renderPage(w, r, "admin_chat.html", "chat", sec)
 }
