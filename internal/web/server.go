@@ -64,6 +64,8 @@ type Server struct {
 	directory       identity.Directory
 	cookies         *identity.CookieCodec
 	chatCookies     *identity.ChatCodec // accesso verificato alla chat
+	chatLimits      *chatLimits         // limiti di invio per mittente
+	chatPush        sync.WaitGroup      // push della chat in corso
 	profiles        *profileCache
 	membersCache    *membersCache
 	limiter         *auth.RateLimiter
@@ -149,6 +151,7 @@ func New(o Options) (*Server, error) {
 	s.cookies = identity.NewCookieCodec(o.Config.SessionSecret)
 	s.chatCookies = identity.NewChatCodec(o.Config.SessionSecret)
 	s.chatCookies.SetClock(o.Now)
+	s.chatLimits = newChatLimits()
 	s.profiles = newProfileCache(o.Now)
 	s.ticketCache = newTicketCache(o.Now)
 	s.ticketDownloads = make(chan struct{}, 4)

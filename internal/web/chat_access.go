@@ -20,6 +20,7 @@ func (s *Server) chatEnabled() bool { return s.cfg.ChatEnabled && s.recognitionE
 func (s *Server) chatRoutes() {
 	s.mux.HandleFunc("POST /chat/accesso", s.handleChatLogin)
 	s.mux.HandleFunc("POST /chat/esci", s.handleChatLogout)
+	s.mux.HandleFunc("POST /chat/messaggi", s.handleChatSend)
 }
 
 // chatAllowed: username può scrivere e ricevere messaggi. Serve un profilo AD

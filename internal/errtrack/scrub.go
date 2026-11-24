@@ -21,7 +21,8 @@ var (
 	personalKs = map[string]bool{
 		"user": true, "username": true, "utente": true, "mail": true, "email": true,
 		"pc": true, "ip": true, "name": true, "nome": true, "remote": true,
-		"ticket": true, // numero OTRS: porta dritto al ticket di una persona
+		"ticket": true,                              // numero OTRS: porta dritto al ticket di una persona
+		"body":   true, "testo": true, "chat": true, // messaggi della chat
 	}
 )
 
