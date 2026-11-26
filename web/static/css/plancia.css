@@ -657,7 +657,7 @@ dialog.ticket-close p { margin: 0 0 .4rem; color: var(--p-text-2); line-height: 
 .chat-notify-ask[hidden] { display: none; }
 .chat-notify-ask .material-icons { font-size: 1.1rem; color: var(--p-red-text); }
 .chat-notify-ask button { margin-left: auto; flex: none; border: 1px solid var(--p-line); background: var(--p-surface); color: var(--p-blue-2); border-radius: 999px; padding: .2rem .65rem; font: inherit; font-weight: 600; cursor: pointer; }
-.chat-toast { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 50; width: min(23rem, calc(100vw - 2rem)); display: flex; gap: .7rem; padding: .9rem 1rem; background: var(--p-surface); color: var(--p-text); border: 1px solid var(--p-line); border-radius: 14px; box-shadow: var(--p-shadow); animation: chat-toast-in .25s ease-out; }
+.chat-toast { display: flex; align-items: flex-start; gap: .7rem; margin: 0 0 1rem; padding: .9rem 1rem; background: var(--p-surface); color: var(--p-text); border: 1px solid var(--p-line); border-radius: 14px; box-shadow: var(--p-shadow); animation: chat-toast-in .25s ease-out; }
 .chat-toast[hidden] { display: none; }
 .chat-toast-icon { color: var(--p-blue-2); }
 .chat-toast-body { min-width: 0; }

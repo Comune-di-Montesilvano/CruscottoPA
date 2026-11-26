@@ -83,6 +83,7 @@
 
 	<main class="layout">
 		<div class="main-col">
+		{{template "chat_toast" .Chat}}
 		{{template "favorites" .Layout}}
 		<div id="alerts" hx-get="/partials/alerts" hx-trigger="every 300s">{{template "alerts_carousel" .Alerts}}</div>
 		<section class="apps" aria-label="Applicativi" data-sortable="categorie">
@@ -148,6 +149,5 @@
 	</dialog>
 {{template "ticket_dialog" .Ticket}}
 {{template "chat_dialog" .Chat}}
-{{template "chat_toast" .Chat}}
 </body>
 </html>{{end}}
